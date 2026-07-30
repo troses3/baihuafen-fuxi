@@ -280,7 +280,7 @@ function App() {
       <main className="main-content">
         <div className={`card-container ${isFlipped ? 'expanded' : ''}`} style={{ height: cardHeight }} onClick={() => setIsFlipped(!isFlipped)}>
           <div className={`card ${isFlipped ? 'flipped' : ''}`}>
-            <div className="card-front" style={{ position: 'relative' }}>
+            <div className="card-front">
               <h2 className="idiom-word" style={{ margin: 0, textAlign: 'center', width: '100%' }}>
                 {quizMode === 'percentToFraction' ? currentItem.percent : currentItem.fraction}
               </h2>
