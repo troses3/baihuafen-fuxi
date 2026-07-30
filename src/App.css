@@ -32,13 +32,13 @@ body {
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
-  padding: 1rem 1rem calc(1.5rem + env(safe-area-inset-bottom)) 1rem;
+  padding: 2rem 1rem calc(1.5rem + env(safe-area-inset-bottom)) 1rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   min-height: 100vh;
   box-sizing: border-box;
-  justify-content: center; /* Center the layout vertically on desktop viewports */
+  justify-content: flex-start; /* Align the layout to the top */
 }
 
 .header {
