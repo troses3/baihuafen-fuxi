@@ -211,21 +211,26 @@ function App() {
     }
   }, [feedbackState]);
 
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+
   const handleConfirm = useCallback(() => {
-    if (feedbackState === 'revealed') {
-      handleNext('unknown');
+    if (isAnswered) {
+      handleNext(isCorrect ? 'known' : 'unknown');
+      setIsAnswered(false);
+      setIsCorrect(false);
       return;
     }
 
-    if (inputVal.trim() === targetStr.trim()) {
-      handleNext('known');
-    } else {
-      setFeedbackState('revealed');
-      const updatedItems = [...items];
-      updatedItems[currentIndex].status = 'unknown';
-      setItems(updatedItems);
-    }
-  }, [feedbackState, inputVal, targetStr, items, currentIndex, handleNext]);
+    const checkCorrect = inputVal.trim() === targetStr.trim();
+    setIsCorrect(checkCorrect);
+    setIsAnswered(true);
+    setFeedbackState(checkCorrect ? 'correct' : 'revealed');
+
+    const updatedItems = [...items];
+    updatedItems[currentIndex].status = checkCorrect ? 'known' : 'unknown';
+    setItems(updatedItems);
+  }, [isAnswered, isCorrect, inputVal, targetStr, items, currentIndex, handleNext]);
 
   // Physical Keyboard Listener
   useEffect(() => {
@@ -396,10 +401,10 @@ function App() {
             {feedbackState === 'revealed' && <span className="status-icon revealed-icon">!</span>}
           </div>
 
-          {/* Full Equation Display when revealed */}
-          {feedbackState === 'revealed' && (
-            <div className="revealed-equation">
-              正确等式：<strong>{currentItem.percent} = {currentItem.fraction}</strong>
+          {/* Full Equation Display when confirmed/answered */}
+          {isAnswered && (
+            <div className={`revealed-equation ${isCorrect ? 'equation-correct' : 'equation-wrong'}`}>
+              {isCorrect ? '✓ 回答正确！' : '✗ 回答错误'} 正确等式：<strong>{currentItem.percent} = {currentItem.fraction}</strong>
             </div>
           )}
         </div>
@@ -429,11 +434,11 @@ function App() {
             <button 
               className="action-btn clear-btn" 
               onClick={() => setInputVal('')}
-              disabled={!inputVal}
+              disabled={!inputVal || isAnswered}
             >
               清空
             </button>
-            {feedbackState === 'revealed' ? (
+            {isAnswered ? (
               <button 
                 className="action-btn next-btn"
                 onClick={handleConfirm}
