@@ -211,18 +211,14 @@ function App() {
     }
   }, [feedbackState]);
 
-  // Auto Check when input changes
+  // Auto Check when input changes: instantly advance on correct match
   useEffect(() => {
-    if (feedbackState !== 'idle' || !inputVal || !targetStr) return;
+    if (!inputVal || !targetStr) return;
 
     if (inputVal === targetStr) {
-      setFeedbackState('correct');
-      const timer = setTimeout(() => {
-        handleNext('known');
-      }, 400);
-      return () => clearTimeout(timer);
+      handleNext('known');
     }
-  }, [inputVal, targetStr, feedbackState, handleNext]);
+  }, [inputVal, targetStr, handleNext]);
 
   // Physical Keyboard Listener
   useEffect(() => {
@@ -424,26 +420,16 @@ function App() {
             <button 
               className="action-btn clear-btn" 
               onClick={() => setInputVal('')}
-              disabled={!inputVal || feedbackState === 'correct'}
+              disabled={!inputVal}
             >
               清空
             </button>
-
-            {feedbackState === 'revealed' ? (
-              <button 
-                className="action-btn next-btn"
-                onClick={() => handleNext('unknown')}
-              >
-                下一题 ➜
-              </button>
-            ) : (
-              <button 
-                className="action-btn answer-btn"
-                onClick={handleShowAnswer}
-              >
-                看答案
-              </button>
-            )}
+            <button 
+              className="action-btn next-btn"
+              onClick={() => handleNext('unknown')}
+            >
+              下一题 ➜
+            </button>
           </div>
         </div>
 
