@@ -4,6 +4,17 @@ import './App.css';
 
 const STORAGE_KEY = 'baihuafen-tracker-data-v2';
 
+// Web Vibration API Haptic Feedback helper
+const triggerHaptic = (pattern = 12) => {
+  if (typeof window !== 'undefined' && 'navigator' in window && typeof window.navigator.vibrate === 'function') {
+    try {
+      window.navigator.vibrate(pattern);
+    } catch (e) {
+      // Ignore if unsupported or restricted by browser
+    }
+  }
+};
+
 function App() {
   const [items, setItems] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -175,6 +186,7 @@ function App() {
   }, [currentIndex, filter, isRandom, items, currentItem]);
 
   const handlePrev = () => {
+    triggerHaptic(15);
     if (history.length > 0) {
       const prevIndex = history[history.length - 1];
       setHistory(prev => prev.slice(0, -1));
@@ -187,6 +199,8 @@ function App() {
   // Process Numpad Key Press
   const handleKeyPress = useCallback((key) => {
     if (feedbackState === 'correct' || feedbackState === 'revealed') return;
+
+    triggerHaptic(12);
 
     if (key === '⌫' || key === 'Backspace') {
       setInputVal(prev => prev.slice(0, -1));
@@ -215,6 +229,7 @@ function App() {
 
   const handleConfirm = useCallback(() => {
     if (isAnswered) {
+      triggerHaptic(15);
       handleNext(isCorrect ? 'known' : 'unknown');
       setIsAnswered(false);
       setIsCorrect(false);
@@ -225,6 +240,12 @@ function App() {
     setIsCorrect(checkCorrect);
     setIsAnswered(true);
     setFeedbackState(checkCorrect ? 'correct' : 'revealed');
+
+    if (checkCorrect) {
+      triggerHaptic([15, 30, 20]); // Double tactile pulse on correct
+    } else {
+      triggerHaptic([35, 50, 35]); // Error pulse on wrong
+    }
 
     const updatedItems = [...items];
     updatedItems[currentIndex].status = checkCorrect ? 'known' : 'unknown';
