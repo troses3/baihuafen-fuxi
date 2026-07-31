@@ -1,13 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import initialItems from '../data.json';
 import './App.css';
 
-const STORAGE_KEY = 'baihuafen-tracker-data-v1';
+const STORAGE_KEY = 'baihuafen-tracker-data-v2';
 
 function App() {
   const [items, setItems] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
   const [stats, setStats] = useState({ known: 0, unsure: 0, unknown: 0 });
   const [filter, setFilter] = useState('all'); // 'all', 'known', 'unsure', 'unknown'
   const [isRandom, setIsRandom] = useState(() => {
@@ -16,7 +15,11 @@ function App() {
   const [quizMode, setQuizMode] = useState(() => {
     return localStorage.getItem('baihuafen-tracker-quiz-mode') || 'percentToFraction'; // 'percentToFraction' or 'fractionToPercent'
   });
-  const [history, setHistory] = useState([]); // Track navigation history
+  const [history, setHistory] = useState([]);
+
+  // Input & Answer States
+  const [inputVal, setInputVal] = useState('');
+  const [feedbackState, setFeedbackState] = useState('idle'); // 'idle', 'correct', 'revealed'
 
   useEffect(() => {
     localStorage.setItem('baihuafen-tracker-random', isRandom);
@@ -27,25 +30,18 @@ function App() {
   }, [quizMode]);
 
   useEffect(() => {
-    // Load from local storage or use initial
     const stored = localStorage.getItem(STORAGE_KEY);
     let loadedItems = [];
     if (stored) {
       loadedItems = JSON.parse(stored);
-      // Ensure all items are present in case data.json updated
-      if (loadedItems.length !== initialItems.length) {
-         // Merge logic if needed, but for simplicity, just re-init if lengths differ a lot
-         // Actually just stick with stored for now.
-      }
     } else {
       loadedItems = initialItems.map(item => ({
         ...item,
-        status: 'new' // 'new', 'known', 'unsure', 'unknown'
+        status: 'new'
       }));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(loadedItems));
     }
     
-    // In case localstorage was cleared but we have fewer items
     if (loadedItems.length === 0) {
       loadedItems = initialItems.map(item => ({
         ...item,
@@ -55,10 +51,8 @@ function App() {
 
     setItems(loadedItems);
 
-    // Pick a random starting index if random mode is active on load
     const isRandomStored = localStorage.getItem('baihuafen-tracker-random') === 'true';
     if (isRandomStored && loadedItems.length > 0) {
-      // Prioritize items that are not yet marked as 'known'
       const candidateIndices = [];
       loadedItems.forEach((item, index) => {
         if (item.status !== 'known') {
@@ -87,17 +81,171 @@ function App() {
   }, [items]);
 
   const currentItem = items[currentIndex];
-  const cardBackInnerRef = useRef(null);
-  const [cardHeight, setCardHeight] = useState('340px');
 
-  useEffect(() => {
-    setTimeout(() => {
-      if (cardBackInnerRef.current) {
-        const contentHeight = cardBackInnerRef.current.scrollHeight;
-        setCardHeight(`${Math.max(340, contentHeight)}px`);
+  // Calculate target string to match
+  // e.g. percentToFraction: 6.7% -> 1/15 => target is "15"
+  // e.g. fractionToPercent: 1/15 -> 6.7% => target is "6.7"
+  const getTargetStr = useCallback((item, mode) => {
+    if (!item) return '';
+    if (mode === 'percentToFraction') {
+      return item.fraction.replace('1/', '').trim();
+    } else {
+      return item.percent.replace('%', '').trim();
+    }
+  }, []);
+
+  const targetStr = getTargetStr(currentItem, quizMode);
+
+  const handleNext = useCallback((status) => {
+    const updatedItems = [...items];
+    if (currentItem) {
+      updatedItems[currentIndex].status = status;
+    }
+    setItems(updatedItems);
+    setInputVal('');
+    setFeedbackState('idle');
+    
+    setHistory(prev => [...prev, currentIndex]);
+
+    let nextIndex = currentIndex;
+    let activeFilter = filter;
+    let candidates = [];
+    
+    if (filter !== 'all') {
+      candidates = updatedItems
+        .map((item, index) => ({ status: item.status, index }))
+        .filter(item => item.status === filter)
+        .map(item => item.index);
+      
+      if (candidates.length === 0) {
+        activeFilter = 'all';
+        setFilter('all');
       }
-    }, 50);
-  }, [currentItem, isFlipped, quizMode]);
+    }
+    
+    if (activeFilter === 'all') {
+      if (isRandom) {
+        const candidateIndices = [];
+        updatedItems.forEach((item, index) => {
+          if (item.status !== 'known') {
+            candidateIndices.push(index);
+          }
+        });
+        
+        if (candidateIndices.length > 0) {
+          let finalCandidates = candidateIndices;
+          if (candidateIndices.length > 1) {
+            finalCandidates = candidateIndices.filter(idx => idx !== currentIndex);
+          }
+          nextIndex = finalCandidates[Math.floor(Math.random() * finalCandidates.length)];
+        } else {
+          const allIndices = Array.from({length: items.length}, (_, i) => i);
+          const otherIndices = allIndices.filter(idx => idx !== currentIndex);
+          nextIndex = otherIndices.length > 0 
+            ? otherIndices[Math.floor(Math.random() * otherIndices.length)]
+            : 0;
+        }
+      } else {
+        let found = false;
+        for (let i = 0; i < items.length; i++) {
+          let checkIndex = (currentIndex + 1 + i) % items.length;
+          if (updatedItems[checkIndex].status !== 'known') {
+            nextIndex = checkIndex;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          nextIndex = (currentIndex + 1) % items.length;
+        }
+      }
+    } else {
+      if (isRandom) {
+        let finalCandidates = candidates;
+        if (candidates.length > 1) {
+          finalCandidates = candidates.filter(idx => idx !== currentIndex);
+        }
+        nextIndex = finalCandidates[Math.floor(Math.random() * finalCandidates.length)];
+      } else {
+        const nextCandidate = candidates.find(idx => idx > currentIndex);
+        nextIndex = nextCandidate !== undefined ? nextCandidate : candidates[0];
+      }
+    }
+    
+    setCurrentIndex(nextIndex);
+  }, [currentIndex, filter, isRandom, items, currentItem]);
+
+  const handlePrev = () => {
+    if (history.length > 0) {
+      const prevIndex = history[history.length - 1];
+      setHistory(prev => prev.slice(0, -1));
+      setCurrentIndex(prevIndex);
+      setInputVal('');
+      setFeedbackState('idle');
+    }
+  };
+
+  // Process Numpad Key Press
+  const handleKeyPress = useCallback((key) => {
+    if (feedbackState === 'correct' || feedbackState === 'revealed') return;
+
+    if (key === '⌫' || key === 'Backspace') {
+      setInputVal(prev => prev.slice(0, -1));
+      return;
+    }
+
+    if (key === '.') {
+      setInputVal(prev => {
+        if (prev.includes('.')) return prev;
+        if (prev === '') return '0.';
+        return prev + '.';
+      });
+      return;
+    }
+
+    if (/^[0-9]$/.test(key)) {
+      setInputVal(prev => {
+        if (prev.length >= 6) return prev;
+        return prev + key;
+      });
+    }
+  }, [feedbackState]);
+
+  // Auto Check when input changes
+  useEffect(() => {
+    if (feedbackState !== 'idle' || !inputVal || !targetStr) return;
+
+    if (inputVal === targetStr) {
+      setFeedbackState('correct');
+      const timer = setTimeout(() => {
+        handleNext('known');
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [inputVal, targetStr, feedbackState, handleNext]);
+
+  // Physical Keyboard Listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key >= '0' && e.key <= '9') {
+        handleKeyPress(e.key);
+      } else if (e.key === '.' || e.key === 'Decimal') {
+        handleKeyPress('.');
+      } else if (e.key === 'Backspace') {
+        handleKeyPress('⌫');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyPress]);
+
+  const handleShowAnswer = () => {
+    setFeedbackState('revealed');
+    setInputVal(targetStr);
+    const updatedItems = [...items];
+    updatedItems[currentIndex].status = 'unknown';
+    setItems(updatedItems);
+  };
 
   const handleFilterClick = (targetFilter) => {
     if (filter === targetFilter) {
@@ -115,99 +263,8 @@ function App() {
     if (targetIndex !== -1) {
       setFilter(targetFilter);
       setCurrentIndex(targetIndex);
-      setIsFlipped(false);
-    }
-  };
-
-  const handleNext = (status) => {
-    const updatedItems = [...items];
-    updatedItems[currentIndex].status = status;
-    setItems(updatedItems);
-    setIsFlipped(false);
-    
-    // Save to history before navigating
-    setHistory(prev => [...prev, currentIndex]);
-
-    // Select next item index
-    setTimeout(() => {
-      let nextIndex = currentIndex;
-      let activeFilter = filter;
-      let candidates = [];
-      
-      if (filter !== 'all') {
-        candidates = updatedItems
-          .map((item, index) => ({ status: item.status, index }))
-          .filter(item => item.status === filter)
-          .map(item => item.index);
-        
-        if (candidates.length === 0) {
-          activeFilter = 'all';
-          setFilter('all');
-          alert(`恭喜！你已复习完该类别的所有题目，系统已自动切回“全部”模式。`);
-        }
-      }
-      
-      if (activeFilter === 'all') {
-        if (isRandom) {
-          const candidateIndices = [];
-          updatedItems.forEach((item, index) => {
-            if (item.status !== 'known') {
-              candidateIndices.push(index);
-            }
-          });
-          
-          if (candidateIndices.length > 0) {
-            let finalCandidates = candidateIndices;
-            if (candidateIndices.length > 1) {
-              finalCandidates = candidateIndices.filter(idx => idx !== currentIndex);
-            }
-            nextIndex = finalCandidates[Math.floor(Math.random() * finalCandidates.length)];
-          } else {
-            const allIndices = Array.from({length: items.length}, (_, i) => i);
-            const otherIndices = allIndices.filter(idx => idx !== currentIndex);
-            nextIndex = otherIndices.length > 0 
-              ? otherIndices[Math.floor(Math.random() * otherIndices.length)]
-              : 0;
-          }
-        } else {
-          let found = false;
-          for (let i = 0; i < items.length; i++) {
-            let checkIndex = (currentIndex + 1 + i) % items.length;
-            if (updatedItems[checkIndex].status !== 'known') {
-              nextIndex = checkIndex;
-              found = true;
-              break;
-            }
-          }
-          if (!found) {
-            nextIndex = (currentIndex + 1) % items.length;
-          }
-        }
-      } else {
-        // Filtered mode
-        if (isRandom) {
-          let finalCandidates = candidates;
-          if (candidates.length > 1) {
-            finalCandidates = candidates.filter(idx => idx !== currentIndex);
-          }
-          nextIndex = finalCandidates[Math.floor(Math.random() * finalCandidates.length)];
-        } else {
-          const nextCandidate = candidates.find(idx => idx > currentIndex);
-          nextIndex = nextCandidate !== undefined ? nextCandidate : candidates[0];
-        }
-      }
-      
-      setCurrentIndex(nextIndex);
-    }, 300);
-  };
-
-  const handlePrev = (e) => {
-    e.stopPropagation();
-    if (history.length > 0) {
-      const prevIndex = history[history.length - 1];
-      setHistory(prev => prev.slice(0, -1));
-      setCurrentIndex(prevIndex);
-      setIsFlipped(false);
+      setInputVal('');
+      setFeedbackState('idle');
     }
   };
 
@@ -225,12 +282,14 @@ function App() {
   const total = items.length;
   const progress = ((stats.known) / total) * 100;
 
+  const numpadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+
   return (
     <div className="app-container">
       <header className="header">
         <h1>
           <span>🧮</span>
-          <span className="title-text">百化分练习</span>
+          <span className="title-text">百化分速记</span>
         </h1>
         <div className="progress-container">
           <div className="progress-bar">
@@ -270,54 +329,124 @@ function App() {
             </button>
           </div>
           <div className="mode-toggle">
-            <button className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} onClick={() => setQuizMode('percentToFraction')}>猜分数</button>
-            <button className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} onClick={() => setQuizMode('fractionToPercent')}>猜百分数</button><span className="mode-divider"></span><button className={`mode-btn ${!isRandom ? 'active' : ''}`} onClick={() => setIsRandom(false)}>顺序</button>
+            <button 
+              className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} 
+              onClick={() => { setQuizMode('percentToFraction'); setInputVal(''); setFeedbackState('idle'); }}
+            >
+              看百分数打分母
+            </button>
+            <button 
+              className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} 
+              onClick={() => { setQuizMode('fractionToPercent'); setInputVal(''); setFeedbackState('idle'); }}
+            >
+              看分数打百分数
+            </button>
+            <span className="mode-divider"></span>
+            <button className={`mode-btn ${!isRandom ? 'active' : ''}`} onClick={() => setIsRandom(false)}>顺序</button>
             <button className={`mode-btn ${isRandom ? 'active' : ''}`} onClick={() => setIsRandom(true)}>随机</button>
           </div>
         </div>
       </header>
 
       <main className="main-content">
-        <div className={`card-container ${isFlipped ? 'expanded' : ''}`} style={{ height: cardHeight }} onClick={() => setIsFlipped(!isFlipped)}>
-          <div className={`card ${isFlipped ? 'flipped' : ''}`}>
-            <div className="card-front">
-              <h2 className="idiom-word" style={{ margin: 0, textAlign: 'center', width: '100%' }}>
-                {quizMode === 'percentToFraction' ? currentItem.percent : currentItem.fraction}
-              </h2>
+        {/* Main Prompt Card */}
+        <div className="practice-card">
+          <div className="card-top-info">
+            <span className="item-index">#{currentItem.id}</span>
+            {currentItem.status !== 'new' && (
+              <span className="status-badge" style={{ backgroundColor: getStatusColor(currentItem.status) }}>
+                {currentItem.status === 'known' ? '熟练' : currentItem.status === 'unsure' ? '模糊' : '生疏'}
+              </span>
+            )}
+          </div>
 
-              {currentItem.status !== 'new' && (
-                <div className="status-badge" style={{ backgroundColor: getStatusColor(currentItem.status), position: 'absolute', bottom: '20px' }}>
-                  上次标记: {currentItem.status === 'known' ? '熟练' : currentItem.status === 'unsure' ? '模糊' : '生疏'}
-                </div>
-              )}
+          <div className="question-display">
+            <div className="question-prompt">
+              {quizMode === 'percentToFraction' ? currentItem.percent : currentItem.fraction}
             </div>
-            <div className="card-back">
-              <div className="card-back-inner" ref={cardBackInnerRef} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', alignItems: 'center' }}>
-                <div className="card-back-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', margin: 0 }}>
-                  <h2 className="idiom-word" style={{ color: '#10b981', margin: 0, textAlign: 'center', width: '100%' }}>
-                    {quizMode === 'percentToFraction' ? currentItem.fraction : currentItem.percent}
-                  </h2>
-                </div>
+            <div className="question-hint">
+              {quizMode === 'percentToFraction' ? '请输入对应的分母' : '请输入对应的百分数'}
+            </div>
+          </div>
+
+          {/* Typing Display Box */}
+          <div className={`input-display-box ${feedbackState}`}>
+            {quizMode === 'percentToFraction' ? (
+              <div className="fraction-input-format">
+                <span className="fraction-numerator">1 / </span>
+                <span className="typed-val">
+                  {inputVal || <span className="placeholder">?</span>}
+                </span>
               </div>
+            ) : (
+              <div className="percent-input-format">
+                <span className="typed-val">
+                  {inputVal || <span className="placeholder">?</span>}
+                </span>
+                <span className="percent-unit">%</span>
+              </div>
+            )}
+            
+            {feedbackState === 'correct' && <span className="status-icon success-icon">✓</span>}
+            {feedbackState === 'revealed' && <span className="status-icon revealed-icon">!</span>}
+          </div>
+
+          {/* Full Equation Display when revealed */}
+          {feedbackState === 'revealed' && (
+            <div className="revealed-equation">
+              正确等式：<strong>{currentItem.percent} = {currentItem.fraction}</strong>
             </div>
+          )}
+        </div>
+
+        {/* Numpad Keyboard */}
+        <div className="numpad-container">
+          <div className="numpad-grid">
+            {numpadKeys.map(key => (
+              <button
+                key={key}
+                className={`numpad-btn ${key === '⌫' ? 'backspace-btn' : ''} ${key === '.' ? 'dot-btn' : ''}`}
+                onClick={() => handleKeyPress(key)}
+              >
+                {key}
+              </button>
+            ))}
+          </div>
+
+          <div className="numpad-actions">
+            <button 
+              className="action-btn prev-btn" 
+              onClick={handlePrev} 
+              disabled={history.length === 0}
+            >
+              上一题
+            </button>
+            <button 
+              className="action-btn clear-btn" 
+              onClick={() => setInputVal('')}
+              disabled={!inputVal || feedbackState === 'correct'}
+            >
+              清空
+            </button>
+
+            {feedbackState === 'revealed' ? (
+              <button 
+                className="action-btn next-btn"
+                onClick={() => handleNext('unknown')}
+              >
+                下一题 ➜
+              </button>
+            ) : (
+              <button 
+                className="action-btn answer-btn"
+                onClick={handleShowAnswer}
+              >
+                看答案
+              </button>
+            )}
           </div>
         </div>
 
-        <div className={`action-buttons ${!isFlipped ? 'hidden' : ''}`}>
-          <button className="btn btn-prev" onClick={handlePrev} disabled={history.length === 0}>
-            上一题
-          </button>
-          <button className="btn btn-unknown" onClick={(e) => { e.stopPropagation(); handleNext('unknown'); }}>
-            生疏
-          </button>
-          <button className="btn btn-unsure" onClick={(e) => { e.stopPropagation(); handleNext('unsure'); }}>
-            模糊
-          </button>
-          <button className="btn btn-known" onClick={(e) => { e.stopPropagation(); handleNext('known'); }}>
-            熟练
-          </button>
-        </div>
-        
         <div className="controls">
           <button className="btn-text" onClick={() => {
             if(window.confirm('确定要重置所有学习进度吗？')) {
