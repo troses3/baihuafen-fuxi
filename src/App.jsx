@@ -211,14 +211,21 @@ function App() {
     }
   }, [feedbackState]);
 
-  // Auto Check when input changes: instantly advance on correct match
-  useEffect(() => {
-    if (!inputVal || !targetStr) return;
-
-    if (inputVal === targetStr) {
-      handleNext('known');
+  const handleConfirm = useCallback(() => {
+    if (feedbackState === 'revealed') {
+      handleNext('unknown');
+      return;
     }
-  }, [inputVal, targetStr, handleNext]);
+
+    if (inputVal.trim() === targetStr.trim()) {
+      handleNext('known');
+    } else {
+      setFeedbackState('revealed');
+      const updatedItems = [...items];
+      updatedItems[currentIndex].status = 'unknown';
+      setItems(updatedItems);
+    }
+  }, [feedbackState, inputVal, targetStr, items, currentIndex, handleNext]);
 
   // Physical Keyboard Listener
   useEffect(() => {
@@ -229,11 +236,13 @@ function App() {
         handleKeyPress('.');
       } else if (e.key === 'Backspace') {
         handleKeyPress('⌫');
+      } else if (e.key === 'Enter') {
+        handleConfirm();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyPress]);
+  }, [handleKeyPress, handleConfirm]);
 
   const handleShowAnswer = () => {
     setFeedbackState('revealed');
@@ -424,12 +433,21 @@ function App() {
             >
               清空
             </button>
-            <button 
-              className="action-btn next-btn"
-              onClick={() => handleNext('unknown')}
-            >
-              下一题 ➜
-            </button>
+            {feedbackState === 'revealed' ? (
+              <button 
+                className="action-btn next-btn"
+                onClick={handleConfirm}
+              >
+                下一题 ➜
+              </button>
+            ) : (
+              <button 
+                className="action-btn answer-btn"
+                onClick={handleConfirm}
+              >
+                确认
+              </button>
+            )}
           </div>
         </div>
 
