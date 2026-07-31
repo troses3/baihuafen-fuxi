@@ -4,72 +4,6 @@ import './App.css';
 
 const STORAGE_KEY = 'baihuafen-tracker-data-v2';
 
-let audioCtx = null;
-
-const playTactileClick = (type = 'tap') => {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    if (!audioCtx) {
-      audioCtx = new AudioContext();
-    }
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    
-    osc.type = 'sine';
-    
-    if (type === 'correct') {
-      osc.frequency.setValueAtTime(520, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.08);
-    } else if (type === 'wrong') {
-      osc.frequency.setValueAtTime(220, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.1);
-    } else {
-      // Standard key tap click
-      osc.frequency.setValueAtTime(350, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.015);
-      gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.015);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.015);
-    }
-  } catch (e) {
-    // Ignore audio restrictions
-  }
-};
-
-// Unified Haptic & Sound Feedback helper
-const triggerHaptic = (pattern = 12, type = 'tap') => {
-  // 1. Web Audio API Tactile Sound (Works on iOS Safari & Android)
-  playTactileClick(type);
-
-  // 2. Physical Motor Vibration (Works on Android)
-  if (typeof window !== 'undefined' && 'navigator' in window && typeof window.navigator.vibrate === 'function') {
-    try {
-      window.navigator.vibrate(pattern);
-    } catch (e) {
-      // Ignore
-    }
-  }
-};
-
 function App() {
   const [items, setItems] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -241,7 +175,6 @@ function App() {
   }, [currentIndex, filter, isRandom, items, currentItem]);
 
   const handlePrev = () => {
-    triggerHaptic(15);
     if (history.length > 0) {
       const prevIndex = history[history.length - 1];
       setHistory(prev => prev.slice(0, -1));
@@ -254,8 +187,6 @@ function App() {
   // Process Numpad Key Press
   const handleKeyPress = useCallback((key) => {
     if (feedbackState === 'correct' || feedbackState === 'revealed') return;
-
-    triggerHaptic(12);
 
     if (key === '⌫' || key === 'Backspace') {
       setInputVal(prev => prev.slice(0, -1));
@@ -284,7 +215,6 @@ function App() {
 
   const handleConfirm = useCallback(() => {
     if (isAnswered) {
-      triggerHaptic(15);
       handleNext(isCorrect ? 'known' : 'unknown');
       setIsAnswered(false);
       setIsCorrect(false);
@@ -295,12 +225,6 @@ function App() {
     setIsCorrect(checkCorrect);
     setIsAnswered(true);
     setFeedbackState(checkCorrect ? 'correct' : 'revealed');
-
-    if (checkCorrect) {
-      triggerHaptic([15, 30, 20], 'correct'); // Double tactile pulse + success chime
-    } else {
-      triggerHaptic([35, 50, 35], 'wrong'); // Error pulse + soft error tone
-    }
 
     const updatedItems = [...items];
     updatedItems[currentIndex].status = checkCorrect ? 'known' : 'unknown';
