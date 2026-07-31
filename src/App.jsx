@@ -73,9 +73,8 @@ function App() {
   useEffect(() => {
     if (items.length > 0) {
       const known = items.filter(i => i.status === 'known').length;
-      const unsure = items.filter(i => i.status === 'unsure').length;
-      const unknown = items.filter(i => i.status === 'unknown').length;
-      setStats({ known, unsure, unknown });
+      const unknown = items.filter(i => i.status !== 'known').length;
+      setStats({ known, unknown });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     }
   }, [items]);
@@ -262,14 +261,12 @@ function App() {
       setFilter('all');
       return;
     }
-    const count = targetFilter === 'known' ? stats.known :
-                  targetFilter === 'unsure' ? stats.unsure :
-                  targetFilter === 'unknown' ? stats.unknown : 0;
+    const count = targetFilter === 'known' ? stats.known : stats.unknown;
     if (count === 0) {
-      alert(`当前没有处于“${targetFilter === 'known' ? '已掌握' : targetFilter === 'unsure' ? '模糊' : '生疏'}”状态的题目！`);
+      alert(`当前没有处于“${targetFilter === 'known' ? '已掌握' : '未掌握'}”状态的题目！`);
       return;
     }
-    const targetIndex = items.findIndex(i => i.status === targetFilter);
+    const targetIndex = items.findIndex(i => targetFilter === 'known' ? i.status === 'known' : i.status !== 'known');
     if (targetIndex !== -1) {
       setFilter(targetFilter);
       setCurrentIndex(targetIndex);
@@ -280,9 +277,8 @@ function App() {
 
   const getStatusColor = (status) => {
     switch(status) {
-      case 'known': return 'rgba(16, 185, 129, 0.8)';
-      case 'unsure': return 'rgba(245, 158, 11, 0.8)';
-      case 'unknown': return 'rgba(239, 68, 68, 0.8)';
+      case 'known': return 'rgba(16, 185, 129, 0.85)';
+      case 'unknown': return 'rgba(239, 68, 68, 0.85)';
       default: return 'rgba(107, 114, 128, 0.8)';
     }
   };
@@ -315,20 +311,12 @@ function App() {
               已掌握: <span className="stat-count">{stats.known}</span>
             </button>
             <button 
-              className={`stat-item ${filter === 'unsure' ? 'active-unsure' : ''}`}
-              onClick={() => handleFilterClick('unsure')}
-              title="只复习模糊"
-            >
-              <span className="dot dot-unsure"></span>
-              模糊: <span className="stat-count">{stats.unsure}</span>
-            </button>
-            <button 
               className={`stat-item ${filter === 'unknown' ? 'active-unknown' : ''}`}
               onClick={() => handleFilterClick('unknown')}
-              title="只复习生疏"
+              title="只复习未掌握"
             >
               <span className="dot dot-unknown"></span>
-              生疏: <span className="stat-count">{stats.unknown}</span>
+              未掌握: <span className="stat-count">{stats.unknown}</span>
             </button>
             <button 
               className={`stat-item ${filter === 'all' ? 'active-all' : ''}`}
@@ -365,7 +353,7 @@ function App() {
             <span className="item-index">#{currentItem.id}</span>
             {currentItem.status !== 'new' && (
               <span className="status-badge" style={{ backgroundColor: getStatusColor(currentItem.status) }}>
-                {currentItem.status === 'known' ? '熟练' : currentItem.status === 'unsure' ? '模糊' : '生疏'}
+                {currentItem.status === 'known' ? '已掌握' : '未掌握'}
               </span>
             )}
           </div>
