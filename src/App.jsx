@@ -352,13 +352,13 @@ function App() {
               className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} 
               onClick={() => { setQuizMode('percentToFraction'); setInputVal(''); setFeedbackState('idle'); }}
             >
-              看百分数打分母
+              百化分
             </button>
             <button 
               className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} 
               onClick={() => { setQuizMode('fractionToPercent'); setInputVal(''); setFeedbackState('idle'); }}
             >
-              看分数打百分数
+              分化百
             </button>
             <span className="mode-divider"></span>
             <button className={`mode-btn ${!isRandom ? 'active' : ''}`} onClick={() => setIsRandom(false)}>顺序</button>
