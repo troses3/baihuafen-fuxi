@@ -76,7 +76,7 @@ function App() {
 
   // 🎮 Match Elimination Game States
   const [gameTiles, setGameTiles] = useState([]);
-  const [drawPile, setDrawPile] = useState([]);
+  const [drawPileCards, setDrawPileCards] = useState([]); // 扁平化充分打乱的单张卡片池
   const [remainingPairs, setRemainingPairs] = useState(30);
   const [selectedTileIndex, setSelectedTileIndex] = useState(null);
   const [isProcessingMatch, setIsProcessingMatch] = useState(false);
@@ -96,13 +96,13 @@ function App() {
 
   // Initialize and start a new match game round with full 30-pair deck
   const startNewGame = useCallback(() => {
-    // Shuffle all items from initialItems (total 30 items)
+    // 1. 获取全部 30 组题目
     const shuffledPool = [...initialItems].sort(() => Math.random() - 0.5);
     const totalPairs = shuffledPool.length;
 
-    // First 12 items go to the board (24 tiles)
+    // 前 12 组用于初始棋盘（24 张卡片）
     const boardItems = shuffledPool.slice(0, 12);
-    // Remaining items go to drawPile for cascading refill
+    // 剩余 18 组用于储备卡片池（36 张卡片）
     const remainingItems = shuffledPool.slice(12);
 
     const initialBoardTiles = [];
@@ -129,38 +129,42 @@ function App() {
       });
     });
 
-    // Shuffle 24 initial board tiles thoroughly
+    // 棋盘初始 24 张卡片充分洗牌打散
     const shuffledBoardTiles = initialBoardTiles.sort(() => Math.random() - 0.5);
 
-    // Prepare remaining pairs in drawPile
-    const pile = [];
+    // 储备池 36 张单张卡片彻底打散（打破成对连续排布）
+    const reserveCards = [];
     remainingItems.forEach((item) => {
       const fracParts = item.fraction.split('/');
-      pile.push([
-        {
-          id: `f_${item.id}_${Date.now()}_${Math.random()}`,
-          pairId: item.id,
-          type: 'fraction',
-          num: fracParts[0] || '1',
-          den: fracParts[1] || item.fraction,
-          isMatched: false,
-          isMismatching: false,
-          isDropping: true,
-        },
-        {
-          id: `p_${item.id}_${Date.now()}_${Math.random()}`,
-          pairId: item.id,
-          type: 'percent',
-          value: item.percent,
-          isMatched: false,
-          isMismatching: false,
-          isDropping: true,
-        }
-      ]);
+      reserveCards.push({
+        id: `f_${item.id}_${Date.now()}_${Math.random()}`,
+        pairId: item.id,
+        type: 'fraction',
+        num: fracParts[0] || '1',
+        den: fracParts[1] || item.fraction,
+        isMatched: false,
+        isMismatching: false,
+        isDropping: true,
+      });
+      reserveCards.push({
+        id: `p_${item.id}_${Date.now()}_${Math.random()}`,
+        pairId: item.id,
+        type: 'percent',
+        value: item.percent,
+        isMatched: false,
+        isMismatching: false,
+        isDropping: true,
+      });
     });
 
+    // 进行 Fisher-Yates 深度洗牌
+    for (let i = reserveCards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [reserveCards[i], reserveCards[j]] = [reserveCards[j], reserveCards[i]];
+    }
+
     setGameTiles(shuffledBoardTiles);
-    setDrawPile(pile);
+    setDrawPileCards(reserveCards);
     setRemainingPairs(totalPairs);
     setSelectedTileIndex(null);
     setIsProcessingMatch(false);
@@ -307,19 +311,25 @@ function App() {
       const nextRemaining = remainingPairs - 1;
       setRemainingPairs(nextRemaining);
 
-      // 2. After 260ms, refill from drawPile with smooth drop animation
+      // 2. After 220ms, 从打乱的单张卡片池中抽取 2 张互不配对的新卡片掉落下落
       setTimeout(() => {
-        if (drawPile.length > 0) {
-          const nextPair = drawPile[0]; // [frac, pct]
-          const remainingPile = drawPile.slice(1);
-          setDrawPile(remainingPile);
+        if (drawPileCards.length >= 2) {
+          let c1 = drawPileCards[0];
+          let c2 = drawPileCards[1];
+          let remainingPool = drawPileCards.slice(2);
 
-          const [t1, t2] = Math.random() > 0.5 ? [nextPair[0], nextPair[1]] : [nextPair[1], nextPair[0]];
+          // 确保新掉落到这两个位置的卡片绝不是同一组配对
+          if (c1.pairId === c2.pairId && drawPileCards.length > 2) {
+            c2 = drawPileCards[2];
+            remainingPool = [drawPileCards[1], ...drawPileCards.slice(3)];
+          }
+
+          setDrawPileCards(remainingPool);
 
           setGameTiles(prevTiles => {
             const refilled = [...prevTiles];
-            refilled[firstIdx] = { ...t1, isDropping: true };
-            refilled[secondIdx] = { ...t2, isDropping: true };
+            refilled[firstIdx] = { ...c1, isDropping: true };
+            refilled[secondIdx] = { ...c2, isDropping: true };
             return refilled;
           });
 
@@ -330,7 +340,24 @@ function App() {
               if (cleaned[secondIdx]) cleaned[secondIdx] = { ...cleaned[secondIdx], isDropping: false };
               return cleaned;
             });
-          }, 400);
+          }, 350);
+        } else if (drawPileCards.length === 1) {
+          const c1 = drawPileCards[0];
+          setDrawPileCards([]);
+
+          setGameTiles(prevTiles => {
+            const refilled = [...prevTiles];
+            refilled[firstIdx] = { ...c1, isDropping: true };
+            return refilled;
+          });
+
+          setTimeout(() => {
+            setGameTiles(prevTiles => {
+              const cleaned = [...prevTiles];
+              if (cleaned[firstIdx]) cleaned[firstIdx] = { ...cleaned[firstIdx], isDropping: false };
+              return cleaned;
+            });
+          }, 350);
         }
 
         setIsProcessingMatch(false);
@@ -346,7 +373,7 @@ function App() {
             setIsNewRecord(true);
           }
         }
-      }, 260);
+      }, 220);
 
     } else {
       // ❌ MISMATCH!
@@ -366,9 +393,10 @@ function App() {
         });
         setSelectedTileIndex(null);
         setIsProcessingMatch(false);
-      }, 420);
+      }, 400);
     }
   };
+
 
   const searchMatchedItems = (searchQuery && searchQuery.trim() !== '')
     ? items.filter(item => {

@@ -913,18 +913,16 @@ body {
 }
 
 /* =========================================================
-   🎮 消消乐小游戏模式样式体系 (4x6 Grid Match Elimination)
+   🎮 消消乐小游戏模式样式体系 (纯净鲜艳无阴影设计)
    ========================================================= */
 
 .game-board-card {
   width: 100%;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
-  border-radius: 26px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
   padding: 0.85rem 0.85rem 1.1rem 0.85rem;
-  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.09), 0 0 0 1px rgba(0, 0, 0, 0.02);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  box-shadow: none;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -946,23 +944,21 @@ body {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: rgba(241, 245, 249, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: #334155;
   font-size: 1.05rem;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 0.18s ease;
+  box-shadow: none;
 }
 
 .game-ctrl-btn:hover {
-  background: #ffffff;
+  background: #e2e8f0;
   color: var(--accent-color);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .game-ctrl-btn:active {
@@ -973,11 +969,11 @@ body {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  background: #ffffff;
+  background: #f8fafc;
   padding: 0.25rem 0.95rem;
   border-radius: 100px;
-  border: 1.5px solid #e2e8f0;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
 }
 
 .game-timer-display {
@@ -989,7 +985,7 @@ body {
   line-height: 1.1;
 }
 
-/* 4列 x 6行 消除网格 (正方形卡片) */
+/* 4列 x 6行 消除网格 (正方形卡片，纯净无阴影) */
 .game-grid-4x6 {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1008,90 +1004,97 @@ body {
   cursor: pointer;
   user-select: none;
   position: relative;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, opacity 0.25s ease;
+  transition: transform 0.18s ease, opacity 0.2s ease;
   border: none;
+  box-shadow: none;
   -webkit-tap-highlight-color: transparent;
-  animation: gridTileEntrance 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation: gridTileEntrance 0.3s ease backwards;
 }
 
-/* 鲜艳明亮糖果蓝色分数卡片 */
+/* 鲜艳饱满纯净蓝色分数卡片 (无阴影) */
 .game-tile.tile-fraction {
-  background: linear-gradient(180deg, #00a6ff 0%, #0070f3 100%);
+  background: #007aff;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 112, 243, 0.38), inset 0 2px 1px rgba(255, 255, 255, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
-/* 鲜艳明亮糖果绿色百分数卡片 */
+/* 鲜艳饱满纯净绿色百分数卡片 (无阴影) */
 .game-tile.tile-percent {
-  background: linear-gradient(180deg, #10e060 0%, #00ba45 100%);
+  background: #28c76f;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 186, 69, 0.38), inset 0 2px 1px rgba(255, 255, 255, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 .game-tile:hover:not(.tile-matched):not(.tile-disabled) {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .game-tile:active:not(.tile-matched):not(.tile-disabled) {
   transform: scale(0.95);
 }
 
-/* 选中高亮状态 (鲜艳外发光双层边框) */
+/* 选中高亮状态 (干净实心内描边，无阴影发光) */
 .game-tile.tile-selected {
-  transform: scale(1.08) translateY(-2px);
+  transform: scale(1.05);
   z-index: 10;
 }
 
 .game-tile.tile-fraction.tile-selected {
-  box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #0070f3, 0 8px 24px rgba(0, 112, 243, 0.6);
+  outline: 3.5px solid #004ecc;
+  outline-offset: -3.5px;
+  box-shadow: none;
 }
 
 .game-tile.tile-percent.tile-selected {
-  box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #00ba45, 0 8px 24px rgba(0, 186, 69, 0.6);
+  outline: 3.5px solid #15803d;
+  outline-offset: -3.5px;
+  box-shadow: none;
 }
 
 /* 错选抖动动画 */
 .game-tile.tile-mismatch {
-  animation: tileMismatchShake 0.42s ease-in-out;
-  box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #ef4444, 0 8px 24px rgba(239, 68, 68, 0.6) !important;
+  animation: tileMismatchShake 0.4s ease-in-out;
+  outline: 3.5px solid #ef4444 !important;
+  outline-offset: -3.5px;
+  box-shadow: none !important;
 }
 
 /* 配对消除成功动画 */
 .game-tile.tile-matched {
-  animation: tileMatchSuccess 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation: tileMatchSuccess 0.28s ease-in-out forwards;
   pointer-events: none;
 }
 
-/* 上方新卡片掉落滚动入场动画 (丝滑弹性下落) */
+/* 上方新卡片掉落滚动入场动画 */
 .game-tile.tile-dropping {
-  animation: tileDropIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: tileDropIn 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes tileMismatchShake {
   0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-6px) rotate(-3deg); }
-  40%, 80% { transform: translateX(6px) rotate(3deg); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
 }
 
 @keyframes tileMatchSuccess {
-  0% { transform: scale(1); opacity: 1; filter: brightness(1); }
-  40% { transform: scale(1.22); opacity: 1; filter: brightness(1.4) drop-shadow(0 0 12px #22c55e); }
-  100% { transform: scale(0); opacity: 0; visibility: hidden; }
+  0% { transform: scale(1); opacity: 1; }
+  35% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(0.1); opacity: 0; visibility: hidden; }
 }
 
 @keyframes gridTileEntrance {
-  0% { transform: scale(0.6) translateY(18px); opacity: 0; }
-  100% { transform: scale(1) translateY(0); opacity: 1; }
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes tileDropIn {
   0% {
     opacity: 0;
-    transform: translateY(-40px) scale(0.7);
+    transform: translateY(-30px) scale(0.85);
   }
-  65% {
+  70% {
     opacity: 1;
-    transform: translateY(4px) scale(1.05);
+    transform: translateY(2px) scale(1.02);
   }
   100% {
     opacity: 1;
@@ -1099,7 +1102,7 @@ body {
   }
 }
 
-/* 专业数学分数排版 */
+/* 专业数学分数排版 (纯白文字，无阴影) */
 .math-frac {
   display: flex;
   flex-direction: column;
@@ -1110,38 +1113,39 @@ body {
 }
 
 .frac-num {
-  font-size: 1.18rem;
-  font-weight: 800;
+  font-size: 1.22rem;
+  font-weight: 750;
   color: #ffffff;
   line-height: 1.05;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  text-shadow: none;
 }
 
 .frac-line {
-  width: 50%;
+  width: 52%;
   height: 2px;
-  background: rgba(255, 255, 255, 0.95);
-  margin: 2px 0;
+  background: #ffffff;
+  margin: 2.5px 0;
   border-radius: 1px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 .frac-den {
-  font-size: 1.18rem;
-  font-weight: 800;
+  font-size: 1.22rem;
+  font-weight: 750;
   color: #ffffff;
   line-height: 1.05;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  text-shadow: none;
 }
 
-/* 百分数排版 */
+/* 百分数排版 (纯白文字，无阴影) */
 .percent-val {
-  font-size: 1.22rem;
-  font-weight: 800;
+  font-size: 1.25rem;
+  font-weight: 750;
   color: #ffffff;
   letter-spacing: -0.02em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  text-shadow: none;
 }
+
 
 /* 暂停与通关弹窗遮罩 */
 .game-modal-overlay {
