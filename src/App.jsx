@@ -1,14 +1,52 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import initialItems from '../data.json';
 import './App.css';
 
 const STORAGE_KEY = 'baihuafen-tracker-data-v2';
 
+const renderHighlightedText = (text, query) => {
+  if (!text) return '';
+  if (!query || !query.trim()) return text;
+
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = String(text).split(regex);
+  return parts.map((part, i) => {
+    return regex.test(part) ? (
+      <span key={i} className="search-highlight">
+        {part}
+      </span>
+    ) : (
+      part
+    );
+  });
+};
+
 function App() {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('baihuafen-tracker-data');
+    const statusMap = {};
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          parsed.forEach(p => {
+            if (p.id && p.status && p.status !== 'new') {
+              statusMap[p.id] = p.status;
+            }
+          });
+        }
+      } catch (e) {}
+    }
+    return initialItems.map(item => ({
+      ...item,
+      status: statusMap[item.id] || 'new'
+    }));
+  });
+
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [stats, setStats] = useState({ known: 0, unsure: 0, unknown: 0 });
-  const [filter, setFilter] = useState('all'); // 'all', 'known', 'unsure', 'unknown'
+  const [stats, setStats] = useState({ known: 0, unknown: 0 });
+  const [filter, setFilter] = useState('all'); // 'all', 'known', 'unknown'
   const [isRandom, setIsRandom] = useState(() => {
     return localStorage.getItem('baihuafen-tracker-random') === 'true';
   });
@@ -20,6 +58,18 @@ function App() {
   // Input & Answer States
   const [inputVal, setInputVal] = useState('');
   const [feedbackState, setFeedbackState] = useState('idle'); // 'idle', 'correct', 'revealed'
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+
+  // Modern UI states and refs
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [calculatedMarginTop, setCalculatedMarginTop] = useState(0);
+
+  const headerRef = useRef(null);
+  const modeBarRef = useRef(null);
+  const mainContentRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem('baihuafen-tracker-random', isRandom);
@@ -29,32 +79,12 @@ function App() {
     localStorage.setItem('baihuafen-tracker-quiz-mode', quizMode);
   }, [quizMode]);
 
+  // Initial random selection if random mode is on
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    let loadedItems = [];
-    if (stored) {
-      loadedItems = JSON.parse(stored);
-    } else {
-      loadedItems = initialItems.map(item => ({
-        ...item,
-        status: 'new'
-      }));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(loadedItems));
-    }
-    
-    if (loadedItems.length === 0) {
-      loadedItems = initialItems.map(item => ({
-        ...item,
-        status: 'new'
-      }));
-    }
-
-    setItems(loadedItems);
-
     const isRandomStored = localStorage.getItem('baihuafen-tracker-random') === 'true';
-    if (isRandomStored && loadedItems.length > 0) {
+    if (isRandomStored && items.length > 0) {
       const candidateIndices = [];
-      loadedItems.forEach((item, index) => {
+      items.forEach((item, index) => {
         if (item.status !== 'known') {
           candidateIndices.push(index);
         }
@@ -64,7 +94,7 @@ function App() {
         const randIndex = candidateIndices[Math.floor(Math.random() * candidateIndices.length)];
         setCurrentIndex(randIndex);
       } else {
-        const randIndex = Math.floor(Math.random() * loadedItems.length);
+        const randIndex = Math.floor(Math.random() * items.length);
         setCurrentIndex(randIndex);
       }
     }
@@ -73,11 +103,41 @@ function App() {
   useEffect(() => {
     if (items.length > 0) {
       const known = items.filter(i => i.status === 'known').length;
-      const unknown = items.filter(i => i.status !== 'known').length;
+      const unknown = items.filter(i => i.status === 'unknown').length;
       setStats({ known, unknown });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     }
   }, [items]);
+
+  // Precise Vertical Centering Logic
+  useEffect(() => {
+    const calculateMargin = () => {
+      if (headerRef.current && modeBarRef.current && searchQuery.trim() === '') {
+        const headerBottom = headerRef.current.getBoundingClientRect().bottom + window.scrollY;
+        const modeBarTop = modeBarRef.current.getBoundingClientRect().top;
+        const space = modeBarTop - headerBottom;
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        const gapPx = 0.75 * rem;
+
+        const mainH = mainContentRef.current ? mainContentRef.current.scrollHeight : 380;
+        let margin = (space - mainH) / 2 - gapPx;
+        setCalculatedMarginTop(Math.max(0, margin));
+      }
+    };
+
+    setTimeout(calculateMargin, 40);
+    window.addEventListener('resize', calculateMargin);
+
+    const observer = new ResizeObserver(calculateMargin);
+    if (headerRef.current) observer.observe(headerRef.current);
+    if (modeBarRef.current) observer.observe(modeBarRef.current);
+    if (mainContentRef.current) observer.observe(mainContentRef.current);
+
+    return () => {
+      window.removeEventListener('resize', calculateMargin);
+      observer.disconnect();
+    };
+  }, [searchQuery, isSearchOpen, isPanelOpen, currentIndex, quizMode, isAnswered, feedbackState]);
 
   const currentItem = items[currentIndex];
 
@@ -95,6 +155,32 @@ function App() {
 
   const targetStr = getTargetStr(currentItem, quizMode);
 
+  const searchMatchedItems = (searchQuery && searchQuery.trim() !== '')
+    ? items.filter(item => {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          item.percent.toLowerCase().includes(q) ||
+          item.fraction.toLowerCase().includes(q) ||
+          String(item.id).includes(q)
+        );
+      })
+    : [];
+
+  const handleSelectSearchItem = (targetItem) => {
+    const targetIndex = items.findIndex(i => i.id === targetItem.id);
+    if (targetIndex !== -1) {
+      setFilter('all');
+      setSearchQuery('');
+      setIsSearchOpen(false);
+      setCurrentIndex(targetIndex);
+      setInputVal('');
+      setFeedbackState('idle');
+      setIsAnswered(false);
+      setIsCorrect(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleNext = useCallback((status) => {
     const updatedItems = [...items];
     if (currentItem) {
@@ -103,6 +189,8 @@ function App() {
     setItems(updatedItems);
     setInputVal('');
     setFeedbackState('idle');
+    setIsAnswered(false);
+    setIsCorrect(false);
     
     setHistory(prev => [...prev, currentIndex]);
 
@@ -181,6 +269,8 @@ function App() {
       setCurrentIndex(prevIndex);
       setInputVal('');
       setFeedbackState('idle');
+      setIsAnswered(false);
+      setIsCorrect(false);
     }
   };
 
@@ -210,14 +300,9 @@ function App() {
     }
   }, [feedbackState]);
 
-  const [isAnswered, setIsAnswered] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
-
   const handleConfirm = useCallback(() => {
     if (isAnswered) {
       handleNext(isCorrect ? 'known' : 'unknown');
-      setIsAnswered(false);
-      setIsCorrect(false);
       return;
     }
 
@@ -234,6 +319,11 @@ function App() {
   // Physical Keyboard Listener
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't intercept if user is typing inside search input
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        return;
+      }
+
       if (e.key >= '0' && e.key <= '9') {
         handleKeyPress(e.key);
       } else if (e.key === '.' || e.key === 'Decimal') {
@@ -248,14 +338,6 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyPress, handleConfirm]);
 
-  const handleShowAnswer = () => {
-    setFeedbackState('revealed');
-    setInputVal(targetStr);
-    const updatedItems = [...items];
-    updatedItems[currentIndex].status = 'unknown';
-    setItems(updatedItems);
-  };
-
   const handleFilterClick = (targetFilter) => {
     if (filter === targetFilter) {
       setFilter('all');
@@ -266,12 +348,14 @@ function App() {
       alert(`当前没有处于“${targetFilter === 'known' ? '已掌握' : '未掌握'}”状态的题目！`);
       return;
     }
-    const targetIndex = items.findIndex(i => targetFilter === 'known' ? i.status === 'known' : i.status !== 'known');
+    const targetIndex = items.findIndex(i => targetFilter === 'known' ? i.status === 'known' : i.status === 'unknown');
     if (targetIndex !== -1) {
       setFilter(targetFilter);
       setCurrentIndex(targetIndex);
       setInputVal('');
       setFeedbackState('idle');
+      setIsAnswered(false);
+      setIsCorrect(false);
     }
   };
 
@@ -286,181 +370,317 @@ function App() {
   if (!currentItem) return <div className="loading">加载中...</div>;
 
   const total = items.length;
-  const progress = ((stats.known) / total) * 100;
-
+  const progress = total > 0 ? ((stats.known) / total) * 100 : 0;
   const numpadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
 
   return (
     <div className="app-container">
-      <header className="header">
-        <h1>
-          <span>🧮</span>
-          <span className="title-text">百化分速记</span>
-        </h1>
-        <div className="progress-container">
-          <div className="progress-bar">
-            <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-          </div>
-          <div className="stats">
-            <button 
-              className={`stat-item ${filter === 'known' ? 'active-known' : ''}`}
-              onClick={() => handleFilterClick('known')}
-              title="只复习已掌握"
-            >
-              <span className="dot dot-known"></span>
-              已掌握: <span className="stat-count">{stats.known}</span>
-            </button>
-            <button 
-              className={`stat-item ${filter === 'unknown' ? 'active-unknown' : ''}`}
-              onClick={() => handleFilterClick('unknown')}
-              title="只复习未掌握"
-            >
-              <span className="dot dot-unknown"></span>
-              未掌握: <span className="stat-count">{stats.unknown}</span>
-            </button>
-            <button 
-              className={`stat-item ${filter === 'all' ? 'active-all' : ''}`}
-              onClick={() => setFilter('all')}
-              title="查看全部"
-            >
-              总计: <span className="stat-count">{total}</span>
-            </button>
-          </div>
-          <div className="mode-toggle">
-            <button 
-              className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} 
-              onClick={() => { setQuizMode('percentToFraction'); setInputVal(''); setFeedbackState('idle'); }}
-            >
-              百化分
-            </button>
-            <button 
-              className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} 
-              onClick={() => { setQuizMode('fractionToPercent'); setInputVal(''); setFeedbackState('idle'); }}
-            >
-              分化百
-            </button>
-            <span className="mode-divider"></span>
-            <button className={`mode-btn ${!isRandom ? 'active' : ''}`} onClick={() => setIsRandom(false)}>顺序</button>
-            <button className={`mode-btn ${isRandom ? 'active' : ''}`} onClick={() => setIsRandom(true)}>随机</button>
-          </div>
-        </div>
-      </header>
-
-      <main className="main-content">
-        {/* Main Prompt Card */}
-        <div className="practice-card">
-          <div className="card-top-info">
-            <span className="item-index">#{currentItem.id}</span>
-            {currentItem.status !== 'new' && (
-              <span className="status-badge" style={{ backgroundColor: getStatusColor(currentItem.status) }}>
-                {currentItem.status === 'known' ? '已掌握' : '未掌握'}
-              </span>
-            )}
-          </div>
-
-          <div className="question-display">
-            <div className="question-prompt">
-              {quizMode === 'percentToFraction' ? currentItem.percent : currentItem.fraction}
-            </div>
-            <div className="question-hint">
-              {quizMode === 'percentToFraction' ? '请输入对应的分母' : '请输入对应的百分数'}
-            </div>
-          </div>
-
-          {/* Typing Display Box */}
-          <div className={`input-display-box ${feedbackState}`}>
-            {quizMode === 'percentToFraction' ? (
-              <div className="fraction-input-format">
-                <span className="fraction-numerator">1 / </span>
-                <span className="typed-val">
-                  {inputVal || <span className="placeholder">?</span>}
-                </span>
-              </div>
-            ) : (
-              <div className="percent-input-format">
-                <span className="typed-val">
-                  {inputVal || <span className="placeholder">?</span>}
-                </span>
-                <span className="percent-unit">%</span>
-              </div>
-            )}
-            
-            {feedbackState === 'correct' && <span className="status-icon success-icon">✓</span>}
-            {feedbackState === 'revealed' && <span className="status-icon revealed-icon">!</span>}
-          </div>
-
-          {/* Full Equation Display when confirmed/answered */}
-          {isAnswered && (
-            <div className={`revealed-equation ${isCorrect ? 'equation-correct' : 'equation-wrong'}`}>
-              {isCorrect ? '✓ 回答正确！' : '✗ 回答错误'} 正确等式：<strong>{currentItem.percent} = {currentItem.fraction}</strong>
-            </div>
-          )}
-        </div>
-
-        {/* Numpad Keyboard */}
-        <div className="numpad-container">
-          <div className="numpad-grid">
-            {numpadKeys.map(key => (
-              <button
-                key={key}
-                className={`numpad-btn ${key === '⌫' ? 'backspace-btn' : ''} ${key === '.' ? 'dot-btn' : ''}`}
-                onClick={() => handleKeyPress(key)}
-              >
-                {key}
-              </button>
-            ))}
-          </div>
-
-          <div className="numpad-actions">
-            <button 
-              className="action-btn prev-btn" 
-              onClick={handlePrev} 
-              disabled={history.length === 0}
-            >
-              上一题
-            </button>
-            <button 
-              className="action-btn clear-btn" 
-              onClick={() => setInputVal('')}
-              disabled={!inputVal || isAnswered}
-            >
-              清空
-            </button>
-            {isAnswered ? (
-              <button 
-                className="action-btn next-btn"
-                onClick={handleConfirm}
-              >
-                下一题 ➜
-              </button>
-            ) : (
-              <button 
-                className="action-btn answer-btn"
-                onClick={handleConfirm}
-              >
-                确认
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="controls">
-          <button className="btn-text" onClick={() => {
-            if(window.confirm('确定要重置所有学习进度吗？')) {
-              localStorage.removeItem(STORAGE_KEY);
-              window.location.reload();
-            }
-          }}>
-            <svg className="reset-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <header className="header" ref={headerRef}>
+        <div className="header-nav-bar">
+          {/* 左上角：重置当前题库进度 */}
+          <button 
+            className="header-icon-btn reset-header-btn" 
+            title="重置学习进度"
+            onClick={() => {
+              if(window.confirm('确定要重置所有学习进度吗？')) {
+                localStorage.removeItem(STORAGE_KEY);
+                window.location.reload();
+              }
+            }}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
               <path d="M21 3v5h-5"/>
             </svg>
-            <span className="reset-text">重置进度</span>
+          </button>
+          
+          {/* 中间：可交互的沉浸指示胶囊（点击展开/收起掌握度面板） */}
+          <button 
+            className={`header-meta-pill ${isPanelOpen ? 'active' : ''}`}
+            onClick={() => setIsPanelOpen(prev => !prev)}
+            title={isPanelOpen ? "收起筛选面板" : "展开掌握度面板"}
+          >
+            <span className="pill-db-name">🧮 百化分速记</span>
+            <span className="pill-divider">·</span>
+            <span className="pill-cat-name">{quizMode === 'percentToFraction' ? '🎯 百化分' : '🔄 分化百'}</span>
+            <span className="pill-progress-text">({currentIndex + 1}/{items.length})</span>
+            <span className={`pill-chevron ${isPanelOpen ? 'open' : ''}`}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </span>
+          </button>
+
+          {/* 右上角：搜索按钮 */}
+          <button 
+            className={`header-icon-btn search-header-btn ${(isSearchOpen || searchQuery) ? 'active' : ''}`} 
+            onClick={() => setIsSearchOpen(prev => !prev)} 
+            title="搜索百化分数据"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
           </button>
         </div>
+
+        {/* 顶部展开式搜索栏 */}
+        {(isSearchOpen || searchQuery.trim() !== '') && (
+          <form 
+            className="search-bar-box"
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.target.querySelector('input')?.blur();
+            }}
+          >
+            <svg className="search-box-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              type="search"
+              enterKeyHint="search"
+              autoFocus
+              className="search-box-input"
+              placeholder={`搜索百分数或分数 (${items.length} 题，如 16.7% 或 1/6)...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.target.blur();
+                }
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="search-box-clear"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSearchQuery('');
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSearchQuery('');
+                }}
+                title="清空搜索"
+              >
+                ✕
+              </button>
+            )}
+          </form>
+        )}
+
+        {/* 沉浸式下拉抽屉面板 */}
+        {isPanelOpen && (
+          <div className="progress-container panel-drawer-open">
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+            </div>
+            <div className="stats">
+              <button 
+                className={`stat-item ${filter === 'known' ? 'active-known' : ''}`}
+                onClick={() => handleFilterClick('known')}
+                title="只复习已掌握"
+              >
+                <span className="dot dot-known"></span>
+                已掌握: <span className="stat-count">{stats.known}</span>
+              </button>
+              <button 
+                className={`stat-item ${filter === 'unknown' ? 'active-unknown' : ''}`}
+                onClick={() => handleFilterClick('unknown')}
+                title="只复习未掌握"
+              >
+                <span className="dot dot-unknown"></span>
+                未掌握: <span className="stat-count">{stats.unknown}</span>
+              </button>
+              <button 
+                className={`stat-item ${filter === 'all' ? 'active-all' : ''}`}
+                onClick={() => setFilter('all')}
+                title="查看全部"
+              >
+                总计: <span className="stat-count">{total}</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </header>
+
+      <main className="main-content" ref={mainContentRef} style={{ marginTop: `${calculatedMarginTop}px` }}>
+        {searchQuery.trim() !== '' ? (
+          <div className="search-knowledge-view">
+            <div className="search-results-bar">
+              <span className="search-count-text">
+                共匹配到 <strong>{searchMatchedItems.length}</strong> 条数据
+              </span>
+              <button className="search-clear-action-btn" onClick={() => setSearchQuery('')}>
+                清空搜索
+              </button>
+            </div>
+
+            {searchMatchedItems.length === 0 ? (
+              <div className="empty-state-card">
+                <h3>未找到匹配项</h3>
+                <p>请尝试搜索其他数值（如 6.7、1/15 等）</p>
+                <button className="empty-state-btn" onClick={() => setSearchQuery('')}>
+                  清空搜索
+                </button>
+              </div>
+            ) : (
+              <div className="knowledge-cards-list">
+                {searchMatchedItems.map((item, idx) => (
+                  <div key={idx} className="knowledge-card" onClick={() => handleSelectSearchItem(item)}>
+                    <div className="knowledge-card-top">
+                      <span className="item-index">#{item.id}</span>
+                      <span className={`knowledge-status-tag status-tag-${item.status}`}>
+                        {item.status === 'known' ? '已掌握' : item.status === 'unknown' ? '未掌握' : '未学'}
+                      </span>
+                    </div>
+                    <div className="search-result-equation">
+                      <span className="search-result-percent">
+                        {renderHighlightedText(item.percent, searchQuery)}
+                      </span>
+                      <span className="search-result-equals">≈</span>
+                      <span className="search-result-fraction">
+                        {renderHighlightedText(item.fraction, searchQuery)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Main Prompt Card */}
+            <div className="practice-card">
+              <div className="card-top-info">
+                <span className="item-index">#{currentItem.id}</span>
+                {currentItem.status !== 'new' && (
+                  <span className="status-badge-inline" style={{ backgroundColor: getStatusColor(currentItem.status) }}>
+                    上次标记: {currentItem.status === 'known' ? '已掌握' : '未掌握'}
+                  </span>
+                )}
+              </div>
+
+              <div className="question-display">
+                <div className="question-prompt">
+                  {quizMode === 'percentToFraction' ? currentItem.percent : currentItem.fraction}
+                </div>
+                <div className="question-hint">
+                  {quizMode === 'percentToFraction' ? '请输入对应的分母' : '请输入对应的百分数'}
+                </div>
+              </div>
+
+              {/* Typing Display Box */}
+              <div className={`input-display-box ${feedbackState}`}>
+                {quizMode === 'percentToFraction' ? (
+                  <div className="fraction-input-format">
+                    <span className="fraction-numerator">1 / </span>
+                    <span className="typed-val">
+                      {inputVal || <span className="placeholder">?</span>}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="percent-input-format">
+                    <span className="typed-val">
+                      {inputVal || <span className="placeholder">?</span>}
+                    </span>
+                    <span className="percent-unit">%</span>
+                  </div>
+                )}
+                
+                {feedbackState === 'correct' && <span className="status-icon success-icon">✓</span>}
+                {feedbackState === 'revealed' && <span className="status-icon revealed-icon">✗</span>}
+              </div>
+
+              {/* Full Equation Display when confirmed/answered */}
+              {isAnswered && (
+                <div className={`revealed-equation ${isCorrect ? 'equation-correct' : 'equation-wrong'}`}>
+                  {isCorrect ? '✓ 回答正确！' : '✗ 回答错误'} 正确等式：<strong>{currentItem.percent} = {currentItem.fraction}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* Numpad Keyboard */}
+            <div className="numpad-container">
+              <div className="numpad-grid">
+                {numpadKeys.map(key => (
+                  <button
+                    key={key}
+                    className={`numpad-btn ${key === '⌫' ? 'backspace-btn' : ''} ${key === '.' ? 'dot-btn' : ''}`}
+                    onClick={() => handleKeyPress(key)}
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+
+              <div className="numpad-actions">
+                <button 
+                  className="action-btn prev-btn" 
+                  onClick={handlePrev} 
+                  disabled={history.length === 0}
+                >
+                  上一题
+                </button>
+                <button 
+                  className="action-btn clear-btn" 
+                  onClick={() => setInputVal('')}
+                  disabled={!inputVal || isAnswered}
+                >
+                  清空
+                </button>
+                {isAnswered ? (
+                  <button 
+                    className="action-btn next-btn"
+                    onClick={handleConfirm}
+                  >
+                    下一题 ➜
+                  </button>
+                ) : (
+                  <button 
+                    className="action-btn answer-btn"
+                    onClick={handleConfirm}
+                  >
+                    确认
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </main>
+
+      {/* 底部悬浮模式栏（极简单层设计） */}
+      <nav className="floating-mode-bar" ref={modeBarRef}>
+        <button 
+          className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} 
+          onClick={() => { setQuizMode('percentToFraction'); setInputVal(''); setFeedbackState('idle'); setIsAnswered(false); setIsCorrect(false); }}
+        >
+          百化分
+        </button>
+        <button 
+          className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} 
+          onClick={() => { setQuizMode('fractionToPercent'); setInputVal(''); setFeedbackState('idle'); setIsAnswered(false); setIsCorrect(false); }}
+        >
+          分化百
+        </button>
+
+        <span className="mode-divider"></span>
+
+        <button className={`mode-btn random-btn ${!isRandom ? 'active' : ''}`} onClick={() => setIsRandom(false)}>
+          顺序
+        </button>
+        <button className={`mode-btn random-btn ${isRandom ? 'active' : ''}`} onClick={() => setIsRandom(true)}>
+          随机
+        </button>
+      </nav>
     </div>
   );
 }
 
 export default App;
+
