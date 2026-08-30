@@ -374,31 +374,37 @@ function App() {
                 newCols[loc1.cIdx][loc1.rIdx] = card1;
                 newCols[loc2.cIdx][loc2.rIdx] = card2;
 
-                // 2. 将被置换出来的 2 张旧卡片补入最矮的 2 列顶部
-                const availableCols = [0, 1, 2, 3]
-                  .map(cIdx => ({ cIdx, len: newCols[cIdx].length }))
-                  .filter(c => c.len < 6)
-                  .sort((a, b) => a.len - b.len);
+                // 2. 收集所有可用的空槽位（一列有几个空位就记录几次，彻底避免同一列消除导致少补一张牌）
+                const freeSlots = [];
+                for (let c = 0; c < 4; c++) {
+                  const needed = 6 - newCols[c].length;
+                  for (let k = 0; k < needed; k++) {
+                    freeSlots.push(c);
+                  }
+                }
 
-                if (availableCols.length >= 2) {
-                  const t1 = availableCols[0].cIdx;
-                  const t2 = availableCols[1].cIdx;
+                if (freeSlots.length >= 2) {
+                  const t1 = freeSlots[0];
+                  const t2 = freeSlots[1];
                   newCols[t1] = [{ ...oldTile1, isDropping: true }, ...newCols[t1]];
                   newCols[t2] = [{ ...oldTile2, isDropping: true }, ...newCols[t2]];
-                } else if (availableCols.length === 1) {
-                  const t1 = availableCols[0].cIdx;
+                } else if (freeSlots.length === 1) {
+                  const t1 = freeSlots[0];
                   newCols[t1] = [{ ...oldTile1, isDropping: true }, ...newCols[t1]];
                 }
               } else {
                 // 兜底（局末剩余极少卡片时直接补入）
-                const availableCols = [0, 1, 2, 3]
-                  .map(cIdx => ({ cIdx, len: newCols[cIdx].length }))
-                  .filter(c => c.len < 6)
-                  .sort((a, b) => a.len - b.len);
+                const freeSlots = [];
+                for (let c = 0; c < 4; c++) {
+                  const needed = 6 - newCols[c].length;
+                  for (let k = 0; k < needed; k++) {
+                    freeSlots.push(c);
+                  }
+                }
 
-                if (availableCols.length >= 2) {
-                  newCols[availableCols[0].cIdx] = [card1, ...newCols[availableCols[0].cIdx]];
-                  newCols[availableCols[1].cIdx] = [card2, ...newCols[availableCols[1].cIdx]];
+                if (freeSlots.length >= 2) {
+                  newCols[freeSlots[0]] = [card1, ...newCols[freeSlots[0]]];
+                  newCols[freeSlots[1]] = [card2, ...newCols[freeSlots[1]]];
                 }
               }
 
