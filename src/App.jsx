@@ -77,7 +77,7 @@ function App() {
 
   // 🎮 Match Elimination Game States (4-Column Vertical Gravity)
   const [gameColumns, setGameColumns] = useState([[], [], [], []]); // 4 列垂直立柱栈
-  const [drawPilePairs, setDrawPilePairs] = useState([]); // 按对存储的储备池 (18对)
+  const [drawPileBatches, setDrawPileBatches] = useState([]); // 交叉交错打散的空投批次（每次掉落的2张绝不属于同一对）
   const [remainingPairs, setRemainingPairs] = useState(30);
   const [selectedTile, setSelectedTile] = useState(null); // { colIdx: number, tileId: string } | null
   const [isProcessingMatch, setIsProcessingMatch] = useState(false);
@@ -136,7 +136,7 @@ function App() {
 
     // 前 12 组（24 张卡片）分入 4 根立柱，每列 6 张
     const boardItems = pool.slice(0, 12);
-    const reserveItems = pool.slice(12);
+    const reserveItems = pool.slice(12); // 18 组储备题目
 
     const boardTiles = boardItems.flatMap(item => makeTilePair(item));
     for (let i = boardTiles.length - 1; i > 0; i--) {
@@ -150,14 +150,27 @@ function App() {
     const col2 = boardTiles.slice(12, 18);
     const col3 = boardTiles.slice(18, 24);
 
-    // 储备池按对存储 (18 对)
-    const reservePairs = reserveItems.map(item => {
-      const [frac, pct] = makeTilePair(item);
-      return { frac, pct };
-    });
+    // 储备池按「2对交叉交错」打散：
+    // 每 2 对 (A, B) 分解为两批：
+    // 批次 1: [A.frac, B.pct] -> 掉落的 2 张绝不是一对！
+    // 批次 2: [B.frac, A.pct] -> 掉落的 2 张绝不是一对，但分别与已在场上的伙伴配对！
+    const dropBatches = [];
+    for (let i = 0; i < reserveItems.length; i += 2) {
+      const itemA = reserveItems[i];
+      const itemB = reserveItems[i + 1];
+      if (itemA && itemB) {
+        const [fracA, pctA] = makeTilePair(itemA);
+        const [fracB, pctB] = makeTilePair(itemB);
+        dropBatches.push([fracA, pctB]);
+        dropBatches.push([fracB, pctA]);
+      } else if (itemA) {
+        const [fracA, pctA] = makeTilePair(itemA);
+        dropBatches.push([fracA, pctA]);
+      }
+    }
 
     setGameColumns([col0, col1, col2, col3]);
-    setDrawPilePairs(reservePairs);
+    setDrawPileBatches(dropBatches);
     setRemainingPairs(totalPairs);
     setSelectedTile(null);
     setIsProcessingMatch(false);
@@ -330,10 +343,10 @@ function App() {
 
       // 2. 220ms 后执行重力下落与从顶部平滑补牌
       setTimeout(() => {
-        setDrawPilePairs(prevPairs => {
-          const hasReserve = prevPairs.length > 0;
-          const pair = hasReserve ? prevPairs[0] : null;
-          const remainingDeck = hasReserve ? prevPairs.slice(1) : [];
+        setDrawPileBatches(prevBatches => {
+          const hasReserve = prevBatches.length > 0;
+          const batch = hasReserve ? prevBatches[0] : null;
+          const remainingDeck = hasReserve ? prevBatches.slice(1) : [];
 
           setGameColumns(prevCols => {
             // 先过滤掉被消除的卡片（该列上方卡片自动顺滑跌落）
@@ -341,11 +354,10 @@ function App() {
               return col.filter(t => t.id !== firstTile.id && t.id !== secondTile.id);
             });
 
-            // 如果储备池还有牌，从顶部向对应的列注入新卡片
-            if (hasReserve && pair) {
-              const swap = Math.random() > 0.5;
-              const card1 = { ...(swap ? pair.pct : pair.frac), isDropping: true };
-              const card2 = { ...(swap ? pair.frac : pair.pct), isDropping: true };
+            // 如果储备池还有牌，从顶部向对应的列注入 2 张互不配对的新卡片
+            if (hasReserve && batch) {
+              const card1 = { ...batch[0], isDropping: true };
+              const card2 = { ...batch[1], isDropping: true };
 
               if (firstColIdx !== secondColIdx) {
                 // 两个消除位置位于不同列：直接向这两列的顶部各放入一张
