@@ -76,7 +76,7 @@ function App() {
 
   // 🎮 Match Elimination Game States
   const [gameTiles, setGameTiles] = useState([]);
-  const [drawPileCards, setDrawPileCards] = useState([]); // 扁平化充分打乱的单张卡片池
+  const [drawPilePairs, setDrawPilePairs] = useState([]); // 按对存储的储备池，保证棋盘永远可解
   const [remainingPairs, setRemainingPairs] = useState(30);
   const [selectedTileIndex, setSelectedTileIndex] = useState(null);
   const [isProcessingMatch, setIsProcessingMatch] = useState(false);
@@ -89,86 +89,72 @@ function App() {
     return saved ? Number(saved) : null;
   });
   const [isNewRecord, setIsNewRecord] = useState(false);
+  const timerRef = useRef(0); // 用 ref 跟踪真实计时器值，避免 setTimeout 闭包陈旧
 
   const headerRef = useRef(null);
   const modeBarRef = useRef(null);
   const mainContentRef = useRef(null);
 
+  // 工具函数：根据 data item 创建一对 [fraction卡, percent卡]
+  const makeTilePair = (item) => {
+    const fracParts = item.fraction.split('/');
+    const fracTile = {
+      id: `f_${item.id}_${Date.now()}_${Math.random()}`,
+      pairId: item.id,
+      type: 'fraction',
+      num: fracParts[0] || '1',
+      den: fracParts[1] || item.fraction,
+      isMatched: false,
+      isMismatching: false,
+      isDropping: false,
+    };
+    const pctTile = {
+      id: `p_${item.id}_${Date.now()}_${Math.random()}`,
+      pairId: item.id,
+      type: 'percent',
+      value: item.percent,
+      isMatched: false,
+      isMismatching: false,
+      isDropping: false,
+    };
+    return [fracTile, pctTile];
+  };
+
   // Initialize and start a new match game round with full 30-pair deck
   const startNewGame = useCallback(() => {
-    // 1. 获取全部 30 组题目
-    const shuffledPool = [...initialItems].sort(() => Math.random() - 0.5);
-    const totalPairs = shuffledPool.length;
+    // 1. 获取全部 30 组题目，Fisher-Yates 洗牌
+    const pool = [...initialItems];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const totalPairs = pool.length;
 
     // 前 12 组用于初始棋盘（24 张卡片）
-    const boardItems = shuffledPool.slice(0, 12);
-    // 剩余 18 组用于储备卡片池（36 张卡片）
-    const remainingItems = shuffledPool.slice(12);
+    const boardItems = pool.slice(0, 12);
+    // 剩余 18 组作为储备对（按对存储！保证每次补牌都补完整的一对）
+    const reserveItems = pool.slice(12);
 
-    const initialBoardTiles = [];
-    boardItems.forEach((item) => {
-      const fracParts = item.fraction.split('/');
-      initialBoardTiles.push({
-        id: `f_${item.id}_${Date.now()}_${Math.random()}`,
-        pairId: item.id,
-        type: 'fraction',
-        num: fracParts[0] || '1',
-        den: fracParts[1] || item.fraction,
-        isMatched: false,
-        isMismatching: false,
-        isDropping: false,
-      });
-      initialBoardTiles.push({
-        id: `p_${item.id}_${Date.now()}_${Math.random()}`,
-        pairId: item.id,
-        type: 'percent',
-        value: item.percent,
-        isMatched: false,
-        isMismatching: false,
-        isDropping: false,
-      });
-    });
-
-    // 棋盘初始 24 张卡片充分洗牌打散
-    const shuffledBoardTiles = initialBoardTiles.sort(() => Math.random() - 0.5);
-
-    // 储备池 36 张单张卡片彻底打散（打破成对连续排布）
-    const reserveCards = [];
-    remainingItems.forEach((item) => {
-      const fracParts = item.fraction.split('/');
-      reserveCards.push({
-        id: `f_${item.id}_${Date.now()}_${Math.random()}`,
-        pairId: item.id,
-        type: 'fraction',
-        num: fracParts[0] || '1',
-        den: fracParts[1] || item.fraction,
-        isMatched: false,
-        isMismatching: false,
-        isDropping: true,
-      });
-      reserveCards.push({
-        id: `p_${item.id}_${Date.now()}_${Math.random()}`,
-        pairId: item.id,
-        type: 'percent',
-        value: item.percent,
-        isMatched: false,
-        isMismatching: false,
-        isDropping: true,
-      });
-    });
-
-    // 进行 Fisher-Yates 深度洗牌
-    for (let i = reserveCards.length - 1; i > 0; i--) {
+    // 棋盘：把 12 对展开为 24 张卡片，再 Fisher-Yates 洗牌
+    const boardTiles = boardItems.flatMap(item => makeTilePair(item));
+    for (let i = boardTiles.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [reserveCards[i], reserveCards[j]] = [reserveCards[j], reserveCards[i]];
+      [boardTiles[i], boardTiles[j]] = [boardTiles[j], boardTiles[i]];
     }
 
-    setGameTiles(shuffledBoardTiles);
-    setDrawPileCards(reserveCards);
+    // 储备池：按对存储，对的顺序已洗牌
+    const reservePairs = reserveItems.map(item => {
+      const [frac, pct] = makeTilePair(item);
+      return { frac: { ...frac, isDropping: true }, pct: { ...pct, isDropping: true } };
+    });
+
+    setGameTiles(boardTiles);
+    setDrawPilePairs(reservePairs);
     setRemainingPairs(totalPairs);
     setSelectedTileIndex(null);
     setIsProcessingMatch(false);
     setTimerSeconds(0);
+    timerRef.current = 0;
     setIsGamePaused(false);
     setIsGameVictory(false);
     setMismatchesCount(0);
@@ -188,7 +174,10 @@ function App() {
     let timer = null;
     if (quizMode === 'matchGame' && !isGamePaused && !isGameVictory) {
       timer = setInterval(() => {
-        setTimerSeconds(prev => prev + 1);
+        setTimerSeconds(prev => {
+          timerRef.current = prev + 1;
+          return prev + 1;
+        });
       }, 1000);
     }
     return () => {
@@ -311,61 +300,46 @@ function App() {
       const nextRemaining = remainingPairs - 1;
       setRemainingPairs(nextRemaining);
 
-      // 2. After 220ms, 从打乱的单张卡片池中抽取 2 张互不配对的新卡片掉落下落
+      // 2. After 220ms, 从储备池抽取一整对新卡片掉落（保证棋盘始终可解）
       setTimeout(() => {
-        if (drawPileCards.length >= 2) {
-          let c1 = drawPileCards[0];
-          let c2 = drawPileCards[1];
-          let remainingPool = drawPileCards.slice(2);
+        setDrawPilePairs(prevPairs => {
+          if (prevPairs.length > 0) {
+            const pair = prevPairs[0];
+            const remaining = prevPairs.slice(1);
 
-          // 确保新掉落到这两个位置的卡片绝不是同一组配对
-          if (c1.pairId === c2.pairId && drawPileCards.length > 2) {
-            c2 = drawPileCards[2];
-            remainingPool = [drawPileCards[1], ...drawPileCards.slice(3)];
+            // 随机决定 fraction/percent 哪张卡片掉到哪个空位（避免视觉上"放一起"）
+            const swap = Math.random() > 0.5;
+            const t1 = swap ? pair.pct : pair.frac;
+            const t2 = swap ? pair.frac : pair.pct;
+
+            setGameTiles(prevTiles => {
+              const refilled = [...prevTiles];
+              refilled[firstIdx] = { ...t1, isDropping: true };
+              refilled[secondIdx] = { ...t2, isDropping: true };
+              return refilled;
+            });
+
+            setTimeout(() => {
+              setGameTiles(prevTiles => {
+                const cleaned = [...prevTiles];
+                if (cleaned[firstIdx]) cleaned[firstIdx] = { ...cleaned[firstIdx], isDropping: false };
+                if (cleaned[secondIdx]) cleaned[secondIdx] = { ...cleaned[secondIdx], isDropping: false };
+                return cleaned;
+              });
+            }, 350);
+
+            return remaining;
           }
-
-          setDrawPileCards(remainingPool);
-
-          setGameTiles(prevTiles => {
-            const refilled = [...prevTiles];
-            refilled[firstIdx] = { ...c1, isDropping: true };
-            refilled[secondIdx] = { ...c2, isDropping: true };
-            return refilled;
-          });
-
-          setTimeout(() => {
-            setGameTiles(prevTiles => {
-              const cleaned = [...prevTiles];
-              if (cleaned[firstIdx]) cleaned[firstIdx] = { ...cleaned[firstIdx], isDropping: false };
-              if (cleaned[secondIdx]) cleaned[secondIdx] = { ...cleaned[secondIdx], isDropping: false };
-              return cleaned;
-            });
-          }, 350);
-        } else if (drawPileCards.length === 1) {
-          const c1 = drawPileCards[0];
-          setDrawPileCards([]);
-
-          setGameTiles(prevTiles => {
-            const refilled = [...prevTiles];
-            refilled[firstIdx] = { ...c1, isDropping: true };
-            return refilled;
-          });
-
-          setTimeout(() => {
-            setGameTiles(prevTiles => {
-              const cleaned = [...prevTiles];
-              if (cleaned[firstIdx]) cleaned[firstIdx] = { ...cleaned[firstIdx], isDropping: false };
-              return cleaned;
-            });
-          }, 350);
-        }
+          // 储备池已空，不补牌（棋盘上的剩余卡片自行消除）
+          return prevPairs;
+        });
 
         setIsProcessingMatch(false);
 
-        // Check if all 30 pairs are cleared
+        // Check if all pairs are cleared
         if (nextRemaining === 0) {
           setIsGameVictory(true);
-          const finalTime = timerSeconds;
+          const finalTime = timerRef.current; // 使用 ref 读取真实计时器值，不受闭包陈旧影响
           const currentBest = localStorage.getItem(BEST_TIME_KEY);
           if (!currentBest || finalTime < Number(currentBest)) {
             localStorage.setItem(BEST_TIME_KEY, String(finalTime));
