@@ -300,33 +300,69 @@ function App() {
       const nextRemaining = remainingPairs - 1;
       setRemainingPairs(nextRemaining);
 
-      // 2. After 220ms, 从储备池抽取一整对新卡片掉落（保证棋盘始终可解）
+      // 2. After 220ms, 从储备池抽取一整对新卡片，并采用「置换打散」补位机制
+      // 将棋盘其他位置的旧卡片挪到刚消除的2个空位，新成对卡片空投到远处随机位置
+      // 彻底解决"刚消完的新卡片又刷在同两个坑里直接连点"的问题，同时100%保证全盘可解无死局
       setTimeout(() => {
         setDrawPilePairs(prevPairs => {
           if (prevPairs.length > 0) {
             const pair = prevPairs[0];
             const remaining = prevPairs.slice(1);
 
-            // 随机决定 fraction/percent 哪张卡片掉到哪个空位（避免视觉上"放一起"）
-            const swap = Math.random() > 0.5;
-            const t1 = swap ? pair.pct : pair.frac;
-            const t2 = swap ? pair.frac : pair.pct;
-
             setGameTiles(prevTiles => {
               const refilled = [...prevTiles];
-              refilled[firstIdx] = { ...t1, isDropping: true };
-              refilled[secondIdx] = { ...t2, isDropping: true };
+
+              // 找出棋盘上除刚消除位置外的所有未消除卡片索引
+              const activeIndices = [];
+              prevTiles.forEach((t, i) => {
+                if (i !== firstIdx && i !== secondIdx && !t.isMatched) {
+                  activeIndices.push(i);
+                }
+              });
+
+              if (activeIndices.length >= 2) {
+                // 随机选出 2 个远处的卡片位置进行打散置换
+                const r1 = Math.floor(Math.random() * activeIndices.length);
+                const swapIdx1 = activeIndices[r1];
+                activeIndices.splice(r1, 1);
+                const r2 = Math.floor(Math.random() * activeIndices.length);
+                const swapIdx2 = activeIndices[r2];
+
+                // 1. 将远处的 2 张旧卡片挪入刚消除的空位 (firstIdx, secondIdx)
+                refilled[firstIdx] = { ...prevTiles[swapIdx1], isDropping: true };
+                refilled[secondIdx] = { ...prevTiles[swapIdx2], isDropping: true };
+
+                // 2. 全新的一对卡片 (frac & pct) 掉落到远处的 swapIdx1 和 swapIdx2
+                const swap = Math.random() > 0.5;
+                refilled[swapIdx1] = { ...(swap ? pair.pct : pair.frac), isDropping: true };
+                refilled[swapIdx2] = { ...(swap ? pair.frac : pair.pct), isDropping: true };
+
+                setTimeout(() => {
+                  setGameTiles(current => {
+                    const cleaned = [...current];
+                    [firstIdx, secondIdx, swapIdx1, swapIdx2].forEach(pos => {
+                      if (cleaned[pos]) cleaned[pos] = { ...cleaned[pos], isDropping: false };
+                    });
+                    return cleaned;
+                  });
+                }, 350);
+              } else {
+                // 兜底（棋盘剩余极少卡片时）
+                const swap = Math.random() > 0.5;
+                refilled[firstIdx] = { ...(swap ? pair.pct : pair.frac), isDropping: true };
+                refilled[secondIdx] = { ...(swap ? pair.frac : pair.pct), isDropping: true };
+                setTimeout(() => {
+                  setGameTiles(current => {
+                    const cleaned = [...current];
+                    if (cleaned[firstIdx]) cleaned[firstIdx] = { ...cleaned[firstIdx], isDropping: false };
+                    if (cleaned[secondIdx]) cleaned[secondIdx] = { ...cleaned[secondIdx], isDropping: false };
+                    return cleaned;
+                  });
+                }, 350);
+              }
+
               return refilled;
             });
-
-            setTimeout(() => {
-              setGameTiles(prevTiles => {
-                const cleaned = [...prevTiles];
-                if (cleaned[firstIdx]) cleaned[firstIdx] = { ...cleaned[firstIdx], isDropping: false };
-                if (cleaned[secondIdx]) cleaned[secondIdx] = { ...cleaned[secondIdx], isDropping: false };
-                return cleaned;
-              });
-            }, 350);
 
             return remaining;
           }
