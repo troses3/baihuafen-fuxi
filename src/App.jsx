@@ -341,30 +341,26 @@ function App() {
               return col.filter(t => t.id !== firstTile.id && t.id !== secondTile.id);
             });
 
-            // 如果储备池还有牌，从顶部向对应的列注入新卡片
+            // 如果储备池还有牌，从顶部向最矮的列注入新卡片（严格上限 6 张，绝不溢出第 7 行）
             if (hasReserve && pair) {
               const swap = Math.random() > 0.5;
               const card1 = { ...(swap ? pair.pct : pair.frac), isDropping: true };
               const card2 = { ...(swap ? pair.frac : pair.pct), isDropping: true };
 
-              if (firstColIdx !== secondColIdx) {
-                // 两个消除位置位于不同列：直接向这两列的顶部各放入一张
-                newCols[firstColIdx] = [card1, ...newCols[firstColIdx]];
-                newCols[secondColIdx] = [card2, ...newCols[secondColIdx]];
-              } else {
-                // 两个消除位置位于同一列：一张入该列，另一张入当前高度最短的列
-                newCols[firstColIdx] = [card1, ...newCols[firstColIdx]];
-                
-                // 寻找其他 3 列中最矮的一列
-                let minColIdx = (firstColIdx + 1) % 4;
-                let minLen = newCols[minColIdx].length;
-                for (let c = 0; c < 4; c++) {
-                  if (c !== firstColIdx && newCols[c].length < minLen) {
-                    minLen = newCols[c].length;
-                    minColIdx = c;
-                  }
-                }
-                newCols[minColIdx] = [card2, ...newCols[minColIdx]];
+              // 严格筛选当前高度 < 6 的列，优先补入最矮的列
+              const availableCols = [0, 1, 2, 3]
+                .map(cIdx => ({ cIdx, len: newCols[cIdx].length }))
+                .filter(c => c.len < 6)
+                .sort((a, b) => a.len - b.len);
+
+              if (availableCols.length >= 2) {
+                const target1 = availableCols[0].cIdx;
+                const target2 = availableCols[1].cIdx;
+                newCols[target1] = [card1, ...newCols[target1]];
+                newCols[target2] = [card2, ...newCols[target2]];
+              } else if (availableCols.length === 1) {
+                const target1 = availableCols[0].cIdx;
+                newCols[target1] = [card1, ...newCols[target1]];
               }
 
               // 350ms 后清除 isDropping 动画标记
