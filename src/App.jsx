@@ -3,6 +3,7 @@ import initialItems from '../data.json';
 import './App.css';
 
 const STORAGE_KEY = 'baihuafen-tracker-data-v2';
+const BEST_TIME_KEY = 'baihuafen-match-best-time';
 
 const renderHighlightedText = (text, query) => {
   if (!text) return '';
@@ -20,6 +21,12 @@ const renderHighlightedText = (text, query) => {
       part
     );
   });
+};
+
+const formatTime = (secs) => {
+  const m = Math.floor(secs / 60).toString().padStart(2, '0');
+  const s = (secs % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
 };
 
 function App() {
@@ -51,11 +58,11 @@ function App() {
     return localStorage.getItem('baihuafen-tracker-random') === 'true';
   });
   const [quizMode, setQuizMode] = useState(() => {
-    return localStorage.getItem('baihuafen-tracker-quiz-mode') || 'percentToFraction'; // 'percentToFraction' or 'fractionToPercent'
+    return localStorage.getItem('baihuafen-tracker-quiz-mode') || 'percentToFraction'; // 'percentToFraction', 'fractionToPercent', 'matchGame'
   });
   const [history, setHistory] = useState([]);
 
-  // Input & Answer States
+  // Input & Answer States for Practice Mode
   const [inputVal, setInputVal] = useState('');
   const [feedbackState, setFeedbackState] = useState('idle'); // 'idle', 'correct', 'revealed'
   const [isAnswered, setIsAnswered] = useState(false);
@@ -67,9 +74,63 @@ function App() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [calculatedMarginTop, setCalculatedMarginTop] = useState(0);
 
+  // 🎮 Match Elimination Game States
+  const [gameTiles, setGameTiles] = useState([]);
+  const [selectedTileIndex, setSelectedTileIndex] = useState(null);
+  const [isProcessingMatch, setIsProcessingMatch] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isGamePaused, setIsGamePaused] = useState(false);
+  const [isGameVictory, setIsGameVictory] = useState(false);
+  const [mismatchesCount, setMismatchesCount] = useState(0);
+  const [bestRecord, setBestRecord] = useState(() => {
+    const saved = localStorage.getItem(BEST_TIME_KEY);
+    return saved ? Number(saved) : null;
+  });
+  const [isNewRecord, setIsNewRecord] = useState(false);
+
   const headerRef = useRef(null);
   const modeBarRef = useRef(null);
   const mainContentRef = useRef(null);
+
+  // Initialize and start a new match game round
+  const startNewGame = useCallback(() => {
+    // Pick 12 random unique items from initialItems
+    const shuffledPool = [...initialItems].sort(() => Math.random() - 0.5);
+    const selected12 = shuffledPool.slice(0, 12);
+
+    const tiles = [];
+    selected12.forEach((item) => {
+      const fracParts = item.fraction.split('/');
+      tiles.push({
+        id: `f_${item.id}`,
+        pairId: item.id,
+        type: 'fraction',
+        num: fracParts[0] || '1',
+        den: fracParts[1] || item.fraction,
+        isMatched: false,
+        isMismatching: false,
+      });
+      tiles.push({
+        id: `p_${item.id}`,
+        pairId: item.id,
+        type: 'percent',
+        value: item.percent,
+        isMatched: false,
+        isMismatching: false,
+      });
+    });
+
+    // Shuffle 24 tiles thoroughly
+    const shuffledTiles = tiles.sort(() => Math.random() - 0.5);
+    setGameTiles(shuffledTiles);
+    setSelectedTileIndex(null);
+    setIsProcessingMatch(false);
+    setTimerSeconds(0);
+    setIsGamePaused(false);
+    setIsGameVictory(false);
+    setMismatchesCount(0);
+    setIsNewRecord(false);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('baihuafen-tracker-random', isRandom);
@@ -79,7 +140,20 @@ function App() {
     localStorage.setItem('baihuafen-tracker-quiz-mode', quizMode);
   }, [quizMode]);
 
-  // Initial random selection if random mode is on
+  // Handle Game Timer
+  useEffect(() => {
+    let timer = null;
+    if (quizMode === 'matchGame' && !isGamePaused && !isGameVictory) {
+      timer = setInterval(() => {
+        setTimerSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [quizMode, isGamePaused, isGameVictory]);
+
+  // Initial random selection for practice mode
   useEffect(() => {
     const isRandomStored = localStorage.getItem('baihuafen-tracker-random') === 'true';
     if (isRandomStored && items.length > 0) {
@@ -99,6 +173,13 @@ function App() {
       }
     }
   }, []);
+
+  // Auto initialize game tiles if switching to matchGame
+  useEffect(() => {
+    if (quizMode === 'matchGame' && gameTiles.length === 0) {
+      startNewGame();
+    }
+  }, [quizMode, gameTiles.length, startNewGame]);
 
   useEffect(() => {
     if (items.length > 0) {
@@ -137,13 +218,10 @@ function App() {
       window.removeEventListener('resize', calculateMargin);
       observer.disconnect();
     };
-  }, [searchQuery, isSearchOpen, isPanelOpen, currentIndex, quizMode, isAnswered, feedbackState]);
+  }, [searchQuery, isSearchOpen, isPanelOpen, currentIndex, quizMode, isAnswered, feedbackState, isGameVictory]);
 
   const currentItem = items[currentIndex];
 
-  // Calculate target string to match
-  // e.g. percentToFraction: 6.7% -> 1/15 => target is "15"
-  // e.g. fractionToPercent: 1/15 -> 6.7% => target is "6.7"
   const getTargetStr = useCallback((item, mode) => {
     if (!item) return '';
     if (mode === 'percentToFraction') {
@@ -154,6 +232,67 @@ function App() {
   }, []);
 
   const targetStr = getTargetStr(currentItem, quizMode);
+
+  // 🎮 Tile Click Matching Algorithm
+  const handleTileClick = (index) => {
+    if (isProcessingMatch || isGamePaused || isGameVictory) return;
+    const clickedTile = gameTiles[index];
+    if (!clickedTile || clickedTile.isMatched) return;
+
+    if (selectedTileIndex === null) {
+      setSelectedTileIndex(index);
+      return;
+    }
+
+    if (selectedTileIndex === index) {
+      setSelectedTileIndex(null);
+      return;
+    }
+
+    const firstTile = gameTiles[selectedTileIndex];
+
+    // Check if matching pair
+    if (firstTile.pairId === clickedTile.pairId && firstTile.type !== clickedTile.type) {
+      // 🎉 MATCH SUCCESS!
+      const updated = [...gameTiles];
+      updated[selectedTileIndex].isMatched = true;
+      updated[index].isMatched = true;
+      setGameTiles(updated);
+      setSelectedTileIndex(null);
+
+      const remaining = updated.filter(t => !t.isMatched).length;
+      if (remaining === 0) {
+        // 🏆 VICTORY!
+        setIsGameVictory(true);
+        const finalTime = timerSeconds;
+        const currentBest = localStorage.getItem(BEST_TIME_KEY);
+        if (!currentBest || finalTime < Number(currentBest)) {
+          localStorage.setItem(BEST_TIME_KEY, String(finalTime));
+          setBestRecord(finalTime);
+          setIsNewRecord(true);
+        }
+      }
+    } else {
+      // ❌ MISMATCH!
+      const updated = [...gameTiles];
+      updated[selectedTileIndex].isMismatching = true;
+      updated[index].isMismatching = true;
+      setGameTiles(updated);
+      setMismatchesCount(prev => prev + 1);
+      setIsProcessingMatch(true);
+
+      setTimeout(() => {
+        setGameTiles(prevTiles => {
+          const reset = [...prevTiles];
+          if (reset[selectedTileIndex]) reset[selectedTileIndex].isMismatching = false;
+          if (reset[index]) reset[index].isMismatching = false;
+          return reset;
+        });
+        setSelectedTileIndex(null);
+        setIsProcessingMatch(false);
+      }, 450);
+    }
+  };
 
   const searchMatchedItems = (searchQuery && searchQuery.trim() !== '')
     ? items.filter(item => {
@@ -169,6 +308,9 @@ function App() {
   const handleSelectSearchItem = (targetItem) => {
     const targetIndex = items.findIndex(i => i.id === targetItem.id);
     if (targetIndex !== -1) {
+      if (quizMode === 'matchGame') {
+        setQuizMode('percentToFraction');
+      }
       setFilter('all');
       setSearchQuery('');
       setIsSearchOpen(false);
@@ -276,6 +418,7 @@ function App() {
 
   // Process Numpad Key Press
   const handleKeyPress = useCallback((key) => {
+    if (quizMode === 'matchGame') return;
     if (feedbackState === 'correct' || feedbackState === 'revealed') return;
 
     if (key === '⌫' || key === 'Backspace') {
@@ -298,9 +441,10 @@ function App() {
         return prev + key;
       });
     }
-  }, [feedbackState]);
+  }, [feedbackState, quizMode]);
 
   const handleConfirm = useCallback(() => {
+    if (quizMode === 'matchGame') return;
     if (isAnswered) {
       handleNext(isCorrect ? 'known' : 'unknown');
       return;
@@ -314,13 +458,19 @@ function App() {
     const updatedItems = [...items];
     updatedItems[currentIndex].status = checkCorrect ? 'known' : 'unknown';
     setItems(updatedItems);
-  }, [isAnswered, isCorrect, inputVal, targetStr, items, currentIndex, handleNext]);
+  }, [quizMode, isAnswered, isCorrect, inputVal, targetStr, items, currentIndex, handleNext]);
 
   // Physical Keyboard Listener
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't intercept if user is typing inside search input
       if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        return;
+      }
+
+      if (quizMode === 'matchGame') {
+        if (e.key === 'p' || e.key === 'P' || e.key === ' ') {
+          setIsGamePaused(prev => !prev);
+        }
         return;
       }
 
@@ -336,7 +486,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyPress, handleConfirm]);
+  }, [quizMode, handleKeyPress, handleConfirm]);
 
   const handleFilterClick = (targetFilter) => {
     if (filter === targetFilter) {
@@ -372,6 +522,7 @@ function App() {
   const total = items.length;
   const progress = total > 0 ? ((stats.known) / total) * 100 : 0;
   const numpadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+  const remainingPairs = gameTiles.filter(t => !t.isMatched).length / 2;
 
   return (
     <div className="app-container">
@@ -394,7 +545,7 @@ function App() {
             </svg>
           </button>
           
-          {/* 中间：可交互的沉浸指示胶囊（点击展开/收起掌握度面板） */}
+          {/* 中间：可交互的沉浸指示胶囊 */}
           <button 
             className={`header-meta-pill ${isPanelOpen ? 'active' : ''}`}
             onClick={() => setIsPanelOpen(prev => !prev)}
@@ -402,8 +553,15 @@ function App() {
           >
             <span className="pill-db-name">🧮 百化分速记</span>
             <span className="pill-divider">·</span>
-            <span className="pill-cat-name">{quizMode === 'percentToFraction' ? '🎯 百化分' : '🔄 分化百'}</span>
-            <span className="pill-progress-text">({currentIndex + 1}/{items.length})</span>
+            <span className="pill-cat-name">
+              {quizMode === 'percentToFraction' ? '🎯 百化分' : quizMode === 'fractionToPercent' ? '🔄 分化百' : '🎮 消消乐'}
+            </span>
+            <span className="pill-progress-text">
+              {quizMode === 'matchGame' 
+                ? `(剩余 ${remainingPairs} 对)`
+                : `(${currentIndex + 1}/${items.length})`
+              }
+            </span>
             <span className={`pill-chevron ${isPanelOpen ? 'open' : ''}`}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="6 9 12 15 18 9"></polyline>
@@ -552,9 +710,129 @@ function App() {
               </div>
             )}
           </div>
+        ) : quizMode === 'matchGame' ? (
+          /* =========================================================
+             🎮 4x6 消消乐游戏主界面
+             ========================================================= */
+          <div className="game-board-card">
+            <div className="game-top-bar">
+              <button 
+                className="game-ctrl-btn" 
+                onClick={() => setIsGamePaused(prev => !prev)}
+                title={isGamePaused ? "继续游戏" : "暂停游戏"}
+              >
+                {isGamePaused ? '▶' : '⏸'}
+              </button>
+
+              <div className="game-timer-badge">
+                <span className="game-timer-display">{formatTime(timerSeconds)}</span>
+              </div>
+
+              <button 
+                className="game-ctrl-btn" 
+                onClick={startNewGame}
+                title="重新洗牌开局"
+              >
+                🔄
+              </button>
+            </div>
+
+            <div className="game-grid-4x6">
+              {gameTiles.map((tile, idx) => {
+                const isSelected = selectedTileIndex === idx;
+                const isMismatch = tile.isMismatching;
+                const isMatched = tile.isMatched;
+
+                let tileClass = `game-tile tile-${tile.type}`;
+                if (isSelected) tileClass += ' tile-selected';
+                if (isMismatch) tileClass += ' tile-mismatch';
+                if (isMatched) tileClass += ' tile-matched';
+
+                return (
+                  <div
+                    key={tile.id}
+                    className={tileClass}
+                    style={{ animationDelay: `${idx * 15}ms` }}
+                    onClick={() => handleTileClick(idx)}
+                  >
+                    {tile.type === 'fraction' ? (
+                      <div className="math-frac">
+                        <span className="frac-num">{tile.num}</span>
+                        <span className="frac-line"></span>
+                        <span className="frac-den">{tile.den}</span>
+                      </div>
+                    ) : (
+                      <span className="percent-val">{tile.value}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ⏸ 暂停遮罩 */}
+            {isGamePaused && (
+              <div className="game-modal-overlay">
+                <div className="game-modal-card">
+                  <div className="modal-icon">⏸️</div>
+                  <h3 className="modal-title">游戏已暂停</h3>
+                  <p className="modal-subtitle">当前用时：{formatTime(timerSeconds)}</p>
+                  <div className="modal-actions">
+                    <button className="m-btn-primary" onClick={() => setIsGamePaused(false)}>
+                      继续游戏
+                    </button>
+                    <button className="m-btn-secondary" onClick={startNewGame}>
+                      重新开始
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 🏆 通关胜利结算弹窗 */}
+            {isGameVictory && (
+              <div className="game-modal-overlay">
+                <div className="game-modal-card">
+                  <div className="modal-icon victory-icon">🎉</div>
+                  <h3 className="modal-title">恭喜通关！</h3>
+                  {isNewRecord && <div className="new-record-badge">✨ 刷新历史最佳纪录！✨</div>}
+                  
+                  <div className="victory-stats-grid">
+                    <div className="v-stat-box">
+                      <span className="v-stat-label">本次用时</span>
+                      <span className="v-stat-val">{formatTime(timerSeconds)}</span>
+                    </div>
+                    <div className="v-stat-box">
+                      <span className="v-stat-label">失误次数</span>
+                      <span className="v-stat-val">{mismatchesCount} 次</span>
+                    </div>
+                    <div className="v-stat-box" style={{ gridColumn: '1 / -1' }}>
+                      <span className="v-stat-label">历史最佳纪录</span>
+                      <span className="v-stat-val" style={{ color: '#10b981' }}>
+                        {bestRecord ? formatTime(bestRecord) : formatTime(timerSeconds)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="modal-actions">
+                    <button className="m-btn-primary" onClick={startNewGame}>
+                      再来一局
+                    </button>
+                    <button 
+                      className="m-btn-secondary" 
+                      onClick={() => setQuizMode('percentToFraction')}
+                    >
+                      返回速记
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
+          /* =========================================================
+             📝 百化分经典做题模式
+             ========================================================= */
           <>
-            {/* Main Prompt Card */}
             <div className="practice-card">
               <div className="card-top-info">
                 <span className="item-index">#{currentItem.id}</span>
@@ -574,7 +852,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Typing Display Box */}
               <div className={`input-display-box ${feedbackState}`}>
                 {quizMode === 'percentToFraction' ? (
                   <div className="fraction-input-format">
@@ -596,7 +873,6 @@ function App() {
                 {feedbackState === 'revealed' && <span className="status-icon revealed-icon">✗</span>}
               </div>
 
-              {/* Full Equation Display when confirmed/answered */}
               {isAnswered && (
                 <div className={`revealed-equation ${isCorrect ? 'equation-correct' : 'equation-wrong'}`}>
                   {isCorrect ? '✓ 回答正确！' : '✗ 回答错误'} 正确等式：<strong>{currentItem.percent} = {currentItem.fraction}</strong>
@@ -604,7 +880,6 @@ function App() {
               )}
             </div>
 
-            {/* Numpad Keyboard */}
             <div className="numpad-container">
               <div className="numpad-grid">
                 {numpadKeys.map(key => (
@@ -658,29 +933,59 @@ function App() {
       <nav className="floating-mode-bar" ref={modeBarRef}>
         <button 
           className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} 
-          onClick={() => { setQuizMode('percentToFraction'); setInputVal(''); setFeedbackState('idle'); setIsAnswered(false); setIsCorrect(false); }}
+          onClick={() => { 
+            setQuizMode('percentToFraction'); 
+            setInputVal(''); 
+            setFeedbackState('idle'); 
+            setIsAnswered(false); 
+            setIsCorrect(false); 
+          }}
         >
           百化分
         </button>
         <button 
           className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} 
-          onClick={() => { setQuizMode('fractionToPercent'); setInputVal(''); setFeedbackState('idle'); setIsAnswered(false); setIsCorrect(false); }}
+          onClick={() => { 
+            setQuizMode('fractionToPercent'); 
+            setInputVal(''); 
+            setFeedbackState('idle'); 
+            setIsAnswered(false); 
+            setIsCorrect(false); 
+          }}
         >
           分化百
+        </button>
+        <button 
+          className={`mode-btn ${quizMode === 'matchGame' ? 'active' : ''}`} 
+          onClick={() => { 
+            setQuizMode('matchGame'); 
+            if (gameTiles.length === 0) startNewGame(); 
+          }}
+        >
+          🎮 消消乐
         </button>
 
         <span className="mode-divider"></span>
 
-        <button className={`mode-btn random-btn ${!isRandom ? 'active' : ''}`} onClick={() => setIsRandom(false)}>
-          顺序
-        </button>
-        <button className={`mode-btn random-btn ${isRandom ? 'active' : ''}`} onClick={() => setIsRandom(true)}>
-          随机
-        </button>
+        {quizMode === 'matchGame' ? (
+          <button className="mode-btn random-btn" onClick={startNewGame} title="重新洗牌开局">
+            重开
+          </button>
+        ) : (
+          <>
+            <button className={`mode-btn random-btn ${!isRandom ? 'active' : ''}`} onClick={() => setIsRandom(false)}>
+              顺序
+            </button>
+            <button className={`mode-btn random-btn ${isRandom ? 'active' : ''}`} onClick={() => setIsRandom(true)}>
+              随机
+            </button>
+          </>
+        )}
       </nav>
     </div>
   );
 }
 
 export default App;
+
 

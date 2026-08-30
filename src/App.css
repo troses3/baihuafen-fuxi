@@ -912,3 +912,376 @@ body {
   }
 }
 
+/* =========================================================
+   🎮 消消乐小游戏模式样式体系 (4x6 Grid Match Elimination)
+   ========================================================= */
+
+.game-board-card {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  padding: 0.85rem 0.9rem 1.1rem 0.9rem;
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.game-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 0.75rem;
+  padding: 0 0.2rem;
+}
+
+.game-ctrl-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(241, 245, 249, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #475569;
+  font-size: 1.05rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+}
+
+.game-ctrl-btn:hover {
+  background: #ffffff;
+  color: var(--accent-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.game-ctrl-btn:active {
+  transform: scale(0.92);
+}
+
+.game-timer-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #ffffff;
+  padding: 0.25rem 0.85rem;
+  border-radius: 100px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.game-timer-display {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.05rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* 4列 x 6行 消除网格 */
+.game-grid-4x6 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: 0.55rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.game-tile {
+  aspect-ratio: 1 / 1.15;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease, opacity 0.3s ease, border-color 0.2s ease;
+  border: 2px solid transparent;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  -webkit-tap-highlight-color: transparent;
+  animation: gridTileEntrance 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+/* 蓝色分数卡片 */
+.game-tile.tile-fraction {
+  background: linear-gradient(150deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.3);
+}
+
+/* 绿色百分数卡片 */
+.game-tile.tile-percent {
+  background: linear-gradient(150deg, #16a34a 0%, #15803d 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.3);
+}
+
+.game-tile:hover:not(.tile-matched):not(.tile-disabled) {
+  transform: translateY(-2px);
+}
+
+.game-tile:active:not(.tile-matched):not(.tile-disabled) {
+  transform: scale(0.95);
+}
+
+/* 选中高亮状态 */
+.game-tile.tile-selected {
+  transform: scale(1.06) translateY(-2px);
+  z-index: 10;
+}
+
+.game-tile.tile-fraction.tile-selected {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px #0284c7, 0 8px 18px rgba(2, 132, 199, 0.45);
+}
+
+.game-tile.tile-percent.tile-selected {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px #16a34a, 0 8px 18px rgba(22, 163, 74, 0.45);
+}
+
+/* 错选抖动动画 */
+.game-tile.tile-mismatch {
+  animation: tileMismatchShake 0.45s ease-in-out;
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.6), 0 8px 18px rgba(239, 68, 68, 0.4) !important;
+}
+
+/* 配对消除成功动画 */
+.game-tile.tile-matched {
+  animation: tileMatchSuccess 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  pointer-events: none;
+}
+
+@keyframes tileMismatchShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px) rotate(-2deg); }
+  40%, 80% { transform: translateX(5px) rotate(2deg); }
+}
+
+@keyframes tileMatchSuccess {
+  0% { transform: scale(1); opacity: 1; filter: brightness(1); }
+  35% { transform: scale(1.18); opacity: 1; filter: brightness(1.35) drop-shadow(0 0 10px #22c55e); }
+  100% { transform: scale(0); opacity: 0; visibility: hidden; }
+}
+
+@keyframes gridTileEntrance {
+  0% { transform: scale(0.6) translateY(16px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* 专业数学分数排版 */
+.math-frac {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  width: 100%;
+}
+
+.frac-num {
+  font-size: 1.12rem;
+  font-weight: 750;
+  color: #ffffff;
+  line-height: 1.05;
+}
+
+.frac-line {
+  width: 52%;
+  height: 1.6px;
+  background: rgba(255, 255, 255, 0.9);
+  margin: 2px 0;
+  border-radius: 1px;
+}
+
+.frac-den {
+  font-size: 1.12rem;
+  font-weight: 750;
+  color: #ffffff;
+  line-height: 1.05;
+}
+
+/* 百分数排版 */
+.percent-val {
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+/* 暂停与通关弹窗遮罩 */
+.game-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 50;
+  animation: fadeIn 0.25s ease;
+}
+
+.game-modal-card {
+  background: #ffffff;
+  border-radius: 22px;
+  padding: 1.75rem 1.5rem;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.85rem;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.modal-icon {
+  font-size: 3.2rem;
+  line-height: 1;
+}
+
+.modal-icon.victory-icon {
+  animation: victoryBounce 0.8s infinite alternate cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes victoryBounce {
+  from { transform: translateY(0) scale(1); }
+  to { transform: translateY(-8px) scale(1.12); }
+}
+
+.modal-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: -0.3rem;
+}
+
+.victory-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  width: 100%;
+  margin: 0.3rem 0;
+}
+
+.v-stat-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0.6rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.v-stat-label {
+  font-size: 0.74rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.v-stat-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--accent-color);
+}
+
+.new-record-badge {
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 0.78rem;
+  font-weight: 750;
+  padding: 0.25rem 0.75rem;
+  border-radius: 100px;
+  border: 1px solid #fde68a;
+  animation: pulse 1.5s infinite;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.4rem;
+}
+
+.m-btn-primary {
+  flex: 1.2;
+  padding: 0.75rem 0;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+}
+
+.m-btn-primary:active {
+  transform: scale(0.96);
+}
+
+.m-btn-secondary {
+  flex: 1;
+  padding: 0.75rem 0;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.m-btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+@media (max-width: 480px) {
+  .game-grid-4x6 {
+    gap: 0.45rem;
+  }
+  .frac-num, .frac-den {
+    font-size: 1.02rem;
+  }
+  .percent-val {
+    font-size: 1.05rem;
+  }
+  .game-timer-display {
+    font-size: 1.5rem;
+  }
+}
+
+
