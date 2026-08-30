@@ -1089,26 +1089,10 @@ body {
   pointer-events: none;
 }
 
-/* 上方新卡片从顶部顺滑掉落入场动画 */
-.game-tile.tile-dropping {
-  animation: tileDropIn 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-}
-
 @keyframes tileMismatchShake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-5px); }
   40%, 80% { transform: translateX(5px); }
-}
-
-@keyframes tileDropIn {
-  0% {
-    opacity: 0;
-    transform: translateY(-24px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* 现代清晰无衬线分数排版 (纯白粗体文字，无阴影) */

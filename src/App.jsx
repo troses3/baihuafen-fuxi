@@ -341,14 +341,21 @@ function App() {
               return col.filter(t => t.id !== firstTile.id && t.id !== secondTile.id);
             });
 
-            // 如果储备池还有牌，执行「4卡智能随机置换打散」机制：
-            // 从全盘随机挑选 2 个远端不同列的坐标 (loc1, loc2)，将新的一对卡片 (frac, pct) 分别空投植入 loc1 和 loc2
-            // 将 loc1 和 loc2 原本的 2 张旧卡片挪至刚消空的 2 列顶部
-            // 彻底拆散新配对，同时 100% 保证全盘所有卡片永远完全可解无死局
+            // 如果储备池还有牌，执行「静默随机深度下沉融入」机制：
+            // 1. 全盘随机挑选 2 个远端不同列的深处坐标 (loc1, loc2)，将新的一对卡片 (frac, pct) 分别空投植入
+            // 2. 将 loc1 和 loc2 原本的 2 张旧卡片随机插入到有空位的列中（深度完全随机，打破顶部规律）
+            // 3. 彻底去除新牌专有动效，静默无感融入，肉眼完全无法通过视觉捷径作弊
             if (hasReserve && pair) {
               const swap = Math.random() > 0.5;
-              const card1 = { ...(swap ? pair.pct : pair.frac), isDropping: true };
-              const card2 = { ...(swap ? pair.frac : pair.pct), isDropping: true };
+              const card1 = swap ? pair.pct : pair.frac;
+              const card2 = swap ? pair.frac : pair.pct;
+
+              const insertRandomDepth = (col, card) => {
+                const insertIdx = Math.floor(Math.random() * (col.length + 1));
+                const nextCol = [...col];
+                nextCol.splice(insertIdx, 0, card);
+                return nextCol;
+              };
 
               // 收集场上所有现存的有效卡片坐标
               const activeLocs = [];
@@ -370,11 +377,11 @@ function App() {
                 const oldTile1 = newCols[loc1.cIdx][loc1.rIdx];
                 const oldTile2 = newCols[loc2.cIdx][loc2.rIdx];
 
-                // 1. 将全新的一对卡片空投植入深处随机坐标 loc1 和 loc2
+                // 1. 将全新的一对卡片植入深处随机坐标 loc1 和 loc2
                 newCols[loc1.cIdx][loc1.rIdx] = card1;
                 newCols[loc2.cIdx][loc2.rIdx] = card2;
 
-                // 2. 收集所有可用的空槽位（一列有几个空位就记录几次，彻底避免同一列消除导致少补一张牌）
+                // 2. 收集所有可用的空槽位（一列有几个空位就记录几次）
                 const freeSlots = [];
                 for (let c = 0; c < 4; c++) {
                   const needed = 6 - newCols[c].length;
@@ -383,14 +390,15 @@ function App() {
                   }
                 }
 
+                // 3. 将被置换出来的 2 张旧卡片随机下沉插入到有空位的列中
                 if (freeSlots.length >= 2) {
                   const t1 = freeSlots[0];
                   const t2 = freeSlots[1];
-                  newCols[t1] = [{ ...oldTile1, isDropping: true }, ...newCols[t1]];
-                  newCols[t2] = [{ ...oldTile2, isDropping: true }, ...newCols[t2]];
+                  newCols[t1] = insertRandomDepth(newCols[t1], oldTile1);
+                  newCols[t2] = insertRandomDepth(newCols[t2], oldTile2);
                 } else if (freeSlots.length === 1) {
                   const t1 = freeSlots[0];
-                  newCols[t1] = [{ ...oldTile1, isDropping: true }, ...newCols[t1]];
+                  newCols[t1] = insertRandomDepth(newCols[t1], oldTile1);
                 }
               } else {
                 // 兜底（局末剩余极少卡片时直接补入）
@@ -403,17 +411,10 @@ function App() {
                 }
 
                 if (freeSlots.length >= 2) {
-                  newCols[freeSlots[0]] = [card1, ...newCols[freeSlots[0]]];
-                  newCols[freeSlots[1]] = [card2, ...newCols[freeSlots[1]]];
+                  newCols[freeSlots[0]] = insertRandomDepth(newCols[freeSlots[0]], card1);
+                  newCols[freeSlots[1]] = insertRandomDepth(newCols[freeSlots[1]], card2);
                 }
               }
-
-              // 350ms 后清除 isDropping 动画标记
-              setTimeout(() => {
-                setGameColumns(curCols => {
-                  return curCols.map(col => col.map(t => ({ ...t, isDropping: false })));
-                });
-              }, 350);
             }
 
             return newCols;
