@@ -52,6 +52,7 @@ function App() {
   });
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const currentItem = items[currentIndex] || items[0] || null;
   const [stats, setStats] = useState({ known: 0, unknown: 0 });
   const [filter, setFilter] = useState('all'); // 'all', 'known', 'unknown'
   const [isRandom, setIsRandom] = useState(() => {
