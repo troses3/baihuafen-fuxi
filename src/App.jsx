@@ -341,26 +341,65 @@ function App() {
               return col.filter(t => t.id !== firstTile.id && t.id !== secondTile.id);
             });
 
-            // 如果储备池还有牌，从顶部向最矮的列注入新卡片（严格上限 6 张，绝不溢出第 7 行）
+            // 如果储备池还有牌，执行「4卡智能随机置换打散」机制：
+            // 从全盘随机挑选 2 个远端不同列的坐标 (loc1, loc2)，将新的一对卡片 (frac, pct) 分别空投植入 loc1 和 loc2
+            // 将 loc1 和 loc2 原本的 2 张旧卡片挪至刚消空的 2 列顶部
+            // 彻底拆散新配对，同时 100% 保证全盘所有卡片永远完全可解无死局
             if (hasReserve && pair) {
               const swap = Math.random() > 0.5;
               const card1 = { ...(swap ? pair.pct : pair.frac), isDropping: true };
               const card2 = { ...(swap ? pair.frac : pair.pct), isDropping: true };
 
-              // 严格筛选当前高度 < 6 的列，优先补入最矮的列
-              const availableCols = [0, 1, 2, 3]
-                .map(cIdx => ({ cIdx, len: newCols[cIdx].length }))
-                .filter(c => c.len < 6)
-                .sort((a, b) => a.len - b.len);
+              // 收集场上所有现存的有效卡片坐标
+              const activeLocs = [];
+              newCols.forEach((col, cIdx) => {
+                col.forEach((tile, rIdx) => {
+                  activeLocs.push({ cIdx, rIdx, tile });
+                });
+              });
 
-              if (availableCols.length >= 2) {
-                const target1 = availableCols[0].cIdx;
-                const target2 = availableCols[1].cIdx;
-                newCols[target1] = [card1, ...newCols[target1]];
-                newCols[target2] = [card2, ...newCols[target2]];
-              } else if (availableCols.length === 1) {
-                const target1 = availableCols[0].cIdx;
-                newCols[target1] = [card1, ...newCols[target1]];
+              if (activeLocs.length >= 2) {
+                // 深度打乱抽取 2 个来自不同列的坐标
+                for (let i = activeLocs.length - 1; i > 0; i--) {
+                  const j = Math.floor(Math.random() * (i + 1));
+                  [activeLocs[i], activeLocs[j]] = [activeLocs[j], activeLocs[i]];
+                }
+                const loc1 = activeLocs[0];
+                const loc2 = activeLocs.find(l => l.cIdx !== loc1.cIdx) || activeLocs[1];
+
+                const oldTile1 = newCols[loc1.cIdx][loc1.rIdx];
+                const oldTile2 = newCols[loc2.cIdx][loc2.rIdx];
+
+                // 1. 将全新的一对卡片空投植入深处随机坐标 loc1 和 loc2
+                newCols[loc1.cIdx][loc1.rIdx] = card1;
+                newCols[loc2.cIdx][loc2.rIdx] = card2;
+
+                // 2. 将被置换出来的 2 张旧卡片补入最矮的 2 列顶部
+                const availableCols = [0, 1, 2, 3]
+                  .map(cIdx => ({ cIdx, len: newCols[cIdx].length }))
+                  .filter(c => c.len < 6)
+                  .sort((a, b) => a.len - b.len);
+
+                if (availableCols.length >= 2) {
+                  const t1 = availableCols[0].cIdx;
+                  const t2 = availableCols[1].cIdx;
+                  newCols[t1] = [{ ...oldTile1, isDropping: true }, ...newCols[t1]];
+                  newCols[t2] = [{ ...oldTile2, isDropping: true }, ...newCols[t2]];
+                } else if (availableCols.length === 1) {
+                  const t1 = availableCols[0].cIdx;
+                  newCols[t1] = [{ ...oldTile1, isDropping: true }, ...newCols[t1]];
+                }
+              } else {
+                // 兜底（局末剩余极少卡片时直接补入）
+                const availableCols = [0, 1, 2, 3]
+                  .map(cIdx => ({ cIdx, len: newCols[cIdx].length }))
+                  .filter(c => c.len < 6)
+                  .sort((a, b) => a.len - b.len);
+
+                if (availableCols.length >= 2) {
+                  newCols[availableCols[0].cIdx] = [card1, ...newCols[availableCols[0].cIdx]];
+                  newCols[availableCols[1].cIdx] = [card2, ...newCols[availableCols[1].cIdx]];
+                }
               }
 
               // 350ms 后清除 isDropping 动画标记
