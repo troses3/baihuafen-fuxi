@@ -74,28 +74,31 @@ function App() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [calculatedMarginTop, setCalculatedMarginTop] = useState(0);
 
-  // 🎮 Match Elimination Game States
-  const [gameTiles, setGameTiles] = useState([]);
-  const [drawPilePairs, setDrawPilePairs] = useState([]); // 按对存储的储备池，保证棋盘永远可解
+  // 🎮 Match Elimination Game States (4-Column Vertical Gravity)
+  const [gameColumns, setGameColumns] = useState([[], [], [], []]); // 4 列垂直立柱栈
+  const [drawPilePairs, setDrawPilePairs] = useState([]); // 按对存储的储备池 (18对)
   const [remainingPairs, setRemainingPairs] = useState(30);
-  const [selectedTileIndex, setSelectedTileIndex] = useState(null);
+  const [selectedTile, setSelectedTile] = useState(null); // { colIdx: number, tileId: string } | null
   const [isProcessingMatch, setIsProcessingMatch] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isGamePaused, setIsGamePaused] = useState(false);
   const [isGameVictory, setIsGameVictory] = useState(false);
   const [mismatchesCount, setMismatchesCount] = useState(0);
+  const [hintsRemaining, setHintsRemaining] = useState(3);
+  const [hintedTileIds, setHintedTileIds] = useState([]); // [id1, id2] 提示高亮
+  const [isFormulaSheetOpen, setIsFormulaSheetOpen] = useState(false); // 📖 百化分速查表弹窗
   const [bestRecord, setBestRecord] = useState(() => {
     const saved = localStorage.getItem(BEST_TIME_KEY);
     return saved ? Number(saved) : null;
   });
   const [isNewRecord, setIsNewRecord] = useState(false);
-  const timerRef = useRef(0); // 用 ref 跟踪真实计时器值，避免 setTimeout 闭包陈旧
+  const timerRef = useRef(0);
 
   const headerRef = useRef(null);
   const modeBarRef = useRef(null);
   const mainContentRef = useRef(null);
 
-  // 工具函数：根据 data item 创建一对 [fraction卡, percent卡]
+  // 工具函数：根据 data item 创建一对 [fraction卡, percent卡] (纯净无衬线现代字体)
   const makeTilePair = (item) => {
     const fracParts = item.fraction.split('/');
     const fracTile = {
@@ -120,9 +123,9 @@ function App() {
     return [fracTile, pctTile];
   };
 
-  // Initialize and start a new match game round with full 30-pair deck
+  // Initialize and start a new match game round with 4 vertical gravity columns
   const startNewGame = useCallback(() => {
-    // 1. 获取全部 30 组题目，Fisher-Yates 洗牌
+    // 1. 全部 30 组题目 Fisher-Yates 深度洗牌
     const pool = [...initialItems];
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -130,34 +133,40 @@ function App() {
     }
     const totalPairs = pool.length;
 
-    // 前 12 组用于初始棋盘（24 张卡片）
+    // 前 12 组（24 张卡片）分入 4 根立柱，每列 6 张
     const boardItems = pool.slice(0, 12);
-    // 剩余 18 组作为储备对（按对存储！保证每次补牌都补完整的一对）
     const reserveItems = pool.slice(12);
 
-    // 棋盘：把 12 对展开为 24 张卡片，再 Fisher-Yates 洗牌
     const boardTiles = boardItems.flatMap(item => makeTilePair(item));
     for (let i = boardTiles.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [boardTiles[i], boardTiles[j]] = [boardTiles[j], boardTiles[i]];
     }
 
-    // 储备池：按对存储，对的顺序已洗牌
+    // 均分到 4 列 (每列 6 张)
+    const col0 = boardTiles.slice(0, 6);
+    const col1 = boardTiles.slice(6, 12);
+    const col2 = boardTiles.slice(12, 18);
+    const col3 = boardTiles.slice(18, 24);
+
+    // 储备池按对存储 (18 对)
     const reservePairs = reserveItems.map(item => {
       const [frac, pct] = makeTilePair(item);
-      return { frac: { ...frac, isDropping: true }, pct: { ...pct, isDropping: true } };
+      return { frac, pct };
     });
 
-    setGameTiles(boardTiles);
+    setGameColumns([col0, col1, col2, col3]);
     setDrawPilePairs(reservePairs);
     setRemainingPairs(totalPairs);
-    setSelectedTileIndex(null);
+    setSelectedTile(null);
     setIsProcessingMatch(false);
     setTimerSeconds(0);
     timerRef.current = 0;
     setIsGamePaused(false);
     setIsGameVictory(false);
     setMismatchesCount(0);
+    setHintsRemaining(3);
+    setHintedTileIds([]);
     setIsNewRecord(false);
   }, []);
 
@@ -208,10 +217,10 @@ function App() {
 
   // Auto initialize game tiles if switching to matchGame
   useEffect(() => {
-    if (quizMode === 'matchGame' && gameTiles.length === 0) {
+    if (quizMode === 'matchGame' && gameColumns.every(col => col.length === 0)) {
       startNewGame();
     }
-  }, [quizMode, gameTiles.length, startNewGame]);
+  }, [quizMode, gameColumns, startNewGame]);
 
   useEffect(() => {
     if (items.length > 0) {
@@ -250,9 +259,7 @@ function App() {
       window.removeEventListener('resize', calculateMargin);
       observer.disconnect();
     };
-  }, [searchQuery, isSearchOpen, isPanelOpen, currentIndex, quizMode, isAnswered, feedbackState, isGameVictory]);
-
-  const currentItem = items[currentIndex];
+  }, [quizMode, currentItem, feedbackState, searchQuery, isPanelOpen]);
 
   const getTargetStr = useCallback((item, mode) => {
     if (!item) return '';
@@ -265,117 +272,120 @@ function App() {
 
   const targetStr = getTargetStr(currentItem, quizMode);
 
-  // 🎮 Tile Click Matching & Cascading Drop Refill Algorithm
-  const handleTileClick = (index) => {
+  // 🎮 4列垂直下落物理消除与重力补牌算法 (Column Vertical Gravity Match)
+  const handleTileClick = (colIdx, clickedTile) => {
     if (isProcessingMatch || isGamePaused || isGameVictory) return;
-    const clickedTile = gameTiles[index];
     if (!clickedTile || clickedTile.isMatched) return;
 
-    if (selectedTileIndex === null) {
-      setSelectedTileIndex(index);
+    // 清除当前的提示高亮
+    if (hintedTileIds.length > 0) {
+      setHintedTileIds([]);
+    }
+
+    if (selectedTile === null) {
+      setSelectedTile({ colIdx, tileId: clickedTile.id });
       return;
     }
 
-    if (selectedTileIndex === index) {
-      setSelectedTileIndex(null);
+    // 点击同一个卡片取消选中
+    if (selectedTile.tileId === clickedTile.id) {
+      setSelectedTile(null);
       return;
     }
 
-    const firstTile = gameTiles[selectedTileIndex];
-    const firstIdx = selectedTileIndex;
-    const secondIdx = index;
+    const firstColIdx = selectedTile.colIdx;
+    const firstTile = gameColumns[firstColIdx]?.find(t => t.id === selectedTile.tileId);
+    if (!firstTile) {
+      setSelectedTile(null);
+      return;
+    }
 
-    // Check if matching pair
-    if (firstTile.pairId === clickedTile.pairId && firstTile.type !== clickedTile.type) {
-      // 🎉 MATCH SUCCESS!
+    const secondColIdx = colIdx;
+    const secondTile = clickedTile;
+
+    // 检查是否配对成功 (相同 pairId 且 类型不同)
+    if (firstTile.pairId === secondTile.pairId && firstTile.type !== secondTile.type) {
+      // 🎉 配对消除成功！
       setIsProcessingMatch(true);
 
-      // 1. Mark both as matched to trigger vanish animation
-      const matchedBoard = [...gameTiles];
-      matchedBoard[firstIdx] = { ...matchedBoard[firstIdx], isMatched: true };
-      matchedBoard[secondIdx] = { ...matchedBoard[secondIdx], isMatched: true };
-      setGameTiles(matchedBoard);
-      setSelectedTileIndex(null);
+      // 1. 标记消除动画
+      setGameColumns(prevCols => {
+        return prevCols.map((col, cIdx) => {
+          if (cIdx === firstColIdx || cIdx === secondColIdx) {
+            return col.map(t => {
+              if (t.id === firstTile.id || t.id === secondTile.id) {
+                return { ...t, isMatched: true };
+              }
+              return t;
+            });
+          }
+          return col;
+        });
+      });
+      setSelectedTile(null);
 
       const nextRemaining = remainingPairs - 1;
       setRemainingPairs(nextRemaining);
 
-      // 2. After 220ms, 从储备池抽取一整对新卡片，并采用「置换打散」补位机制
-      // 将棋盘其他位置的旧卡片挪到刚消除的2个空位，新成对卡片空投到远处随机位置
-      // 彻底解决"刚消完的新卡片又刷在同两个坑里直接连点"的问题，同时100%保证全盘可解无死局
+      // 2. 220ms 后执行重力下落与从顶部平滑补牌
       setTimeout(() => {
         setDrawPilePairs(prevPairs => {
-          if (prevPairs.length > 0) {
-            const pair = prevPairs[0];
-            const remaining = prevPairs.slice(1);
+          const hasReserve = prevPairs.length > 0;
+          const pair = hasReserve ? prevPairs[0] : null;
+          const remainingDeck = hasReserve ? prevPairs.slice(1) : [];
 
-            setGameTiles(prevTiles => {
-              const refilled = [...prevTiles];
-
-              // 找出棋盘上除刚消除位置外的所有未消除卡片索引
-              const activeIndices = [];
-              prevTiles.forEach((t, i) => {
-                if (i !== firstIdx && i !== secondIdx && !t.isMatched) {
-                  activeIndices.push(i);
-                }
-              });
-
-              if (activeIndices.length >= 2) {
-                // 随机选出 2 个远处的卡片位置进行打散置换
-                const r1 = Math.floor(Math.random() * activeIndices.length);
-                const swapIdx1 = activeIndices[r1];
-                activeIndices.splice(r1, 1);
-                const r2 = Math.floor(Math.random() * activeIndices.length);
-                const swapIdx2 = activeIndices[r2];
-
-                // 1. 将远处的 2 张旧卡片挪入刚消除的空位 (firstIdx, secondIdx)
-                refilled[firstIdx] = { ...prevTiles[swapIdx1], isDropping: true };
-                refilled[secondIdx] = { ...prevTiles[swapIdx2], isDropping: true };
-
-                // 2. 全新的一对卡片 (frac & pct) 掉落到远处的 swapIdx1 和 swapIdx2
-                const swap = Math.random() > 0.5;
-                refilled[swapIdx1] = { ...(swap ? pair.pct : pair.frac), isDropping: true };
-                refilled[swapIdx2] = { ...(swap ? pair.frac : pair.pct), isDropping: true };
-
-                setTimeout(() => {
-                  setGameTiles(current => {
-                    const cleaned = [...current];
-                    [firstIdx, secondIdx, swapIdx1, swapIdx2].forEach(pos => {
-                      if (cleaned[pos]) cleaned[pos] = { ...cleaned[pos], isDropping: false };
-                    });
-                    return cleaned;
-                  });
-                }, 350);
-              } else {
-                // 兜底（棋盘剩余极少卡片时）
-                const swap = Math.random() > 0.5;
-                refilled[firstIdx] = { ...(swap ? pair.pct : pair.frac), isDropping: true };
-                refilled[secondIdx] = { ...(swap ? pair.frac : pair.pct), isDropping: true };
-                setTimeout(() => {
-                  setGameTiles(current => {
-                    const cleaned = [...current];
-                    if (cleaned[firstIdx]) cleaned[firstIdx] = { ...cleaned[firstIdx], isDropping: false };
-                    if (cleaned[secondIdx]) cleaned[secondIdx] = { ...cleaned[secondIdx], isDropping: false };
-                    return cleaned;
-                  });
-                }, 350);
-              }
-
-              return refilled;
+          setGameColumns(prevCols => {
+            // 先过滤掉被消除的卡片（该列上方卡片自动顺滑跌落）
+            let newCols = prevCols.map(col => {
+              return col.filter(t => t.id !== firstTile.id && t.id !== secondTile.id);
             });
 
-            return remaining;
-          }
-          // 储备池已空，不补牌（棋盘上的剩余卡片自行消除）
-          return prevPairs;
+            // 如果储备池还有牌，从顶部向对应的列注入新卡片
+            if (hasReserve && pair) {
+              const swap = Math.random() > 0.5;
+              const card1 = { ...(swap ? pair.pct : pair.frac), isDropping: true };
+              const card2 = { ...(swap ? pair.frac : pair.pct), isDropping: true };
+
+              if (firstColIdx !== secondColIdx) {
+                // 两个消除位置位于不同列：直接向这两列的顶部各放入一张
+                newCols[firstColIdx] = [card1, ...newCols[firstColIdx]];
+                newCols[secondColIdx] = [card2, ...newCols[secondColIdx]];
+              } else {
+                // 两个消除位置位于同一列：一张入该列，另一张入当前高度最短的列
+                newCols[firstColIdx] = [card1, ...newCols[firstColIdx]];
+                
+                // 寻找其他 3 列中最矮的一列
+                let minColIdx = (firstColIdx + 1) % 4;
+                let minLen = newCols[minColIdx].length;
+                for (let c = 0; c < 4; c++) {
+                  if (c !== firstColIdx && newCols[c].length < minLen) {
+                    minLen = newCols[c].length;
+                    minColIdx = c;
+                  }
+                }
+                newCols[minColIdx] = [card2, ...newCols[minColIdx]];
+              }
+
+              // 350ms 后清除 isDropping 动画标记
+              setTimeout(() => {
+                setGameColumns(curCols => {
+                  return curCols.map(col => col.map(t => ({ ...t, isDropping: false })));
+                });
+              }, 350);
+            }
+
+            return newCols;
+          });
+
+          return remainingDeck;
         });
 
         setIsProcessingMatch(false);
 
-        // Check if all pairs are cleared
+        // 检查通关
         if (nextRemaining === 0) {
           setIsGameVictory(true);
-          const finalTime = timerRef.current; // 使用 ref 读取真实计时器值，不受闭包陈旧影响
+          const finalTime = timerRef.current;
           const currentBest = localStorage.getItem(BEST_TIME_KEY);
           if (!currentBest || finalTime < Number(currentBest)) {
             localStorage.setItem(BEST_TIME_KEY, String(finalTime));
@@ -386,24 +396,48 @@ function App() {
       }, 220);
 
     } else {
-      // ❌ MISMATCH!
-      const updated = [...gameTiles];
-      updated[firstIdx] = { ...updated[firstIdx], isMismatching: true };
-      updated[secondIdx] = { ...updated[secondIdx], isMismatching: true };
-      setGameTiles(updated);
-      setMismatchesCount(prev => prev + 1);
-      setIsProcessingMatch(true);
-
-      setTimeout(() => {
-        setGameTiles(prevTiles => {
-          const reset = [...prevTiles];
-          if (reset[firstIdx]) reset[firstIdx] = { ...reset[firstIdx], isMismatching: false };
-          if (reset[secondIdx]) reset[secondIdx] = { ...reset[secondIdx], isMismatching: false };
-          return reset;
+      // ❌ MISMATCH 错选抖动
+      setGameColumns(prevCols => {
+        return prevCols.map((col, cIdx) => {
+          if (cIdx === firstColIdx || cIdx === secondColIdx) {
+            return col.map(t => {
+              if (t.id === firstTile.id || t.id === secondTile.id) {
+                return { ...t, isMismatching: true };
+              }
+              return t;
+            });
+          }
+          return col;
         });
-        setSelectedTileIndex(null);
+      });
+      setMismatchesCount(prev => prev + 1);
+      setTimeout(() => {
+        setGameColumns(prevCols => {
+          return prevCols.map(col => col.map(t => ({ ...t, isMismatching: false })));
+        });
+        setSelectedTile(null);
         setIsProcessingMatch(false);
-      }, 400);
+      }, 380);
+    }
+  };
+
+  // 💡 提示功能：找出棋盘上当前存在的一对相同题目并呼吸高亮
+  const handleUseHint = () => {
+    if (hintsRemaining <= 0 || isGamePaused || isGameVictory || isProcessingMatch) return;
+    const allTiles = gameColumns.flat().filter(t => !t.isMatched);
+    
+    // 寻找配对
+    for (let i = 0; i < allTiles.length; i++) {
+      for (let j = i + 1; j < allTiles.length; j++) {
+        if (allTiles[i].pairId === allTiles[j].pairId && allTiles[i].type !== allTiles[j].type) {
+          setHintedTileIds([allTiles[i].id, allTiles[j].id]);
+          setHintsRemaining(prev => prev - 1);
+          setTimeout(() => {
+            setHintedTileIds([]);
+          }, 4000);
+          return;
+        }
+      }
     }
   };
 
@@ -850,37 +884,44 @@ function App() {
               </button>
             </div>
 
-            <div className="game-grid-4x6">
-              {gameTiles.map((tile, idx) => {
-                const isSelected = selectedTileIndex === idx;
-                const isMismatch = tile.isMismatching;
-                const isMatched = tile.isMatched;
-                const isDropping = tile.isDropping;
+            {/* 4 列垂直立柱下落消除网格 (Column Vertical Gravity Stacks) */}
+            <div className="game-columns-container">
+              {gameColumns.map((column, colIdx) => (
+                <div key={colIdx} className="game-col-stack">
+                  {column.map((tile) => {
+                    const isSelected = selectedTile?.tileId === tile.id;
+                    const isMismatch = tile.isMismatching;
+                    const isMatched = tile.isMatched;
+                    const isDropping = tile.isDropping;
+                    const isHinted = hintedTileIds.includes(tile.id);
 
-                let tileClass = `game-tile tile-${tile.type}`;
-                if (isSelected) tileClass += ' tile-selected';
-                if (isMismatch) tileClass += ' tile-mismatch';
-                if (isMatched) tileClass += ' tile-matched';
-                if (isDropping) tileClass += ' tile-dropping';
+                    let tileClass = `game-tile tile-${tile.type}`;
+                    if (isSelected) tileClass += ' tile-selected';
+                    if (isMismatch) tileClass += ' tile-mismatch';
+                    if (isMatched) tileClass += ' tile-matched';
+                    if (isDropping) tileClass += ' tile-dropping';
+                    if (isHinted) tileClass += ' tile-hint-pulse';
 
-                return (
-                  <div
-                    key={tile.id || idx}
-                    className={tileClass}
-                    onClick={() => handleTileClick(idx)}
-                  >
-                    {tile.type === 'fraction' ? (
-                      <div className="math-frac">
-                        <span className="frac-num">{tile.num}</span>
-                        <span className="frac-line"></span>
-                        <span className="frac-den">{tile.den}</span>
+                    return (
+                      <div
+                        key={tile.id}
+                        className={tileClass}
+                        onClick={() => handleTileClick(colIdx, tile)}
+                      >
+                        {tile.type === 'fraction' ? (
+                          <div className="math-frac">
+                            <span className="frac-num">{tile.num}</span>
+                            <span className="frac-line"></span>
+                            <span className="frac-den">{tile.den}</span>
+                          </div>
+                        ) : (
+                          <span className="percent-val">{tile.value}</span>
+                        )}
                       </div>
-                    ) : (
-                      <span className="percent-val">{tile.value}</span>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              ))}
             </div>
 
 
@@ -1044,50 +1085,94 @@ function App() {
         )}
       </main>
 
+      {/* 📖 百化分速查表弹窗 (Formula Sheet Modal) */}
+      {isFormulaSheetOpen && (
+        <div className="sheet-modal-overlay" onClick={() => setIsFormulaSheetOpen(false)}>
+          <div className="sheet-modal-card" onClick={e => e.stopPropagation()}>
+            <div className="sheet-modal-header">
+              <h3 className="sheet-modal-title">📖 百化分对照速查表</h3>
+              <button className="sheet-close-btn" onClick={() => setIsFormulaSheetOpen(false)}>✕</button>
+            </div>
+            <div className="sheet-modal-body">
+              <div className="sheet-grid">
+                {initialItems.map(item => (
+                  <div key={item.id} className="sheet-item-card">
+                    <span className="sheet-frac">{item.fraction}</span>
+                    <span className="sheet-eq">≈</span>
+                    <span className="sheet-pct">{item.percent}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 底部悬浮模式栏（极简单层设计） */}
       <nav className="floating-mode-bar" ref={modeBarRef}>
-        <button 
-          className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} 
-          onClick={() => { 
-            setQuizMode('percentToFraction'); 
-            setInputVal(''); 
-            setFeedbackState('idle'); 
-            setIsAnswered(false); 
-            setIsCorrect(false); 
-          }}
-        >
-          百化分
-        </button>
-        <button 
-          className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} 
-          onClick={() => { 
-            setQuizMode('fractionToPercent'); 
-            setInputVal(''); 
-            setFeedbackState('idle'); 
-            setIsAnswered(false); 
-            setIsCorrect(false); 
-          }}
-        >
-          分化百
-        </button>
-        <button 
-          className={`mode-btn ${quizMode === 'matchGame' ? 'active' : ''}`} 
-          onClick={() => { 
-            setQuizMode('matchGame'); 
-            if (gameTiles.length === 0) startNewGame(); 
-          }}
-        >
-          🎮 消消乐
-        </button>
-
-        <span className="mode-divider"></span>
-
         {quizMode === 'matchGame' ? (
-          <button className="mode-btn random-btn" onClick={startNewGame} title="重新洗牌开局">
-            重开
-          </button>
+          <>
+            <button 
+              className={`mode-btn hint-btn ${hintsRemaining <= 0 ? 'disabled' : ''}`} 
+              onClick={handleUseHint}
+              title="提示一组配对"
+            >
+              💡 提示 <span className="hint-count-badge">{hintsRemaining}</span>
+            </button>
+            <button 
+              className="mode-btn sheet-btn" 
+              onClick={() => setIsFormulaSheetOpen(true)}
+              title="查看百化分对照表"
+            >
+              📖 百化分表
+            </button>
+            <span className="mode-divider"></span>
+            <button 
+              className="mode-btn exit-game-btn" 
+              onClick={() => setQuizMode('percentToFraction')}
+              title="退出游戏模式"
+            >
+              退出
+            </button>
+          </>
         ) : (
           <>
+            <button 
+              className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} 
+              onClick={() => { 
+                setQuizMode('percentToFraction'); 
+                setInputVal(''); 
+                setFeedbackState('idle'); 
+                setIsAnswered(false); 
+                setIsCorrect(false); 
+              }}
+            >
+              百化分
+            </button>
+            <button 
+              className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} 
+              onClick={() => { 
+                setQuizMode('fractionToPercent'); 
+                setInputVal(''); 
+                setFeedbackState('idle'); 
+                setIsAnswered(false); 
+                setIsCorrect(false); 
+              }}
+            >
+              分化百
+            </button>
+            <button 
+              className={`mode-btn ${quizMode === 'matchGame' ? 'active' : ''}`} 
+              onClick={() => { 
+                setQuizMode('matchGame'); 
+                if (gameColumns.every(col => col.length === 0)) startNewGame(); 
+              }}
+            >
+              🎮 消消乐
+            </button>
+
+            <span className="mode-divider"></span>
+
             <button className={`mode-btn random-btn ${!isRandom ? 'active' : ''}`} onClick={() => setIsRandom(false)}>
               顺序
             </button>
