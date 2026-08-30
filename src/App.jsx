@@ -76,6 +76,8 @@ function App() {
 
   // 🎮 Match Elimination Game States
   const [gameTiles, setGameTiles] = useState([]);
+  const [drawPile, setDrawPile] = useState([]);
+  const [remainingPairs, setRemainingPairs] = useState(30);
   const [selectedTileIndex, setSelectedTileIndex] = useState(null);
   const [isProcessingMatch, setIsProcessingMatch] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -92,37 +94,74 @@ function App() {
   const modeBarRef = useRef(null);
   const mainContentRef = useRef(null);
 
-  // Initialize and start a new match game round
+  // Initialize and start a new match game round with full 30-pair deck
   const startNewGame = useCallback(() => {
-    // Pick 12 random unique items from initialItems
+    // Shuffle all items from initialItems (total 30 items)
     const shuffledPool = [...initialItems].sort(() => Math.random() - 0.5);
-    const selected12 = shuffledPool.slice(0, 12);
+    const totalPairs = shuffledPool.length;
 
-    const tiles = [];
-    selected12.forEach((item) => {
+    // First 12 items go to the board (24 tiles)
+    const boardItems = shuffledPool.slice(0, 12);
+    // Remaining items go to drawPile for cascading refill
+    const remainingItems = shuffledPool.slice(12);
+
+    const initialBoardTiles = [];
+    boardItems.forEach((item) => {
       const fracParts = item.fraction.split('/');
-      tiles.push({
-        id: `f_${item.id}`,
+      initialBoardTiles.push({
+        id: `f_${item.id}_${Date.now()}_${Math.random()}`,
         pairId: item.id,
         type: 'fraction',
         num: fracParts[0] || '1',
         den: fracParts[1] || item.fraction,
         isMatched: false,
         isMismatching: false,
+        isDropping: false,
       });
-      tiles.push({
-        id: `p_${item.id}`,
+      initialBoardTiles.push({
+        id: `p_${item.id}_${Date.now()}_${Math.random()}`,
         pairId: item.id,
         type: 'percent',
         value: item.percent,
         isMatched: false,
         isMismatching: false,
+        isDropping: false,
       });
     });
 
-    // Shuffle 24 tiles thoroughly
-    const shuffledTiles = tiles.sort(() => Math.random() - 0.5);
-    setGameTiles(shuffledTiles);
+    // Shuffle 24 initial board tiles thoroughly
+    const shuffledBoardTiles = initialBoardTiles.sort(() => Math.random() - 0.5);
+
+    // Prepare remaining pairs in drawPile
+    const pile = [];
+    remainingItems.forEach((item) => {
+      const fracParts = item.fraction.split('/');
+      pile.push([
+        {
+          id: `f_${item.id}_${Date.now()}_${Math.random()}`,
+          pairId: item.id,
+          type: 'fraction',
+          num: fracParts[0] || '1',
+          den: fracParts[1] || item.fraction,
+          isMatched: false,
+          isMismatching: false,
+          isDropping: true,
+        },
+        {
+          id: `p_${item.id}_${Date.now()}_${Math.random()}`,
+          pairId: item.id,
+          type: 'percent',
+          value: item.percent,
+          isMatched: false,
+          isMismatching: false,
+          isDropping: true,
+        }
+      ]);
+    });
+
+    setGameTiles(shuffledBoardTiles);
+    setDrawPile(pile);
+    setRemainingPairs(totalPairs);
     setSelectedTileIndex(null);
     setIsProcessingMatch(false);
     setTimerSeconds(0);
@@ -233,7 +272,7 @@ function App() {
 
   const targetStr = getTargetStr(currentItem, quizMode);
 
-  // 🎮 Tile Click Matching Algorithm
+  // 🎮 Tile Click Matching & Cascading Drop Refill Algorithm
   const handleTileClick = (index) => {
     if (isProcessingMatch || isGamePaused || isGameVictory) return;
     const clickedTile = gameTiles[index];
@@ -250,33 +289,70 @@ function App() {
     }
 
     const firstTile = gameTiles[selectedTileIndex];
+    const firstIdx = selectedTileIndex;
+    const secondIdx = index;
 
     // Check if matching pair
     if (firstTile.pairId === clickedTile.pairId && firstTile.type !== clickedTile.type) {
       // 🎉 MATCH SUCCESS!
-      const updated = [...gameTiles];
-      updated[selectedTileIndex].isMatched = true;
-      updated[index].isMatched = true;
-      setGameTiles(updated);
+      setIsProcessingMatch(true);
+
+      // 1. Mark both as matched to trigger vanish animation
+      const matchedBoard = [...gameTiles];
+      matchedBoard[firstIdx] = { ...matchedBoard[firstIdx], isMatched: true };
+      matchedBoard[secondIdx] = { ...matchedBoard[secondIdx], isMatched: true };
+      setGameTiles(matchedBoard);
       setSelectedTileIndex(null);
 
-      const remaining = updated.filter(t => !t.isMatched).length;
-      if (remaining === 0) {
-        // 🏆 VICTORY!
-        setIsGameVictory(true);
-        const finalTime = timerSeconds;
-        const currentBest = localStorage.getItem(BEST_TIME_KEY);
-        if (!currentBest || finalTime < Number(currentBest)) {
-          localStorage.setItem(BEST_TIME_KEY, String(finalTime));
-          setBestRecord(finalTime);
-          setIsNewRecord(true);
+      const nextRemaining = remainingPairs - 1;
+      setRemainingPairs(nextRemaining);
+
+      // 2. After 260ms, refill from drawPile with smooth drop animation
+      setTimeout(() => {
+        if (drawPile.length > 0) {
+          const nextPair = drawPile[0]; // [frac, pct]
+          const remainingPile = drawPile.slice(1);
+          setDrawPile(remainingPile);
+
+          const [t1, t2] = Math.random() > 0.5 ? [nextPair[0], nextPair[1]] : [nextPair[1], nextPair[0]];
+
+          setGameTiles(prevTiles => {
+            const refilled = [...prevTiles];
+            refilled[firstIdx] = { ...t1, isDropping: true };
+            refilled[secondIdx] = { ...t2, isDropping: true };
+            return refilled;
+          });
+
+          setTimeout(() => {
+            setGameTiles(prevTiles => {
+              const cleaned = [...prevTiles];
+              if (cleaned[firstIdx]) cleaned[firstIdx] = { ...cleaned[firstIdx], isDropping: false };
+              if (cleaned[secondIdx]) cleaned[secondIdx] = { ...cleaned[secondIdx], isDropping: false };
+              return cleaned;
+            });
+          }, 400);
         }
-      }
+
+        setIsProcessingMatch(false);
+
+        // Check if all 30 pairs are cleared
+        if (nextRemaining === 0) {
+          setIsGameVictory(true);
+          const finalTime = timerSeconds;
+          const currentBest = localStorage.getItem(BEST_TIME_KEY);
+          if (!currentBest || finalTime < Number(currentBest)) {
+            localStorage.setItem(BEST_TIME_KEY, String(finalTime));
+            setBestRecord(finalTime);
+            setIsNewRecord(true);
+          }
+        }
+      }, 260);
+
     } else {
       // ❌ MISMATCH!
       const updated = [...gameTiles];
-      updated[selectedTileIndex].isMismatching = true;
-      updated[index].isMismatching = true;
+      updated[firstIdx] = { ...updated[firstIdx], isMismatching: true };
+      updated[secondIdx] = { ...updated[secondIdx], isMismatching: true };
       setGameTiles(updated);
       setMismatchesCount(prev => prev + 1);
       setIsProcessingMatch(true);
@@ -284,13 +360,13 @@ function App() {
       setTimeout(() => {
         setGameTiles(prevTiles => {
           const reset = [...prevTiles];
-          if (reset[selectedTileIndex]) reset[selectedTileIndex].isMismatching = false;
-          if (reset[index]) reset[index].isMismatching = false;
+          if (reset[firstIdx]) reset[firstIdx] = { ...reset[firstIdx], isMismatching: false };
+          if (reset[secondIdx]) reset[secondIdx] = { ...reset[secondIdx], isMismatching: false };
           return reset;
         });
         setSelectedTileIndex(null);
         setIsProcessingMatch(false);
-      }, 450);
+      }, 420);
     }
   };
 
@@ -522,7 +598,6 @@ function App() {
   const total = items.length;
   const progress = total > 0 ? ((stats.known) / total) * 100 : 0;
   const numpadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
-  const remainingPairs = gameTiles.filter(t => !t.isMatched).length / 2;
 
   return (
     <div className="app-container">
@@ -742,17 +817,18 @@ function App() {
                 const isSelected = selectedTileIndex === idx;
                 const isMismatch = tile.isMismatching;
                 const isMatched = tile.isMatched;
+                const isDropping = tile.isDropping;
 
                 let tileClass = `game-tile tile-${tile.type}`;
                 if (isSelected) tileClass += ' tile-selected';
                 if (isMismatch) tileClass += ' tile-mismatch';
                 if (isMatched) tileClass += ' tile-matched';
+                if (isDropping) tileClass += ' tile-dropping';
 
                 return (
                   <div
-                    key={tile.id}
+                    key={tile.id || idx}
                     className={tileClass}
-                    style={{ animationDelay: `${idx * 15}ms` }}
                     onClick={() => handleTileClick(idx)}
                   >
                     {tile.type === 'fraction' ? (
@@ -768,6 +844,7 @@ function App() {
                 );
               })}
             </div>
+
 
             {/* ⏸ 暂停遮罩 */}
             {isGamePaused && (
