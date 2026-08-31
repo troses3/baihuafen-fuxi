@@ -630,6 +630,7 @@ function App() {
   // 💡 提示功能：找出棋盘上当前存在的一对相同题目并呼吸高亮
   const handleUseHint = () => {
     if (hintsRemaining <= 0 || isGamePaused || isGameVictory || isProcessingMatch) return;
+    triggerHaptic('hint');
     const allTiles = gameColumns.flat().filter(t => !t.isMatched);
     
     // 寻找配对
@@ -1098,6 +1099,7 @@ function App() {
                 className={`submode-pill-btn ${matchSubMode === 'practice' ? 'active' : ''}`}
                 onClick={() => {
                   if (matchSubMode !== 'practice') {
+                    triggerHaptic('modeSwitch');
                     setMatchSubMode('practice');
                     localStorage.setItem(MATCH_SUBMODE_KEY, 'practice');
                     startNewGame();
@@ -1110,6 +1112,7 @@ function App() {
                 className={`submode-pill-btn ${matchSubMode === 'ranked' ? 'active' : ''}`}
                 onClick={() => {
                   if (matchSubMode !== 'ranked') {
+                    triggerHaptic('modeSwitch');
                     setMatchSubMode('ranked');
                     localStorage.setItem(MATCH_SUBMODE_KEY, 'ranked');
                     startNewGame();
@@ -1158,7 +1161,10 @@ function App() {
                     }}
                     title="重新开始"
                   >
-                    🔄
+                    <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
                   </button>
                 </>
               ) : (
@@ -1171,7 +1177,15 @@ function App() {
                     }}
                     title={isGamePaused ? "继续游戏" : "暂停游戏"}
                   >
-                    {isGamePaused ? '▶' : '⏸'}
+                    {isGamePaused ? (
+                      <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      </svg>
+                    )}
                   </button>
 
                   <div className="game-timer-badge">
@@ -1186,7 +1200,10 @@ function App() {
                     }}
                     title="重新洗牌开局"
                   >
-                    🔄
+                    <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
                   </button>
                 </>
               )}
@@ -1236,7 +1253,13 @@ function App() {
             {isGamePaused && (
               <div className="game-modal-overlay">
                 <div className="game-modal-card">
-                  <div className="modal-icon">⏸️</div>
+                  <div className="modal-icon svg-modal-icon">
+                    <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="#64748b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="10" y1="15" x2="10" y2="9" />
+                      <line x1="14" y1="15" x2="14" y2="9" />
+                    </svg>
+                  </div>
                   <h3 className="modal-title">游戏已暂停</h3>
                   <p className="modal-subtitle">当前用时：{formatTime(timerSeconds)}</p>
                   <div className="modal-actions">
@@ -1579,7 +1602,7 @@ function App() {
             <button 
               className="mode-btn exit-game-btn" 
               onClick={() => {
-                triggerHaptic('optionSelect');
+                triggerHaptic('modeSwitch');
                 setQuizMode('percentToFraction');
               }}
               title="退出游戏模式"
@@ -1592,7 +1615,7 @@ function App() {
             <button 
               className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} 
               onClick={() => { 
-                triggerHaptic('optionSelect');
+                triggerHaptic('modeSwitch');
                 setQuizMode('percentToFraction'); 
                 setInputVal(''); 
                 setFeedbackState('idle'); 
@@ -1605,7 +1628,7 @@ function App() {
             <button 
               className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} 
               onClick={() => { 
-                triggerHaptic('optionSelect');
+                triggerHaptic('modeSwitch');
                 setQuizMode('fractionToPercent'); 
                 setInputVal(''); 
                 setFeedbackState('idle'); 
@@ -1618,7 +1641,7 @@ function App() {
             <button 
               className={`mode-btn ${quizMode === 'matchGame' ? 'active' : ''}`} 
               onClick={() => { 
-                triggerHaptic('optionSelect');
+                triggerHaptic('modeSwitch');
                 setQuizMode('matchGame'); 
                 if (gameColumns.every(col => col.length === 0)) startNewGame(); 
               }}

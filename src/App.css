@@ -965,6 +965,22 @@ body {
   transform: scale(0.92);
 }
 
+.ctrl-svg-icon {
+  display: block;
+  transition: transform 0.15s ease;
+}
+
+.game-ctrl-btn:active .ctrl-svg-icon {
+  transform: scale(0.9);
+}
+
+.svg-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.35rem;
+}
+
 .game-timer-badge {
   display: flex;
   align-items: center;

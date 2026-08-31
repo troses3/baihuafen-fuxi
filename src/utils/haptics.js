@@ -51,7 +51,7 @@ function iosClick() {
 
 /**
  * Trigger full-spectrum haptic feedback tailored for both iOS (switch rhythm) and Android (vibrate patterns)
- * @param {'tap' | 'menuToggle' | 'optionSelect' | 'dangerReset' | 'cardFlip' | 'success' | 'error' | 'clear' | 'combo' | 'celebration'} type
+ * @param {'tap' | 'modeSwitch' | 'hint' | 'menuToggle' | 'optionSelect' | 'dangerReset' | 'cardFlip' | 'success' | 'error' | 'clear' | 'combo' | 'celebration'} type
  */
 export function triggerHaptic(type = 'tap') {
   // -------------------------------------------------------------
@@ -61,10 +61,16 @@ export function triggerHaptic(type = 'tap') {
     try {
       switch (type) {
         case 'tap':
-          navigator.vibrate(12);
+          navigator.vibrate(15);
+          break;
+        case 'modeSwitch':
+          navigator.vibrate([22, 35, 18]);
+          break;
+        case 'hint':
+          navigator.vibrate([30, 40, 25]);
           break;
         case 'optionSelect':
-          navigator.vibrate(18);
+          navigator.vibrate(22);
           break;
         case 'menuToggle':
           navigator.vibrate([15, 45, 15]);
@@ -91,7 +97,7 @@ export function triggerHaptic(type = 'tap') {
           navigator.vibrate([30, 60, 30, 60, 50, 80, 70]);
           break;
         default:
-          navigator.vibrate(15);
+          navigator.vibrate(18);
       }
     } catch (e) {}
   }
@@ -104,6 +110,18 @@ export function triggerHaptic(type = 'tap') {
       case 'tap':
       case 'optionSelect':
         iosClick();
+        break;
+
+      case 'modeSwitch':
+        // Crisp dual switch toggle for mode shift
+        iosClick();
+        setTimeout(iosClick, 50);
+        break;
+
+      case 'hint':
+        // Distinct alert pulse for hint
+        iosClick();
+        setTimeout(iosClick, 60);
         break;
 
       case 'menuToggle':
