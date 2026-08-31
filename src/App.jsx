@@ -122,23 +122,28 @@ function App() {
   const [lastGameResult, setLastGameResult] = useState(null);
   const lastMatchTimeRef = useRef(0);
 
-  // 🧩 掉落合成方块 (Drop & Merge) States
-  const [tetrisCols, setTetrisCols] = useState([[], [], [], []]);
-  const [tetrisFallingTile, setTetrisFallingTile] = useState(null);
-  const [tetrisNextTile, setTetrisNextTile] = useState(null);
-  const [tetrisScore, setTetrisScore] = useState(0);
-  const [tetrisHighScore, setTetrisHighScore] = useState(() => {
-    const saved = localStorage.getItem('baihuafen-tetris-highscore');
+  // 🐍 能量贪吃蛇 (Snake Runner) States
+  const [snakeScore, setSnakeScore] = useState(0);
+  const [snakeHighScore, setSnakeHighScore] = useState(() => {
+    const saved = localStorage.getItem('baihuafen-snake-highscore');
     return saved ? Number(saved) : 0;
   });
-  const [tetrisCombo, setTetrisCombo] = useState(0);
-  const [tetrisMaxCombo, setTetrisMaxCombo] = useState(0);
-  const [tetrisEliminatedPairs, setTetrisEliminatedPairs] = useState(0);
-  const [tetrisFloatingScores, setTetrisFloatingScores] = useState([]);
-  const [isTetrisPaused, setIsTetrisPaused] = useState(false);
-  const [isTetrisGameOver, setIsTetrisGameOver] = useState(false);
-  const [isTetrisNewRecord, setIsTetrisNewRecord] = useState(false);
-  const [tetrisSpeedMs, setTetrisSpeedMs] = useState(900);
+  const [snakeLives, setSnakeLives] = useState(3);
+  const [snakeCombo, setSnakeCombo] = useState(0);
+  const [snakeMaxCombo, setSnakeMaxCombo] = useState(0);
+  const [snakeEatenCount, setSnakeEatenCount] = useState(0);
+  const [snakeTarget, setSnakeTarget] = useState(null);
+  const [snakeFoods, setSnakeFoods] = useState([]);
+  const [snakeBody, setSnakeBody] = useState([
+    { x: 8, y: 8 },
+    { x: 7, y: 8 },
+    { x: 6, y: 8 },
+  ]);
+  const [snakeDir, setSnakeDir] = useState({ x: 1, y: 0 });
+  const [isSnakePaused, setIsSnakePaused] = useState(false);
+  const [isSnakeGameOver, setIsSnakeGameOver] = useState(false);
+  const [isSnakeNewRecord, setIsSnakeNewRecord] = useState(false);
+  const [snakeFloatingScores, setSnakeFloatingScores] = useState([]);
 
   const [bestRecord, setBestRecord] = useState(() => {
     const saved = localStorage.getItem(BEST_TIME_KEY);
@@ -667,281 +672,408 @@ function App() {
   };
 
   // =========================================================
-  // 🧩 掉落合成方块模式 (Drop & Merge) Core Logic
+  // 🐍 能量贪吃蛇模式 (Snake Runner) Core Logic
   // =========================================================
-  const getRandomDropTile = useCallback(() => {
-    const item = initialItems[Math.floor(Math.random() * initialItems.length)];
-    const isFrac = Math.random() > 0.5;
-    const fracParts = item.fraction.split('/');
-    if (isFrac) {
-      return {
-        id: `f_${item.id}_${Date.now()}_${Math.random()}`,
-        pairId: item.id,
-        type: 'fraction',
-        num: fracParts[0] || '1',
-        den: fracParts[1] || item.fraction,
-        isMatched: false,
-        isDropping: true,
-      };
-    } else {
-      return {
-        id: `p_${item.id}_${Date.now()}_${Math.random()}`,
-        pairId: item.id,
-        type: 'percent',
-        value: item.percent,
-        isMatched: false,
-        isDropping: true,
-      };
+  const canvasRef = useRef(null);
+  const snakeDirRef = useRef({ x: 1, y: 0 });
+  const nextDirRef = useRef({ x: 1, y: 0 });
+  const touchStartRef = useRef({ x: 0, y: 0 });
+
+  const generateSnakeFoodsAndTarget = useCallback((currentBody) => {
+    const targetItem = initialItems[Math.floor(Math.random() * initialItems.length)];
+    const isPromptFrac = Math.random() > 0.5;
+    const promptText = isPromptFrac ? targetItem.fraction : targetItem.percent;
+    const promptType = isPromptFrac ? 'fraction' : 'percent';
+    const correctValue = isPromptFrac ? targetItem.percent : targetItem.fraction;
+    const correctType = isPromptFrac ? 'percent' : 'fraction';
+
+    const distractors = [];
+    const pool = initialItems.filter(i => i.id !== targetItem.id);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
     }
+    for (let k = 0; k < 3 && k < pool.length; k++) {
+      distractors.push(isPromptFrac ? pool[k].percent : pool[k].fraction);
+    }
+
+    const foodLabels = [
+      { value: correctValue, isCorrect: true, id: `f_cor_${Date.now()}` },
+      ...distractors.map((d, idx) => ({ value: d, isCorrect: false, id: `f_dis_${idx}_${Date.now()}` }))
+    ];
+
+    for (let i = foodLabels.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [foodLabels[i], foodLabels[j]] = [foodLabels[j], foodLabels[i]];
+    }
+
+    const occupied = new Set((currentBody || []).map(b => `${b.x},${b.y}`));
+    const newFoods = [];
+
+    foodLabels.forEach(fl => {
+      let tries = 0;
+      let x = 0;
+      let y = 0;
+      while (tries < 100) {
+        x = Math.floor(Math.random() * 16);
+        y = Math.floor(Math.random() * 16);
+        const key = `${x},${y}`;
+        if (!occupied.has(key)) {
+          occupied.add(key);
+          newFoods.push({ ...fl, x, y });
+          break;
+        }
+        tries++;
+      }
+    });
+
+    return {
+      target: {
+        item: targetItem,
+        promptText,
+        promptType,
+        correctValue,
+        correctType,
+      },
+      foods: newFoods,
+    };
   }, []);
 
-  const spawnNextFallingTile = useCallback((currentCols) => {
-    if (currentCols.every(c => c.length >= 6)) {
-      setIsTetrisGameOver(true);
-      setTetrisFallingTile(null);
-      return;
-    }
+  const startNewSnakeGame = useCallback(() => {
+    const initialBody = [
+      { x: 8, y: 8 },
+      { x: 7, y: 8 },
+      { x: 6, y: 8 },
+    ];
+    const initialDir = { x: 1, y: 0 };
+    const { target, foods } = generateSnakeFoodsAndTarget(initialBody);
 
-    setTetrisNextTile(curNext => {
-      const nextFalling = curNext || getRandomDropTile();
-      
-      let defaultCol = 1;
-      let minLen = 99;
-      for (let c = 0; c < 4; c++) {
-        if (currentCols[c].length < minLen) {
-          minLen = currentCols[c].length;
-          defaultCol = c;
-        }
-      }
+    setSnakeBody(initialBody);
+    setSnakeDir(initialDir);
+    snakeDirRef.current = initialDir;
+    nextDirRef.current = initialDir;
+    setSnakeTarget(target);
+    setSnakeFoods(foods);
+    setSnakeScore(0);
+    setSnakeLives(3);
+    setSnakeCombo(0);
+    setSnakeMaxCombo(0);
+    setSnakeEatenCount(0);
+    setSnakeFloatingScores([]);
+    setIsSnakePaused(false);
+    setIsSnakeGameOver(false);
+    setIsSnakeNewRecord(false);
+  }, [generateSnakeFoodsAndTarget]);
 
-      setTetrisFallingTile({
-        ...nextFalling,
-        colIdx: defaultCol,
-        rowY: 6,
-      });
+  const changeSnakeDirection = useCallback((newDir) => {
+    const current = snakeDirRef.current;
+    if (newDir.x === -current.x && newDir.y === -current.y) return;
+    nextDirRef.current = newDir;
+    triggerHaptic('tap');
+  }, []);
 
-      // 45% 概率生成场上现有某个方块的配对，增加策略深度与消除快感
-      const activeTiles = currentCols.flat();
-      let newNext;
-      if (activeTiles.length > 0 && Math.random() < 0.45) {
-        const targetTile = activeTiles[Math.floor(Math.random() * activeTiles.length)];
-        const item = initialItems.find(i => i.id === targetTile.pairId) || initialItems[0];
-        const needFrac = targetTile.type === 'percent';
-        const fracParts = item.fraction.split('/');
-        newNext = needFrac ? {
-          id: `f_${item.id}_${Date.now()}_${Math.random()}`,
-          pairId: item.id,
-          type: 'fraction',
-          num: fracParts[0] || '1',
-          den: fracParts[1] || item.fraction,
-          isMatched: false,
-          isDropping: true,
-        } : {
-          id: `p_${item.id}_${Date.now()}_${Math.random()}`,
-          pairId: item.id,
-          type: 'percent',
-          value: item.percent,
-          isMatched: false,
-          isDropping: true,
-        };
-      } else {
-        newNext = getRandomDropTile();
-      }
-
-      return newNext;
-    });
-  }, [getRandomDropTile]);
-
-  const landAndResolveDropTile = useCallback((falling, cols) => {
-    if (!falling) return;
-    const colIdx = falling.colIdx;
-    const col = [...cols[colIdx]];
-    const topTile = col.length > 0 ? col[col.length - 1] : null;
-
-    if (topTile && topTile.pairId === falling.pairId && topTile.type !== falling.type) {
-      // 配对成功消除！
-      triggerHaptic('success');
-      const newCols = cols.map((c, i) => i === colIdx ? c.slice(0, c.length - 1) : [...c]);
-
-      setTetrisCombo(curCombo => {
-        const nextCombo = curCombo + 1;
-        setTetrisMaxCombo(m => Math.max(m, nextCombo));
-        const chainBonus = (nextCombo - 1) * 60;
-        const earned = 100 + chainBonus;
-
-        setTetrisScore(prevScore => {
-          const newScore = prevScore + earned;
-          const high = Number(localStorage.getItem('baihuafen-tetris-highscore') || 0);
-          if (newScore > high) {
-            localStorage.setItem('baihuafen-tetris-highscore', String(newScore));
-            setTetrisHighScore(newScore);
-            setIsTetrisNewRecord(true);
-          }
-          return newScore;
-        });
-
-        const fid = `${Date.now()}_${Math.random()}`;
-        const floatText = nextCombo >= 2 ? `+${earned} 🔥连锁 x${nextCombo}!` : `+${earned} 消除!`;
-        setTetrisFloatingScores(prev => [...prev.slice(-3), { id: fid, text: floatText, type: 'plus' }]);
-        setTimeout(() => {
-          setTetrisFloatingScores(prev => prev.filter(f => f.id !== fid));
-        }, 1100);
-
-        return nextCombo;
-      });
-
-      setTetrisEliminatedPairs(p => p + 1);
-      setTetrisCols(newCols);
-      spawnNextFallingTile(newCols);
-
-    } else {
-      if (col.length >= 6) {
-        triggerHaptic('error');
-        setIsTetrisGameOver(true);
-        setTetrisFallingTile(null);
-        return;
-      }
-
-      triggerHaptic('tap');
-      setTetrisCombo(0);
-      const landed = { ...falling, isDropping: false };
-      delete landed.rowY;
-      delete landed.colIdx;
-
-      const newCols = cols.map((c, i) => i === colIdx ? [...c, landed] : [...c]);
-      setTetrisCols(newCols);
-      spawnNextFallingTile(newCols);
-    }
-  }, [spawnNextFallingTile]);
-
-  const startNewDropGame = useCallback(() => {
-    const initialBoardPool = [...initialItems];
-    for (let i = initialBoardPool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [initialBoardPool[i], initialBoardPool[j]] = [initialBoardPool[j], initialBoardPool[i]];
-    }
-
-    const initialCols = [[], [], [], []];
-    for (let c = 0; c < 4; c++) {
-      const count = Math.random() > 0.5 ? 2 : 1;
-      for (let k = 0; k < count; k++) {
-        const item = initialBoardPool.pop() || initialItems[Math.floor(Math.random() * initialItems.length)];
-        const isFrac = Math.random() > 0.5;
-        const fracParts = item.fraction.split('/');
-        const t = isFrac ? {
-          id: `f_${item.id}_${Date.now()}_${Math.random()}`,
-          pairId: item.id,
-          type: 'fraction',
-          num: fracParts[0] || '1',
-          den: fracParts[1] || item.fraction,
-          isMatched: false,
-        } : {
-          id: `p_${item.id}_${Date.now()}_${Math.random()}`,
-          pairId: item.id,
-          type: 'percent',
-          value: item.percent,
-          isMatched: false,
-        };
-        initialCols[c].push(t);
-      }
-    }
-
-    const firstTile = getRandomDropTile();
-    const nextT = getRandomDropTile();
-
-    setTetrisCols(initialCols);
-    setTetrisFallingTile({ ...firstTile, colIdx: 1, rowY: 6 });
-    setTetrisNextTile(nextT);
-    setTetrisScore(0);
-    setTetrisCombo(0);
-    setTetrisMaxCombo(0);
-    setTetrisEliminatedPairs(0);
-    setTetrisFloatingScores([]);
-    setIsTetrisPaused(false);
-    setIsTetrisGameOver(false);
-    setIsTetrisNewRecord(false);
-    setTetrisSpeedMs(900);
-  }, [getRandomDropTile]);
-
-  const handleTetrisMoveLeft = useCallback(() => {
-    if (!tetrisFallingTile || isTetrisPaused || isTetrisGameOver) return;
-    if (tetrisFallingTile.colIdx > 0) {
-      triggerHaptic('tap');
-      setTetrisFallingTile(prev => ({ ...prev, colIdx: prev.colIdx - 1 }));
-    }
-  }, [tetrisFallingTile, isTetrisPaused, isTetrisGameOver]);
-
-  const handleTetrisMoveRight = useCallback(() => {
-    if (!tetrisFallingTile || isTetrisPaused || isTetrisGameOver) return;
-    if (tetrisFallingTile.colIdx < 3) {
-      triggerHaptic('tap');
-      setTetrisFallingTile(prev => ({ ...prev, colIdx: prev.colIdx + 1 }));
-    }
-  }, [tetrisFallingTile, isTetrisPaused, isTetrisGameOver]);
-
-  const handleTetrisSelectCol = useCallback((targetCol) => {
-    if (!tetrisFallingTile || isTetrisPaused || isTetrisGameOver) return;
-    if (targetCol >= 0 && targetCol <= 3) {
-      triggerHaptic('tap');
-      setTetrisFallingTile(prev => ({ ...prev, colIdx: targetCol }));
-    }
-  }, [tetrisFallingTile, isTetrisPaused, isTetrisGameOver]);
-
-  const handleTetrisHardDrop = useCallback(() => {
-    if (!tetrisFallingTile || isTetrisPaused || isTetrisGameOver) return;
-    triggerHaptic('cardFlip');
-    landAndResolveDropTile(tetrisFallingTile, tetrisCols);
-  }, [tetrisFallingTile, isTetrisPaused, isTetrisGameOver, landAndResolveDropTile, tetrisCols]);
-
-  // Drop & Merge Game Loop Timer
+  // 60FPS Snake Tick Loop
   useEffect(() => {
     let interval = null;
-    if (quizMode === 'dropTetris' && !isTetrisPaused && !isTetrisGameOver && tetrisFallingTile) {
-      interval = setInterval(() => {
-        setTetrisFallingTile(currentFalling => {
-          if (!currentFalling) return null;
-          const colIdx = currentFalling.colIdx;
-          const targetLandingRow = tetrisCols[colIdx].length;
+    if (quizMode === 'snakeGame' && !isSnakePaused && !isSnakeGameOver) {
+      const tickSpeed = Math.max(100, 150 - Math.min(snakeEatenCount, 15) * 3);
 
-          if (currentFalling.rowY > targetLandingRow) {
-            return { ...currentFalling, rowY: currentFalling.rowY - 1 };
-          } else {
-            landAndResolveDropTile(currentFalling, tetrisCols);
-            return currentFalling;
+      interval = setInterval(() => {
+        setSnakeBody(prevBody => {
+          if (!prevBody || prevBody.length === 0) return prevBody;
+          const currentDir = nextDirRef.current;
+          snakeDirRef.current = currentDir;
+          setSnakeDir(currentDir);
+
+          const head = prevBody[0];
+          const GRID = 16;
+          const nextX = (head.x + currentDir.x + GRID) % GRID;
+          const nextY = (head.y + currentDir.y + GRID) % GRID;
+
+          // 1. 自咬检测
+          const isSelfBite = prevBody.some((seg, idx) => idx > 0 && seg.x === nextX && seg.y === nextY);
+          if (isSelfBite) {
+            triggerHaptic('error');
+            setSnakeLives(prevLives => {
+              const nextLives = prevLives - 1;
+              if (nextLives <= 0) {
+                setIsSnakeGameOver(true);
+              }
+              return Math.max(0, nextLives);
+            });
+            return prevBody;
           }
+
+          // 2. 食物碰撞检测
+          let eatenFood = null;
+          setSnakeFoods(curFoods => {
+            const hit = curFoods.find(f => f.x === nextX && f.y === nextY);
+            if (hit) eatenFood = hit;
+            return curFoods;
+          });
+
+          if (eatenFood) {
+            if (eatenFood.isCorrect) {
+              triggerHaptic('success');
+
+              setSnakeCombo(prevCombo => {
+                const nextCombo = prevCombo + 1;
+                setSnakeMaxCombo(m => Math.max(m, nextCombo));
+                const earned = 100 + (nextCombo - 1) * 40;
+
+                setSnakeScore(prevScore => {
+                  const newScore = prevScore + earned;
+                  const high = Number(localStorage.getItem('baihuafen-snake-highscore') || 0);
+                  if (newScore > high) {
+                    localStorage.setItem('baihuafen-snake-highscore', String(newScore));
+                    setSnakeHighScore(newScore);
+                    setIsSnakeNewRecord(true);
+                  }
+                  return newScore;
+                });
+
+                const fid = `${Date.now()}_${Math.random()}`;
+                const floatText = nextCombo >= 2 ? `+${earned} 🔥x${nextCombo}!` : `+${earned} 🎯!`;
+                setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: floatText, type: 'plus' }]);
+                setTimeout(() => {
+                  setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
+                }, 1000);
+
+                return nextCombo;
+              });
+
+              setSnakeEatenCount(c => c + 1);
+
+              const newBody = [{ x: nextX, y: nextY }, ...prevBody];
+              const { target: newTarget, foods: newFoods } = generateSnakeFoodsAndTarget(newBody);
+              setSnakeTarget(newTarget);
+              setSnakeFoods(newFoods);
+
+              return newBody;
+
+            } else {
+              triggerHaptic('error');
+              setSnakeCombo(0);
+              setSnakeLives(prevLives => {
+                const nextLives = prevLives - 1;
+                if (nextLives <= 0) {
+                  setIsSnakeGameOver(true);
+                }
+                return Math.max(0, nextLives);
+              });
+
+              const fid = `${Date.now()}_${Math.random()}`;
+              setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: '-1 ❤️ 误吞!', type: 'minus' }]);
+              setTimeout(() => {
+                setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
+              }, 1000);
+
+              const newBody = [{ x: nextX, y: nextY }, ...prevBody.slice(0, -1)];
+              setSnakeFoods(curFoods => {
+                const filtered = curFoods.filter(f => f.id !== eatenFood.id);
+                const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
+                curFoods.forEach(f => occupied.add(`${f.x},${f.y}`));
+                let rx = Math.floor(Math.random() * 16);
+                let ry = Math.floor(Math.random() * 16);
+                while (occupied.has(`${rx},${ry}`)) {
+                  rx = Math.floor(Math.random() * 16);
+                  ry = Math.floor(Math.random() * 16);
+                }
+                return [...filtered, { ...eatenFood, x: rx, y: ry }];
+              });
+
+              return newBody;
+            }
+          }
+
+          return [{ x: nextX, y: nextY }, ...prevBody.slice(0, -1)];
         });
-      }, tetrisSpeedMs);
+      }, tickSpeed);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [quizMode, isTetrisPaused, isTetrisGameOver, tetrisFallingTile, tetrisCols, tetrisSpeedMs, landAndResolveDropTile]);
+  }, [quizMode, isSnakePaused, isSnakeGameOver, snakeEatenCount, generateSnakeFoodsAndTarget]);
 
-  // Drop & Merge Keyboard Shortcuts
+  // Canvas Drawing Routine
+  useEffect(() => {
+    if (quizMode !== 'snakeGame') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 2;
+    const displayWidth = canvas.clientWidth || 340;
+    const displayHeight = canvas.clientHeight || 340;
+
+    if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
+    }
+    ctx.resetTransform?.();
+    ctx.scale(dpr, dpr);
+
+    const GRID = 16;
+    const cellSize = displayWidth / GRID;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
+
+    ctx.fillStyle = '#f8fafc';
+    for (let r = 0; r < GRID; r++) {
+      for (let c = 0; c < GRID; c++) {
+        if ((r + c) % 2 === 0) {
+          ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    // 绘制 4 颗能量食物球 (Food Orbs with Labels)
+    snakeFoods.forEach(food => {
+      const centerX = food.x * cellSize + cellSize / 2;
+      const centerY = food.y * cellSize + cellSize / 2;
+      const radius = cellSize * 0.44;
+
+      ctx.save();
+      ctx.shadowColor = food.isCorrect ? 'rgba(59, 130, 246, 0.35)' : 'rgba(148, 163, 184, 0.2)';
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = food.isCorrect ? '#eff6ff' : '#f8fafc';
+      ctx.strokeStyle = food.isCorrect ? '#3b82f6' : '#cbd5e1';
+      ctx.lineWidth = food.isCorrect ? 1.8 : 1.2;
+
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `800 ${Math.max(9, cellSize * 0.42)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.fillStyle = food.isCorrect ? '#1d4ed8' : '#475569';
+      ctx.fillText(food.value, centerX, centerY);
+      ctx.restore();
+    });
+
+    // 绘制蛇身
+    if (snakeBody && snakeBody.length > 0) {
+      snakeBody.forEach((seg, idx) => {
+        const x = seg.x * cellSize + 2;
+        const y = seg.y * cellSize + 2;
+        const size = cellSize - 4;
+        const radius = idx === 0 ? size / 2.2 : size / 3;
+
+        ctx.save();
+        if (idx === 0) {
+          ctx.fillStyle = '#2563eb';
+          ctx.shadowColor = 'rgba(37, 99, 235, 0.4)';
+          ctx.shadowBlur = 6;
+        } else {
+          const ratio = idx / snakeBody.length;
+          ctx.fillStyle = `rgb(${Math.floor(59 + ratio * 30)}, ${Math.floor(130 + ratio * 35)}, ${Math.floor(246 - ratio * 20)})`;
+        }
+
+        ctx.beginPath();
+        ctx.roundRect(x, y, size, size, radius);
+        ctx.fill();
+        ctx.restore();
+
+        if (idx === 0) {
+          const eyeOffset = size * 0.22;
+          const eyeRadius = size * 0.12;
+          const pupilRadius = size * 0.06;
+          const centerX = seg.x * cellSize + cellSize / 2;
+          const centerY = seg.y * cellSize + cellSize / 2;
+
+          let eye1X = centerX, eye1Y = centerY, eye2X = centerX, eye2Y = centerY;
+          if (snakeDir.x === 1) {
+            eye1X = centerX + eyeOffset; eye1Y = centerY - eyeOffset;
+            eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
+          } else if (snakeDir.x === -1) {
+            eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
+            eye2X = centerX - eyeOffset; eye2Y = centerY + eyeOffset;
+          } else if (snakeDir.y === 1) {
+            eye1X = centerX - eyeOffset; eye1Y = centerY + eyeOffset;
+            eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
+          } else if (snakeDir.y === -1) {
+            eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
+            eye2X = centerX + eyeOffset; eye2Y = centerY - eyeOffset;
+          }
+
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(eye1X, eye1Y, eyeRadius, 0, Math.PI * 2);
+          ctx.arc(eye2X, eye2Y, eyeRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          ctx.arc(eye1X + snakeDir.x * 1.5, eye1Y + snakeDir.y * 1.5, pupilRadius, 0, Math.PI * 2);
+          ctx.arc(eye2X + snakeDir.x * 1.5, eye2Y + snakeDir.y * 1.5, pupilRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    }
+  }, [quizMode, snakeBody, snakeFoods, snakeDir]);
+
+  // Touch Swipe Handlers for Snake
+  const handleArenaTouchStart = (e) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleArenaTouchEnd = (e) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+
+    if (Math.max(absDx, absDy) > 20) {
+      if (absDx > absDy) {
+        if (dx > 0) changeSnakeDirection({ x: 1, y: 0 });
+        else changeSnakeDirection({ x: -1, y: 0 });
+      } else {
+        if (dy > 0) changeSnakeDirection({ x: 0, y: 1 });
+        else changeSnakeDirection({ x: 0, y: -1 });
+      }
+    }
+  };
+
+  // Snake Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (quizMode !== 'dropTetris' || isTetrisPaused || isTetrisGameOver) return;
-      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+      if (quizMode !== 'snakeGame' || isSnakePaused || isSnakeGameOver) return;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
         e.preventDefault();
-        handleTetrisMoveLeft();
+        changeSnakeDirection({ x: 0, y: -1 });
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        changeSnakeDirection({ x: 0, y: 1 });
+      } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        changeSnakeDirection({ x: -1, y: 0 });
       } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         e.preventDefault();
-        handleTetrisMoveRight();
-      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S' || e.key === ' ') {
+        changeSnakeDirection({ x: 1, y: 0 });
+      } else if (e.key === ' ') {
         e.preventDefault();
-        handleTetrisHardDrop();
+        setIsSnakePaused(p => !p);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [quizMode, isTetrisPaused, isTetrisGameOver, handleTetrisMoveLeft, handleTetrisMoveRight, handleTetrisHardDrop]);
+  }, [quizMode, isSnakePaused, isSnakeGameOver, changeSnakeDirection]);
 
-  // Auto initialize dropTetris if needed
+  // Auto initialize snakeGame if needed
   useEffect(() => {
-    if (quizMode === 'dropTetris' && !tetrisFallingTile && tetrisCols.every(c => c.length === 0)) {
-      startNewDropGame();
+    if (quizMode === 'snakeGame' && (!snakeTarget || snakeFoods.length === 0)) {
+      startNewSnakeGame();
     }
-  }, [quizMode, tetrisFallingTile, tetrisCols, startNewDropGame]);
+  }, [quizMode, snakeTarget, snakeFoods.length, startNewSnakeGame]);
 
 
   const searchMatchedItems = (searchQuery && searchQuery.trim() !== '')
@@ -1219,13 +1351,13 @@ function App() {
             <span className="pill-db-name">🧮 百化分速记</span>
             <span className="pill-divider">·</span>
             <span className="pill-cat-name">
-              {quizMode === 'percentToFraction' ? '🎯 百化分' : quizMode === 'fractionToPercent' ? '🔄 分化百' : quizMode === 'matchGame' ? '🎮 消消乐' : '🧩 掉落消'}
+              {quizMode === 'percentToFraction' ? '🎯 百化分' : quizMode === 'fractionToPercent' ? '🔄 分化百' : quizMode === 'matchGame' ? '🎮 消消乐' : '🐍 贪吃蛇'}
             </span>
             <span className="pill-progress-text">
               {quizMode === 'matchGame' 
                 ? `(剩余 ${remainingPairs} 对)`
-                : quizMode === 'dropTetris'
-                ? `(⚡ ${tetrisScore})`
+                : quizMode === 'snakeGame'
+                ? `(⚡ ${snakeScore})`
                 : `(${currentIndex + 1}/${items.length})`
               }
             </span>
@@ -1675,22 +1807,23 @@ function App() {
               </div>
             )}
           </div>
-        ) : quizMode === 'dropTetris' ? (
+        ) : quizMode === 'snakeGame' ? (
           /* =========================================================
-             🧩 掉落合成方块游戏主界面 (Drop & Merge)
+             🐍 能量贪吃蛇游戏主界面 (Snake Runner)
              ========================================================= */
-          <div className="game-board-card tetris-board-card">
+          <div className="game-board-card snake-board-card">
+            {/* 顶部状态栏：得分/连击/生命值/目标/重新开局 */}
             <div className="game-top-bar">
               <div className="topbar-left-col">
                 <button 
                   className="game-ctrl-btn" 
                   onClick={() => {
                     triggerHaptic('menuToggle');
-                    setIsTetrisPaused(prev => !prev);
+                    setIsSnakePaused(prev => !prev);
                   }}
-                  title={isTetrisPaused ? "继续游戏" : "暂停游戏"}
+                  title={isSnakePaused ? "继续游戏" : "暂停游戏"}
                 >
-                  {isTetrisPaused ? (
+                  {isSnakePaused ? (
                     <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                       <path d="M8 5v14l11-7z" />
                     </svg>
@@ -1704,17 +1837,25 @@ function App() {
                 <div className="ranked-score-wrapper">
                   <div className="game-score-badge">
                     <span className="score-icon">⚡</span>
-                    <span className="score-num">{tetrisScore.toLocaleString()}</span>
+                    <span className="score-num">{snakeScore.toLocaleString()}</span>
                   </div>
 
-                  {tetrisCombo >= 2 && (
+                  {snakeCombo >= 2 && (
                     <div className="game-combo-badge">
-                      🔥x{tetrisCombo}
+                      🔥x{snakeCombo}
                     </div>
                   )}
 
+                  <div className="snake-lives-pill">
+                    {Array.from({ length: 3 }).map((_, idx) => (
+                      <span key={idx} className={`life-heart ${idx < snakeLives ? 'active' : 'lost'}`}>
+                        ❤️
+                      </span>
+                    ))}
+                  </div>
+
                   <div className="floating-score-container">
-                    {tetrisFloatingScores.map(f => (
+                    {snakeFloatingScores.map(f => (
                       <div key={f.id} className={`floating-score-item float-${f.type}`}>
                         {f.text}
                       </div>
@@ -1724,16 +1865,10 @@ function App() {
               </div>
 
               <div className="topbar-center-col">
-                {tetrisNextTile && (
-                  <div className="tetris-next-box">
-                    <span className="next-label">NEXT</span>
-                    <div className={`next-tile-preview next-${tetrisNextTile.type}`}>
-                      {tetrisNextTile.type === 'fraction' ? (
-                        <span className="next-math-frac">{tetrisNextTile.num}/{tetrisNextTile.den}</span>
-                      ) : (
-                        <span className="next-pct-val">{tetrisNextTile.value}</span>
-                      )}
-                    </div>
+                {snakeTarget && (
+                  <div className="snake-target-pill">
+                    <span className="target-pill-label">🎯 目标</span>
+                    <span className="target-pill-val">{snakeTarget.promptText}</span>
                   </div>
                 )}
               </div>
@@ -1743,7 +1878,7 @@ function App() {
                   className="game-ctrl-btn" 
                   onClick={() => {
                     triggerHaptic('dangerReset');
-                    startNewDropGame();
+                    startNewSnakeGame();
                   }}
                   title="重新开局"
                 >
@@ -1755,99 +1890,62 @@ function App() {
               </div>
             </div>
 
-            {/* 4 轨道下落消除舞台 (4 Track Drop Columns) */}
-            <div className="tetris-columns-grid">
-              <div className="tetris-danger-indicator">
-                <span className="danger-text">DANGER LINE</span>
-              </div>
-
-              {tetrisCols.map((column, colIdx) => {
-                const isSelectedTrack = tetrisFallingTile?.colIdx === colIdx;
-                return (
-                  <div 
-                    key={colIdx} 
-                    className={`tetris-track-col ${isSelectedTrack ? 'track-active' : ''}`}
-                    onClick={() => handleTetrisSelectCol(colIdx)}
-                  >
-                    {/* 顶部指示箭头 */}
-                    <div className="track-head-indicator">
-                      {isSelectedTrack && <span className="track-arrow">▼</span>}
-                    </div>
-
-                    {/* 下落中的方块 */}
-                    {tetrisFallingTile && isSelectedTrack && (
-                      <div 
-                        className={`game-tile tetris-falling-tile tile-${tetrisFallingTile.type}`}
-                        style={{
-                          bottom: `calc(${tetrisFallingTile.rowY} * (100% / 7) + 4px)`
-                        }}
-                      >
-                        {tetrisFallingTile.type === 'fraction' ? (
-                          <div className="math-frac">
-                            <span className="frac-num">{tetrisFallingTile.num}</span>
-                            <span className="frac-line"></span>
-                            <span className="frac-den">{tetrisFallingTile.den}</span>
-                          </div>
-                        ) : (
-                          <span className="percent-val">{tetrisFallingTile.value}</span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* 已落位堆叠方块 */}
-                    <div className="tetris-placed-stack">
-                      {column.map((tile, rIdx) => (
-                        <div
-                          key={tile.id || rIdx}
-                          className={`game-tile tetris-placed-tile tile-${tile.type}`}
-                          style={{
-                            bottom: `calc(${rIdx} * (100% / 7) + 4px)`
-                          }}
-                        >
-                          {tile.type === 'fraction' ? (
-                            <div className="math-frac">
-                              <span className="frac-num">{tile.num}</span>
-                              <span className="frac-line"></span>
-                              <span className="frac-den">{tile.den}</span>
-                            </div>
-                          ) : (
-                            <span className="percent-val">{tile.value}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+            {/* 60FPS Canvas 渲染竞技场 */}
+            <div 
+              className="snake-arena-wrapper"
+              onTouchStart={handleArenaTouchStart}
+              onTouchEnd={handleArenaTouchEnd}
+            >
+              <canvas ref={canvasRef} className="snake-canvas" />
             </div>
 
-            {/* 移动端/桌面端 快捷虚拟操控栏 */}
-            <div className="tetris-touch-controls">
-              <button 
-                className="tetris-ctrl-btn left-move-btn"
-                onClick={handleTetrisMoveLeft}
-                title="向左移动"
-              >
-                ◀ 左移
-              </button>
-              <button 
-                className="tetris-ctrl-btn hard-drop-btn"
-                onClick={handleTetrisHardDrop}
-                title="急速直坠"
-              >
-                ⚡ 直坠 (Drop)
-              </button>
-              <button 
-                className="tetris-ctrl-btn right-move-btn"
-                onClick={handleTetrisMoveRight}
-                title="向右移动"
-              >
-                右移 ▶
-              </button>
+            {/* 底部高质感虚拟十字方向键 (D-Pad) */}
+            <div className="snake-dpad-container">
+              <div className="dpad-row dpad-top">
+                <button 
+                  className="dpad-btn dpad-up" 
+                  onClick={() => changeSnakeDirection({ x: 0, y: -1 })}
+                  title="向上移动"
+                >
+                  ▲
+                </button>
+              </div>
+              <div className="dpad-row dpad-middle">
+                <button 
+                  className="dpad-btn dpad-left" 
+                  onClick={() => changeSnakeDirection({ x: -1, y: 0 })}
+                  title="向左移动"
+                >
+                  ◀
+                </button>
+                <button 
+                  className="dpad-btn dpad-center" 
+                  onClick={() => setIsSnakePaused(p => !p)}
+                  title="暂停/继续"
+                >
+                  {isSnakePaused ? '▶' : '⏸'}
+                </button>
+                <button 
+                  className="dpad-btn dpad-right" 
+                  onClick={() => changeSnakeDirection({ x: 1, y: 0 })}
+                  title="向右移动"
+                >
+                  ▶
+                </button>
+              </div>
+              <div className="dpad-row dpad-bottom">
+                <button 
+                  className="dpad-btn dpad-down" 
+                  onClick={() => changeSnakeDirection({ x: 0, y: 1 })}
+                  title="向下移动"
+                >
+                  ▼
+                </button>
+              </div>
             </div>
 
             {/* ⏸ 暂停遮罩 */}
-            {isTetrisPaused && (
+            {isSnakePaused && (
               <div className="game-modal-overlay">
                 <div className="game-modal-card">
                   <div className="modal-icon svg-modal-icon">
@@ -1858,17 +1956,17 @@ function App() {
                     </svg>
                   </div>
                   <h3 className="modal-title">游戏已暂停</h3>
-                  <p className="modal-subtitle">当前得分：{tetrisScore.toLocaleString()}</p>
+                  <p className="modal-subtitle">当前得分：{snakeScore.toLocaleString()}</p>
                   <div className="modal-actions">
                     <button className="m-btn-primary" onClick={() => {
                       triggerHaptic('menuToggle');
-                      setIsTetrisPaused(false);
+                      setIsSnakePaused(false);
                     }}>
                       继续游戏
                     </button>
                     <button className="m-btn-secondary" onClick={() => {
                       triggerHaptic('dangerReset');
-                      startNewDropGame();
+                      startNewSnakeGame();
                     }}>
                       重新开始
                     </button>
@@ -1878,38 +1976,38 @@ function App() {
             )}
 
             {/* 💀 Game Over 结算弹窗 */}
-            {isTetrisGameOver && (
+            {isSnakeGameOver && (
               <div className="game-modal-overlay">
                 <div className="game-modal-card">
-                  <div className="modal-icon">🎮</div>
-                  <h3 className="modal-title">挑战结算</h3>
-                  {isTetrisNewRecord && <div className="new-record-badge">🏆 创下新历史高分纪录！</div>}
+                  <div className="modal-icon">🐍</div>
+                  <h3 className="modal-title">贪吃蛇挑战结算</h3>
+                  {isSnakeNewRecord && <div className="new-record-badge">🏆 创下新历史高分纪录！</div>}
 
                   <div className="ranked-victory-score-box">
                     <span className="ranked-score-label">最终得分</span>
-                    <span className="ranked-score-val">{tetrisScore.toLocaleString()}</span>
+                    <span className="ranked-score-val">{snakeScore.toLocaleString()}</span>
                   </div>
 
                   <div className="victory-stats-grid">
                     <div className="v-stat-box">
-                      <span className="v-stat-label">🎯 消除配对</span>
-                      <span className="v-stat-val">{tetrisEliminatedPairs} 对</span>
+                      <span className="v-stat-label">🎯 吞噬正确</span>
+                      <span className="v-stat-val">{snakeEatenCount} 个</span>
                     </div>
                     <div className="v-stat-box">
                       <span className="v-stat-label">🔥 最高连击</span>
-                      <span className="v-stat-val">x{tetrisMaxCombo}</span>
+                      <span className="v-stat-val">x{snakeMaxCombo}</span>
                     </div>
                     <div className="v-stat-box" style={{ gridColumn: '1 / -1' }}>
                       <span className="v-stat-label">历史最高纪录</span>
                       <span className="v-stat-val" style={{ color: '#10b981' }}>
-                        {tetrisHighScore ? `${tetrisHighScore.toLocaleString()} 分` : `${tetrisScore.toLocaleString()} 分`}
+                        {snakeHighScore ? `${snakeHighScore.toLocaleString()} 分` : `${snakeScore.toLocaleString()} 分`}
                       </span>
                     </div>
                   </div>
 
                   <div className="modal-actions">
-                    <button className="m-btn-primary" onClick={startNewDropGame}>
-                      再来一局 🧩
+                    <button className="m-btn-primary" onClick={startNewSnakeGame}>
+                      再来一局 🐍
                     </button>
                     <button 
                       className="m-btn-secondary" 
@@ -2165,7 +2263,7 @@ function App() {
               退出
             </button>
           </>
-        ) : quizMode === 'dropTetris' ? (
+        ) : quizMode === 'snakeGame' ? (
           <>
             <button 
               className="mode-btn sheet-btn" 
@@ -2228,14 +2326,14 @@ function App() {
               🎮 消消乐
             </button>
             <button 
-              className={`mode-btn ${quizMode === 'dropTetris' ? 'active' : ''}`} 
+              className={`mode-btn ${quizMode === 'snakeGame' ? 'active' : ''}`} 
               onClick={() => { 
                 triggerHaptic('modeSwitch');
-                setQuizMode('dropTetris'); 
-                if (!tetrisFallingTile && tetrisCols.every(c => c.length === 0)) startNewDropGame(); 
+                setQuizMode('snakeGame'); 
+                if (!snakeTarget || snakeFoods.length === 0) startNewSnakeGame(); 
               }}
             >
-              🧩 掉落消
+              🐍 贪吃蛇
             </button>
 
             <span className="mode-divider"></span>
