@@ -1152,7 +1152,10 @@ function App() {
 
                   <button 
                     className="game-ctrl-btn" 
-                    onClick={startNewGame}
+                    onClick={() => {
+                      triggerHaptic('dangerReset');
+                      startNewGame();
+                    }}
                     title="重新开始"
                   >
                     🔄
@@ -1162,7 +1165,10 @@ function App() {
                 <>
                   <button 
                     className="game-ctrl-btn" 
-                    onClick={() => setIsGamePaused(prev => !prev)}
+                    onClick={() => {
+                      triggerHaptic('menuToggle');
+                      setIsGamePaused(prev => !prev);
+                    }}
                     title={isGamePaused ? "继续游戏" : "暂停游戏"}
                   >
                     {isGamePaused ? '▶' : '⏸'}
@@ -1174,7 +1180,10 @@ function App() {
 
                   <button 
                     className="game-ctrl-btn" 
-                    onClick={startNewGame}
+                    onClick={() => {
+                      triggerHaptic('dangerReset');
+                      startNewGame();
+                    }}
                     title="重新洗牌开局"
                   >
                     🔄
@@ -1231,10 +1240,16 @@ function App() {
                   <h3 className="modal-title">游戏已暂停</h3>
                   <p className="modal-subtitle">当前用时：{formatTime(timerSeconds)}</p>
                   <div className="modal-actions">
-                    <button className="m-btn-primary" onClick={() => setIsGamePaused(false)}>
+                    <button className="m-btn-primary" onClick={() => {
+                      triggerHaptic('menuToggle');
+                      setIsGamePaused(false);
+                    }}>
                       继续游戏
                     </button>
-                    <button className="m-btn-secondary" onClick={startNewGame}>
+                    <button className="m-btn-secondary" onClick={() => {
+                      triggerHaptic('dangerReset');
+                      startNewGame();
+                    }}>
                       重新开始
                     </button>
                   </div>
