@@ -1656,6 +1656,19 @@ body {
   margin-top: 0.2rem;
 }
 
+.tier-apex {
+  background: linear-gradient(135deg, #fdf2f8, #fce7f3);
+  color: #db2777;
+  border: 1.5px solid #f472b6;
+  box-shadow: 0 0 16px rgba(219, 39, 119, 0.28);
+  animation: apexGlow 2s infinite alternate;
+}
+
+@keyframes apexGlow {
+  0% { box-shadow: 0 0 8px rgba(219, 39, 119, 0.2); }
+  100% { box-shadow: 0 0 18px rgba(219, 39, 119, 0.5); transform: scale(1.02); }
+}
+
 .tier-grandmaster {
   background: #f3e8ff;
   color: #7e22ce;

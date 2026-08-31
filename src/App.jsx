@@ -8,11 +8,12 @@ const RANKED_LEADERBOARD_KEY = 'baihuafen-ranked-leaderboard';
 const MATCH_SUBMODE_KEY = 'baihuafen-match-submode';
 
 const getRankTier = (score) => {
-  if (score >= 5500) return { name: '百化分宗师', icon: '👑', color: '#8b5cf6', badgeClass: 'tier-grandmaster' };
-  if (score >= 4500) return { name: '璀璨钻石', icon: '💎', color: '#06b6d4', badgeClass: 'tier-diamond' };
-  if (score >= 3500) return { name: '荣耀黄金', icon: '🥇', color: '#f59e0b', badgeClass: 'tier-gold' };
-  if (score >= 2500) return { name: '疾风白银', icon: '🥈', color: '#64748b', badgeClass: 'tier-silver' };
-  return { name: '坚韧青铜', icon: '🥉', color: '#92400e', badgeClass: 'tier-bronze' };
+  if (score >= 9500) return { name: '最强王者', icon: '🌌', color: '#db2777', badgeClass: 'tier-apex' };
+  if (score >= 8500) return { name: '百化分宗师', icon: '👑', color: '#7e22ce', badgeClass: 'tier-grandmaster' };
+  if (score >= 7500) return { name: '璀璨钻石', icon: '💎', color: '#0e7490', badgeClass: 'tier-diamond' };
+  if (score >= 6500) return { name: '荣耀黄金', icon: '🥇', color: '#b45309', badgeClass: 'tier-gold' };
+  if (score >= 5000) return { name: '秩序白银', icon: '🥈', color: '#475569', badgeClass: 'tier-silver' };
+  return { name: '坚韧青铜', icon: '🥉', color: '#991b1b', badgeClass: 'tier-bronze' };
 };
 
 const renderHighlightedText = (text, query) => {
@@ -359,9 +360,23 @@ function App() {
         lastMatchTimeRef.current = now;
 
         const newCombo = comboCount + 1;
-        const comboBonus = newCombo >= 2 ? (newCombo - 1) * 50 : 0;
-        const isSpeed = timeDiff <= 1.8;
-        const speedBonus = isSpeed ? 50 : 0;
+        // 阶梯连击奖励
+        let comboBonus = 0;
+        if (newCombo >= 10) comboBonus = 220;
+        else if (newCombo >= 5) comboBonus = 160;
+        else if (newCombo >= 2) comboBonus = (newCombo - 1) * 40;
+
+        // 极速与神速反应判断
+        let speedBonus = 0;
+        let speedLabel = '';
+        if (timeDiff <= 1.1) {
+          speedBonus = 80;
+          speedLabel = '⚡⚡神速';
+        } else if (timeDiff <= 1.6) {
+          speedBonus = 40;
+          speedLabel = '⚡极速';
+        }
+
         const earned = 100 + comboBonus + speedBonus;
 
         setRankedScore(prev => prev + earned);
@@ -370,9 +385,9 @@ function App() {
         setConsecutiveErrors(0);
 
         let floatText = `+${earned}`;
-        if (newCombo >= 2 && isSpeed) floatText = `+${earned} ⚡极速 x${newCombo}!`;
+        if (newCombo >= 2 && speedLabel) floatText = `+${earned} ${speedLabel} x${newCombo}!`;
         else if (newCombo >= 2) floatText = `+${earned} 🔥连击 x${newCombo}!`;
-        else if (isSpeed) floatText = `+${earned} ⚡极速!`;
+        else if (speedLabel) floatText = `+${earned} ${speedLabel}!`;
 
         const fid = `${now}_${Math.random()}`;
         setFloatingScores(prev => [...prev.slice(-3), { id: fid, text: floatText, type: 'plus' }]);
@@ -494,11 +509,11 @@ function App() {
           
           if (matchSubMode === 'ranked') {
             let timeBonus = 100;
-            if (finalTime <= 25) timeBonus = 1500;
-            else if (finalTime <= 35) timeBonus = 1200;
-            else if (finalTime <= 45) timeBonus = 900;
-            else if (finalTime <= 60) timeBonus = 600;
-            else if (finalTime <= 90) timeBonus = 300;
+            if (finalTime <= 20) timeBonus = 2000;
+            else if (finalTime <= 28) timeBonus = 1500;
+            else if (finalTime <= 36) timeBonus = 1000;
+            else if (finalTime <= 48) timeBonus = 600;
+            else if (finalTime <= 65) timeBonus = 300;
 
             setRankedScore(currentBaseScore => {
               const finalTotalScore = currentBaseScore + timeBonus;
@@ -553,20 +568,20 @@ function App() {
       }, 220);
 
     } else {
-      // ❌ MISMATCH 错选抖动与扣分惩罚
+      // ❌ MISMATCH 错选抖动与严厉连错惩罚
       if (matchSubMode === 'ranked') {
         setComboCount(0);
         const nextErrors = consecutiveErrors + 1;
         setConsecutiveErrors(nextErrors);
 
-        let penalty = 50;
-        let penaltyText = '-50 匹配错误';
+        let penalty = 80;
+        let penaltyText = '-80 匹配错误';
         if (nextErrors === 2) {
-          penalty = 100;
-          penaltyText = '-100 ⚠️ 连错惩罚!';
+          penalty = 160;
+          penaltyText = '-160 ⚠️ 连错惩罚!';
         } else if (nextErrors >= 3) {
-          penalty = 180;
-          penaltyText = `-180 🚨 ${nextErrors}连错重罚!`;
+          penalty = 280;
+          penaltyText = `-280 🚨 ${nextErrors}连错重罚!`;
         }
 
         setRankedScore(prev => Math.max(0, prev - penalty));
