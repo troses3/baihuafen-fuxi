@@ -49,110 +49,55 @@ function iosClick() {
   } catch (e) {}
 }
 
-let audioCtx = null;
-
-function playAcousticHaptic(type) {
-  try {
-    if (typeof window === 'undefined') return;
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    if (!audioCtx) {
-      audioCtx = new AudioContextClass();
-    }
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-    const now = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-
-    if (type === 'success' || type === 'combo') {
-      // Pleasant snappy pop (220Hz -> 50Hz in 50ms)
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(240, now);
-      osc.frequency.exponentialRampToValueAtTime(50, now + 0.055);
-      gain.gain.setValueAtTime(0.28, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start(now);
-      osc.stop(now + 0.055);
-    } else if (type === 'error' || type === 'dangerReset') {
-      // Deep warning buzz/thud
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(110, now);
-      osc.frequency.exponentialRampToValueAtTime(35, now + 0.09);
-      gain.gain.setValueAtTime(0.25, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start(now);
-      osc.stop(now + 0.09);
-    } else if (type === 'tap' || type === 'optionSelect') {
-      // Crisp mechanical micro click
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(320, now);
-      osc.frequency.exponentialRampToValueAtTime(100, now + 0.025);
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start(now);
-      osc.stop(now + 0.025);
-    }
-  } catch (e) {}
-}
-
 /**
- * Trigger full-spectrum haptic feedback tailored for iOS, Android, and Web Audio fallback
+ * Trigger full-spectrum haptic feedback tailored for both iOS (switch rhythm) and Android (vibrate patterns)
  * @param {'tap' | 'modeSwitch' | 'hint' | 'menuToggle' | 'optionSelect' | 'dangerReset' | 'cardFlip' | 'success' | 'error' | 'clear' | 'combo' | 'celebration'} type
  */
 export function triggerHaptic(type = 'tap') {
-  // Acoustic tactile reinforcement for universal vibration sensation
-  playAcousticHaptic(type);
-
   // -------------------------------------------------------------
-  // 1. Android & Standards-compliant navigator.vibrate patterns
+  // 1. Android & Standards-compliant navigator.vibrate patterns (Crisp & punchy)
   // -------------------------------------------------------------
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     try {
       switch (type) {
         case 'tap':
-          navigator.vibrate(15);
+          navigator.vibrate(18);
           break;
         case 'hint':
         case 'modeSwitch':
-          navigator.vibrate([22, 35, 18]);
+          navigator.vibrate([25, 30, 20]);
           break;
         case 'optionSelect':
           navigator.vibrate(22);
           break;
         case 'menuToggle':
-          navigator.vibrate([15, 45, 15]);
+          navigator.vibrate([18, 40, 18]);
           break;
         case 'cardFlip':
           navigator.vibrate(25);
           break;
         case 'clear':
-          navigator.vibrate([15, 30, 15]);
+          navigator.vibrate([18, 25, 18]);
           break;
         case 'success':
-          navigator.vibrate([20, 50, 30]);
+          // Snappy affirmative tactile double pulse
+          navigator.vibrate([35, 30, 45]);
           break;
         case 'error':
-          navigator.vibrate([40, 45, 40, 45, 40]);
+          // Heavy alert tremor
+          navigator.vibrate([55, 35, 55, 35, 70]);
           break;
         case 'dangerReset':
-          navigator.vibrate([60, 120, 80]);
+          navigator.vibrate([70, 100, 90]);
           break;
         case 'combo':
-          navigator.vibrate([25, 40, 25, 40, 35]);
+          navigator.vibrate([30, 35, 30, 35, 45]);
           break;
         case 'celebration':
-          navigator.vibrate([30, 60, 30, 60, 50, 80, 70]);
+          navigator.vibrate([35, 50, 35, 50, 60, 70, 80]);
           break;
         default:
-          navigator.vibrate(18);
+          navigator.vibrate(20);
       }
     } catch (e) {}
   }

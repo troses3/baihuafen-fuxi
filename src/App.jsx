@@ -10,11 +10,14 @@ const MATCH_SUBMODE_KEY = 'baihuafen-match-submode';
 const SNAKE_SPEED_KEY = 'baihuafen-snake-speed-level';
 
 const SNAKE_SPEEDS = [
-  { level: 1, label: '🐢 慢速 (220ms)', shortLabel: '🐢 慢速', tick: 220 },
-  { level: 2, label: '🚶 舒适 (160ms)', shortLabel: '🚶 舒适', tick: 160 },
-  { level: 3, label: '🏃 标准 (120ms)', shortLabel: '🏃 标准', tick: 120 },
-  { level: 4, label: '⚡ 快速 (90ms)', shortLabel: '⚡ 快速', tick: 90 },
-  { level: 5, label: '🚀 极速 (65ms)', shortLabel: '🚀 极速', tick: 65 },
+  { level: 1, label: '🐢 悠闲 (450ms)', shortLabel: '悠闲', tick: 450 },
+  { level: 2, label: '☕ 沉思 (370ms)', shortLabel: '沉思', tick: 370 },
+  { level: 3, label: '🚶 漫步 (300ms)', shortLabel: '漫步', tick: 300 },
+  { level: 4, label: '🏃 舒缓 (240ms)', shortLabel: '舒缓', tick: 240 },
+  { level: 5, label: '🎯 标准 (190ms)', shortLabel: '标准', tick: 190 },
+  { level: 6, label: '⚡ 敏捷 (150ms)', shortLabel: '敏捷', tick: 150 },
+  { level: 7, label: '🔥 快速 (115ms)', shortLabel: '快速', tick: 115 },
+  { level: 8, label: '🚀 极速 (80ms)', shortLabel: '极速', tick: 80 },
 ];
 
 const getRankTier = (score) => {
@@ -2232,7 +2235,7 @@ function App() {
               <div className="speed-slider-label">
                 <span className="speed-slider-title">⚡ 移速调节</span>
                 <span className="speed-level-badge">
-                  {SNAKE_SPEEDS.find(s => s.level === snakeSpeedLevel)?.label || '🚶 舒适 (160ms)'}
+                  {SNAKE_SPEEDS.find(s => s.level === snakeSpeedLevel)?.label || '☕ 沉思 (370ms)'}
                 </span>
               </div>
               <div className="speed-slider-track-box">
@@ -2240,7 +2243,7 @@ function App() {
                 <input
                   type="range"
                   min="1"
-                  max="5"
+                  max="8"
                   step="1"
                   value={snakeSpeedLevel}
                   onChange={(e) => {

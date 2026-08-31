@@ -1971,33 +1971,33 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* 💥 竞技场吞噬震动反馈动画 */
+/* 💥 竞技场吞噬物理微弹动反馈 (Crisp spring tactile pop) */
 @keyframes arenaEatCorrect {
   0% { transform: scale(1); }
-  35% { transform: scale(1.025) translateY(-1.5px); }
-  70% { transform: scale(0.99); }
-  100% { transform: scale(1); }
+  30% { transform: scale(1.018) translateY(-1px); }
+  65% { transform: scale(0.995) translateY(0.5px); }
+  100% { transform: scale(1) translateY(0); }
 }
 
 @keyframes arenaEatError {
-  0% { transform: translate(0, 0); }
-  20% { transform: translate(-5px, 2.5px); }
-  40% { transform: translate(5px, -2.5px); }
-  60% { transform: translate(-3px, 1.5px); }
-  80% { transform: translate(3px, -1px); }
-  100% { transform: translate(0, 0); }
+  0% { transform: translate3d(0, 0, 0); }
+  20% { transform: translate3d(-3.5px, 2px, 0); }
+  40% { transform: translate3d(3.5px, -2px, 0); }
+  60% { transform: translate3d(-2px, 1px, 0); }
+  80% { transform: translate3d(2px, -0.5px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
 }
 
 .snake-arena-wrapper.shake-eat-correct {
-  animation: arenaEatCorrect 0.22s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  animation: arenaEatCorrect 0.16s cubic-bezier(0.25, 1, 0.5, 1) both;
   border-color: #60a5fa;
-  box-shadow: 0 0 25px rgba(59, 130, 246, 0.28), 0 10px 30px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25), 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
 .snake-arena-wrapper.shake-eat-error {
-  animation: arenaEatError 0.28s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  animation: arenaEatError 0.22s cubic-bezier(0.25, 1, 0.5, 1) both;
   border-color: #f87171;
-  box-shadow: 0 0 25px rgba(239, 68, 68, 0.3), 0 10px 30px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3), 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
 .snake-canvas {
