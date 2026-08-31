@@ -49,11 +49,68 @@ function iosClick() {
   } catch (e) {}
 }
 
+let audioCtx = null;
+
+function playAcousticHaptic(type) {
+  try {
+    if (typeof window === 'undefined') return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtx) {
+      audioCtx = new AudioContextClass();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    if (type === 'success' || type === 'combo') {
+      // Pleasant snappy pop (220Hz -> 50Hz in 50ms)
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(240, now);
+      osc.frequency.exponentialRampToValueAtTime(50, now + 0.055);
+      gain.gain.setValueAtTime(0.28, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.055);
+    } else if (type === 'error' || type === 'dangerReset') {
+      // Deep warning buzz/thud
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(110, now);
+      osc.frequency.exponentialRampToValueAtTime(35, now + 0.09);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } else if (type === 'tap' || type === 'optionSelect') {
+      // Crisp mechanical micro click
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(100, now + 0.025);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.025);
+    }
+  } catch (e) {}
+}
+
 /**
- * Trigger full-spectrum haptic feedback tailored for both iOS (switch rhythm) and Android (vibrate patterns)
+ * Trigger full-spectrum haptic feedback tailored for iOS, Android, and Web Audio fallback
  * @param {'tap' | 'modeSwitch' | 'hint' | 'menuToggle' | 'optionSelect' | 'dangerReset' | 'cardFlip' | 'success' | 'error' | 'clear' | 'combo' | 'celebration'} type
  */
 export function triggerHaptic(type = 'tap') {
+  // Acoustic tactile reinforcement for universal vibration sensation
+  playAcousticHaptic(type);
+
   // -------------------------------------------------------------
   // 1. Android & Standards-compliant navigator.vibrate patterns
   // -------------------------------------------------------------

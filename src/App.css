@@ -1968,6 +1968,36 @@ body {
   margin: 0;
   touch-action: none; /* 禁用默认触摸滚动，启用滑动手势 */
   box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* 💥 竞技场吞噬震动反馈动画 */
+@keyframes arenaEatCorrect {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.025) translateY(-1.5px); }
+  70% { transform: scale(0.99); }
+  100% { transform: scale(1); }
+}
+
+@keyframes arenaEatError {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-5px, 2.5px); }
+  40% { transform: translate(5px, -2.5px); }
+  60% { transform: translate(-3px, 1.5px); }
+  80% { transform: translate(3px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+.snake-arena-wrapper.shake-eat-correct {
+  animation: arenaEatCorrect 0.22s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  border-color: #60a5fa;
+  box-shadow: 0 0 25px rgba(59, 130, 246, 0.28), 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+.snake-arena-wrapper.shake-eat-error {
+  animation: arenaEatError 0.28s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  border-color: #f87171;
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.3), 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
 .snake-canvas {

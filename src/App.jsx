@@ -166,15 +166,16 @@ function App() {
   const [snakeTarget, setSnakeTarget] = useState(null);
   const [snakeFoods, setSnakeFoods] = useState([]);
   const [snakeBody, setSnakeBody] = useState([
-    { x: 8, y: 8 },
-    { x: 7, y: 8 },
-    { x: 6, y: 8 },
+    { x: 5, y: 5 },
+    { x: 4, y: 5 },
+    { x: 3, y: 5 },
   ]);
   const [snakeDir, setSnakeDir] = useState({ x: 1, y: 0 });
   const [isSnakePaused, setIsSnakePaused] = useState(false);
   const [isSnakeGameOver, setIsSnakeGameOver] = useState(false);
   const [isSnakeNewRecord, setIsSnakeNewRecord] = useState(false);
   const [snakeFloatingScores, setSnakeFloatingScores] = useState([]);
+  const [snakeArenaShake, setSnakeArenaShake] = useState('');
   const [snakeSpeedLevel, setSnakeSpeedLevel] = useState(() => {
     const saved = localStorage.getItem(SNAKE_SPEED_KEY);
     return saved ? Number(saved) : 2;
@@ -721,6 +722,7 @@ function App() {
   const snakeFoodsRef = useRef([]);
   const snakeTargetRef = useRef(null);
   const snakeBodyRef = useRef([]);
+  const snakeEffectsRef = useRef([]);
   const isSnakeRunningRef = useRef(false);
 
   const generateSnakeFoodsAndTarget = useCallback((currentBody) => {
@@ -751,7 +753,7 @@ function App() {
       [foodLabels[i], foodLabels[j]] = [foodLabels[j], foodLabels[i]];
     }
 
-    const GRID = 16;
+    const GRID = 10;
     const occupied = new Set((currentBody || []).map(b => `${b.x},${b.y}`));
     const newFoods = [];
 
@@ -790,9 +792,9 @@ function App() {
 
   const startNewSnakeGame = useCallback(() => {
     const initialBody = [
-      { x: 8, y: 8, prevX: 8, prevY: 8 },
-      { x: 7, y: 8, prevX: 7, prevY: 8 },
-      { x: 6, y: 8, prevX: 6, prevY: 8 },
+      { x: 5, y: 5, prevX: 5, prevY: 5 },
+      { x: 4, y: 5, prevX: 4, prevY: 5 },
+      { x: 3, y: 5, prevX: 3, prevY: 5 },
     ];
     const initialDir = { x: 1, y: 0 };
     const { target, foods } = generateSnakeFoodsAndTarget(initialBody);
@@ -838,7 +840,7 @@ function App() {
     let animId;
     let lastTime = performance.now();
     let accumulator = 0;
-    const GRID = 16;
+    const GRID = 10;
 
     const renderLoop = (time) => {
       try {
@@ -868,8 +870,11 @@ function App() {
               if (isSelfBite) {
                 triggerHaptic('error');
                 if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-                  try { navigator.vibrate([80, 50, 80]); } catch (e) {}
+                  try { navigator.vibrate([90, 50, 90]); } catch (e) {}
                 }
+                setSnakeArenaShake('eat-error');
+                setTimeout(() => setSnakeArenaShake(''), 280);
+
                 setSnakeLives(prevLives => {
                   const nextLives = prevLives - 1;
                   if (nextLives <= 0) {
@@ -886,12 +891,37 @@ function App() {
               const eatenFood = currentFoods.find(f => f.x === nextX && f.y === nextY);
 
               if (eatenFood) {
+                const curDisplayWidth = canvas.clientWidth || 360;
+                const curCellSize = curDisplayWidth / GRID;
+                const effectCx = nextX * curCellSize + curCellSize / 2;
+                const effectCy = nextY * curCellSize + curCellSize / 2;
+
                 if (eatenFood.isCorrect) {
-                  // 🎯 吞噬正确能量球！(触发振动)
+                  // 🎯 吞噬正确能量球！(触发震动 + 屏幕微震 + 炫彩粒子涟漪)
                   triggerHaptic('success');
                   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-                    try { navigator.vibrate([40, 50, 40]); } catch (e) {}
+                    try { navigator.vibrate([60, 40, 70]); } catch (e) {}
                   }
+                  setSnakeArenaShake('eat-correct');
+                  setTimeout(() => setSnakeArenaShake(''), 220);
+
+                  // 注入 Canvas 震荡光波粒子
+                  snakeEffectsRef.current.push({
+                    cx: effectCx,
+                    cy: effectCy,
+                    r: 4,
+                    maxR: curCellSize * 1.6,
+                    alpha: 1,
+                    color: '#3b82f6',
+                    particles: Array.from({ length: 8 }).map((_, i) => ({
+                      x: effectCx,
+                      y: effectCy,
+                      vx: Math.cos((i * Math.PI * 2) / 8) * (curCellSize * 0.16),
+                      vy: Math.sin((i * Math.PI * 2) / 8) * (curCellSize * 0.16),
+                      size: 3.5,
+                      alpha: 1,
+                    }))
+                  });
 
                   setSnakeCombo(prevCombo => {
                     const nextCombo = prevCombo + 1;
@@ -940,11 +970,31 @@ function App() {
                   setSnakeFoods(newFoods);
 
                 } else {
-                  // ❌ 误吞错误干扰球 (触发警告振动)
+                  // ❌ 误吞错误干扰球 (触发警告震动 + 警示屏幕微晃 + 红色涟漪)
                   triggerHaptic('error');
                   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-                    try { navigator.vibrate([80, 50, 80]); } catch (e) {}
+                    try { navigator.vibrate([90, 50, 90]); } catch (e) {}
                   }
+                  setSnakeArenaShake('eat-error');
+                  setTimeout(() => setSnakeArenaShake(''), 280);
+
+                  snakeEffectsRef.current.push({
+                    cx: effectCx,
+                    cy: effectCy,
+                    r: 4,
+                    maxR: curCellSize * 1.5,
+                    alpha: 1,
+                    color: '#ef4444',
+                    particles: Array.from({ length: 6 }).map((_, i) => ({
+                      x: effectCx,
+                      y: effectCy,
+                      vx: Math.cos((i * Math.PI * 2) / 6) * (curCellSize * 0.14),
+                      vy: Math.sin((i * Math.PI * 2) / 6) * (curCellSize * 0.14),
+                      size: 3,
+                      alpha: 1,
+                    }))
+                  });
+
                   setSnakeCombo(0);
                   setSnakeLives(prevLives => {
                     const nextLives = prevLives - 1;
@@ -1005,7 +1055,7 @@ function App() {
         }
 
         // ==========================================
-        // 🎨 Canvas 60FPS Render Phase (16x16 Grid)
+        // 🎨 Canvas 60FPS Render Phase (10x10 Classic Spacious Grid)
         // ==========================================
         const dpr = window.devicePixelRatio || 2;
         const displayWidth = canvas.clientWidth || 360;
@@ -1022,7 +1072,7 @@ function App() {
 
         const cellSize = displayWidth / GRID;
 
-        // 1. 棋盘背景 (与 16x16 网格完全一致的交替方格)
+        // 1. 棋盘背景 (与 10x10 网格完全一致的交替方格)
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, displayWidth, displayHeight);
 
@@ -1035,23 +1085,23 @@ function App() {
           }
         }
 
-        // 2. 绘制 4 颗能量食物方块卡片 (与网格等大的正方形，核心有效数字绝对居中！)
+        // 2. 绘制 4 颗能量食物气泡方块卡片 (大尺寸饱满气泡卡片，有效数字极大清晰居中)
         const foods = snakeFoodsRef.current || [];
         foods.forEach(food => {
-          const cardX = food.x * cellSize + 1.5;
-          const cardY = food.y * cellSize + 1.5;
-          const cardSize = cellSize - 3;
+          const cardX = food.x * cellSize + 2;
+          const cardY = food.y * cellSize + 2;
+          const cardSize = cellSize - 4; // 10x10 网格下约 32px 大尺寸气泡卡片
           const centerX = cardX + cardSize / 2;
           const centerY = cardY + cardSize / 2;
-          const cardRadius = Math.max(3, Math.round(cardSize * 0.22));
+          const cardRadius = 8;
 
           ctx.save();
-          ctx.shadowColor = 'rgba(15, 23, 42, 0.09)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetY = 1.5;
+          ctx.shadowColor = 'rgba(15, 23, 42, 0.12)';
+          ctx.shadowBlur = 6;
+          ctx.shadowOffsetY = 2;
           ctx.fillStyle = '#ffffff';
           ctx.strokeStyle = '#cbd5e1';
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 1.8;
 
           drawRoundedRect(ctx, cardX, cardY, cardSize, cardSize, cardRadius);
           ctx.fill();
@@ -1071,9 +1121,9 @@ function App() {
             suffix = '%';
           }
 
-          // 核心数字自适应字号超粗黑字，前缀后缀浅灰
-          const mainFontSize = Math.max(9, Math.round(cardSize * (main.length >= 4 ? 0.44 : 0.54)));
-          const subFontSize = Math.max(7, Math.round(cardSize * 0.30));
+          // 核心数字采用大字号超粗黑字，前缀后缀浅灰
+          const mainFontSize = main.length >= 4 ? 13.5 : 15.5;
+          const subFontSize = 9.5;
           const mainFont = `900 ${mainFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
           const subFont = `700 ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
 
@@ -1090,17 +1140,17 @@ function App() {
 
           // 2. 前缀 1/ 与后缀 % 采用微上标绘制，绝不拉偏核心数字的几何中心
           ctx.font = subFont;
-          ctx.fillStyle = '#94a3b8'; // 浅灰低调附属符号
+          ctx.fillStyle = '#64748b'; // 适中灰低调附属符号
           ctx.textBaseline = 'middle';
 
           if (prefix) {
             ctx.textAlign = 'right';
-            ctx.fillText(prefix, centerX - mainWidth / 2 - 1, centerY - 3);
+            ctx.fillText(prefix, centerX - mainWidth / 2 - 1.5, centerY - 4);
           }
 
           if (suffix) {
             ctx.textAlign = 'left';
-            ctx.fillText(suffix, centerX + mainWidth / 2 + 1, centerY - 3);
+            ctx.fillText(suffix, centerX + mainWidth / 2 + 1.5, centerY - 4);
           }
 
           ctx.restore();
@@ -1145,14 +1195,14 @@ function App() {
           for (let i = points.length - 1; i >= 0; i--) {
             const pt = points[i];
             const ratio = i / points.length;
-            const size = cellSize - 3;
+            const size = cellSize - 4;
             const radius = i === 0 ? size / 2.2 : size / 3.0;
 
             ctx.save();
             if (i === 0) {
               ctx.fillStyle = '#2563eb';
               ctx.shadowColor = 'rgba(37, 99, 235, 0.4)';
-              ctx.shadowBlur = 7;
+              ctx.shadowBlur = 8;
             } else {
               ctx.fillStyle = `rgb(${Math.floor(37 + ratio * 40)}, ${Math.floor(99 + ratio * 45)}, ${Math.floor(235 - ratio * 15)})`;
             }
@@ -1192,16 +1242,53 @@ function App() {
           // 瞳孔 (朝向运动方向微偏移)
           ctx.fillStyle = '#0f172a';
           ctx.beginPath();
-          ctx.arc(eye1X + dir.x * 2, eye1Y + dir.y * 2, pupilRadius, 0, Math.PI * 2);
-          ctx.arc(eye2X + dir.x * 2, eye2Y + dir.y * 2, pupilRadius, 0, Math.PI * 2);
+          ctx.arc(eye1X + dir.x * 2.5, eye1Y + dir.y * 2.5, pupilRadius, 0, Math.PI * 2);
+          ctx.arc(eye2X + dir.x * 2.5, eye2Y + dir.y * 2.5, pupilRadius, 0, Math.PI * 2);
           ctx.fill();
 
           // 灵动反光高光
           ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.arc(eye1X + dir.x * 2 - 0.8, eye1Y + dir.y * 2 - 0.8, pupilRadius * 0.45, 0, Math.PI * 2);
-          ctx.arc(eye2X + dir.x * 2 - 0.8, eye2Y + dir.y * 2 - 0.8, pupilRadius * 0.45, 0, Math.PI * 2);
+          ctx.arc(eye1X + dir.x * 2.5 - 0.9, eye1Y + dir.y * 2.5 - 0.9, pupilRadius * 0.45, 0, Math.PI * 2);
+          ctx.arc(eye2X + dir.x * 2.5 - 0.9, eye2Y + dir.y * 2.5 - 0.9, pupilRadius * 0.45, 0, Math.PI * 2);
           ctx.fill();
+        }
+
+        // 4. 绘制吞噬震荡光波与散逸粒子特效
+        if (snakeEffectsRef.current.length > 0) {
+          const nextEffects = [];
+          snakeEffectsRef.current.forEach(eff => {
+            eff.r += (eff.maxR - eff.r) * 0.25 + 1.2;
+            eff.alpha -= 0.055;
+
+            if (eff.alpha > 0.02) {
+              ctx.save();
+              ctx.strokeStyle = eff.color;
+              ctx.globalAlpha = Math.max(0, eff.alpha);
+              ctx.lineWidth = 2.5;
+              ctx.beginPath();
+              ctx.arc(eff.cx, eff.cy, eff.r, 0, Math.PI * 2);
+              ctx.stroke();
+
+              if (eff.particles) {
+                ctx.fillStyle = eff.color;
+                eff.particles.forEach(p => {
+                  p.x += p.vx;
+                  p.y += p.vy;
+                  p.alpha -= 0.055;
+                  if (p.alpha > 0) {
+                    ctx.globalAlpha = Math.max(0, p.alpha);
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                  }
+                });
+              }
+              ctx.restore();
+              nextEffects.push(eff);
+            }
+          });
+          snakeEffectsRef.current = nextEffects;
         }
       } catch (err) {
         console.error('Snake render error:', err);
@@ -1247,7 +1334,7 @@ function App() {
         const rect = canvas.getBoundingClientRect();
         const tapX = touch.clientX - rect.left;
         const tapY = touch.clientY - rect.top;
-        const GRID = 12;
+        const GRID = 10;
         const cellSize = rect.width / GRID;
         const head = body[0];
         const headX = head.x * cellSize + cellSize / 2;
@@ -2133,7 +2220,7 @@ function App() {
 
             {/* 60FPS Canvas 渲染竞技场 (全宽正方形主舞台) */}
             <div 
-              className="snake-arena-wrapper"
+              className={`snake-arena-wrapper ${snakeArenaShake ? `shake-${snakeArenaShake}` : ''}`}
               onTouchStart={handleArenaTouchStart}
               onTouchEnd={handleArenaTouchEnd}
             >
