@@ -1016,7 +1016,7 @@ function App() {
           }
         }
 
-        // 2. 绘制 4 颗能量食物方块卡片 (与网格完全等大的纯正方形，1/ 和 % 弱化，核心数字极大突出！)
+        // 2. 绘制 4 颗能量食物方块卡片 (与网格等大的正方形，核心有效数字绝对居中！)
         const foods = snakeFoodsRef.current || [];
         foods.forEach(food => {
           const cardX = food.x * cellSize + 2;
@@ -1052,135 +1052,86 @@ function App() {
           }
 
           // 核心数字 14px~16px 超粗黑字，前缀后缀 9px 浅灰
-          const prefixFont = '700 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           const mainFont = `900 ${main.length >= 4 ? 13 : 15}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-          const suffixFont = '700 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          const subFont = '700 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
           ctx.save();
-          ctx.textBaseline = 'middle';
 
-          ctx.font = prefixFont;
-          const prefixWidth = prefix ? ctx.measureText(prefix).width : 0;
-
-          ctx.font = mainFont;
-          const mainWidth = ctx.measureText(main).width;
-
-          ctx.font = suffixFont;
-          const suffixWidth = suffix ? ctx.measureText(suffix).width : 0;
-
-          const totalWidth = prefixWidth + mainWidth + suffixWidth;
-          let startX = centerX - totalWidth / 2;
-
-          if (prefix) {
-            ctx.font = prefixFont;
-            ctx.fillStyle = '#94a3b8'; // 浅灰低调前缀
-            ctx.textAlign = 'left';
-            ctx.fillText(prefix, startX, centerY - 2);
-            startX += prefixWidth + 1;
-          }
-
+          // 1. 核心有效数字绝对居中于方块
           ctx.font = mainFont;
           ctx.fillStyle = '#0f172a'; // 极深极粗高对比核心有效数字
-          ctx.textAlign = 'left';
-          ctx.fillText(main, startX, centerY + 0.5);
-          startX += mainWidth + 1;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(main, centerX, centerY + 0.5);
+
+          const mainWidth = ctx.measureText(main).width;
+
+          // 2. 前缀 1/ 与后缀 % 采用微上标绘制，绝不拉偏核心数字的几何中心
+          ctx.font = subFont;
+          ctx.fillStyle = '#94a3b8'; // 浅灰低调附属符号
+          ctx.textBaseline = 'middle';
+
+          if (prefix) {
+            ctx.textAlign = 'right';
+            ctx.fillText(prefix, centerX - mainWidth / 2 - 1, centerY - 3.5);
+          }
 
           if (suffix) {
-            ctx.font = suffixFont;
-            ctx.fillStyle = '#94a3b8'; // 浅灰低调后缀
             ctx.textAlign = 'left';
-            ctx.fillText(suffix, startX, centerY - 2);
+            ctx.fillText(suffix, centerX + mainWidth / 2 + 1, centerY - 3.5);
           }
 
           ctx.restore();
         });
 
-        // 3. 绘制经典网格连续平滑蛇身 (和网格等大的圆角方块身体)
-        const progress = isSnakePaused || isSnakeGameOver ? 1 : Math.min(1, Math.max(0, accumulator / (TICK_STEP || 210)));
+        // 3. 绘制经典顿挫感网格蛇身 (Discrete Step-by-Step Grid Snake)
         const body = snakeBodyRef.current || [];
         const dir = snakeDirRef.current || { x: 1, y: 0 };
 
         if (body.length > 0) {
-          // A. 提取各节段插值平滑中心坐标
-          const points = [];
-          for (let i = 0; i < body.length; i++) {
+          // A. 绘制各节段网格等大圆角方块核 (保持原汁原味经典顿挫网格感)
+          for (let i = body.length - 1; i >= 0; i--) {
             const seg = body[i];
-            let curX = seg.x;
-            let curY = seg.y;
-            let pX = seg.prevX !== undefined ? seg.prevX : curX;
-            let pY = seg.prevY !== undefined ? seg.prevY : curY;
-
-            // 跨边缘穿墙保护
-            if (Math.abs(curX - pX) > 1) pX = curX;
-            if (Math.abs(curY - pY) > 1) pY = curY;
-
-            const interpX = pX + (curX - pX) * progress;
-            const interpY = pY + (curY - pY) * progress;
-            const cx = interpX * cellSize + cellSize / 2;
-            const cy = interpY * cellSize + cellSize / 2;
-            points.push({ cx, cy, x: curX, y: curY, interpX, interpY });
-          }
-
-          // B. 绘制从尾到头的连续无缝身体管道
-          for (let i = points.length - 1; i > 0; i--) {
-            const p1 = points[i];
-            const p2 = points[i - 1];
-            const dist = Math.hypot(p1.cx - p2.cx, p1.cy - p2.cy);
-
-            if (dist < cellSize * 1.6) {
-              const ratio = i / points.length;
-              ctx.save();
-              ctx.strokeStyle = `rgb(${Math.floor(37 + ratio * 40)}, ${Math.floor(99 + ratio * 45)}, ${Math.floor(235 - ratio * 15)})`;
-              ctx.lineWidth = cellSize * 0.76;
-              ctx.lineCap = 'round';
-              ctx.lineJoin = 'round';
-              ctx.beginPath();
-              ctx.moveTo(p1.cx, p1.cy);
-              ctx.lineTo(p2.cx, p2.cy);
-              ctx.stroke();
-              ctx.restore();
-            }
-          }
-
-          // C. 绘制每个关节网格等大圆角方块核
-          for (let i = points.length - 1; i >= 0; i--) {
-            const pt = points[i];
-            const ratio = i / points.length;
+            const ratio = i / body.length;
             const size = cellSize - 4;
-            const radius = i === 0 ? size / 2.2 : size / 3.0;
+            const cx = seg.x * cellSize + cellSize / 2;
+            const cy = seg.y * cellSize + cellSize / 2;
+            const radius = i === 0 ? size / 2.2 : size / 3.2;
 
             ctx.save();
             if (i === 0) {
               ctx.fillStyle = '#2563eb';
-              ctx.shadowColor = 'rgba(37, 99, 235, 0.4)';
-              ctx.shadowBlur = 8;
+              ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
+              ctx.shadowBlur = 6;
             } else {
               ctx.fillStyle = `rgb(${Math.floor(37 + ratio * 40)}, ${Math.floor(99 + ratio * 45)}, ${Math.floor(235 - ratio * 15)})`;
             }
-            drawRoundedRect(ctx, pt.cx - size / 2, pt.cy - size / 2, size, size, radius);
+            drawRoundedRect(ctx, cx - size / 2, cy - size / 2, size, size, radius);
             ctx.fill();
             ctx.restore();
           }
 
-          // D. 绘制蛇头眼睛与高光
-          const headPt = points[0];
+          // B. 绘制蛇头眼睛与高光 (居中指向当前行进方向)
+          const head = body[0];
+          const headCx = head.x * cellSize + cellSize / 2;
+          const headCy = head.y * cellSize + cellSize / 2;
           const eyeOffset = cellSize * 0.20;
           const eyeRadius = cellSize * 0.13;
           const pupilRadius = cellSize * 0.065;
-          let eye1X = headPt.cx, eye1Y = headPt.cy, eye2X = headPt.cx, eye2Y = headPt.cy;
+          let eye1X = headCx, eye1Y = headCy, eye2X = headCx, eye2Y = headCy;
 
           if (dir.x === 1) {
-            eye1X = headPt.cx + eyeOffset * 0.7; eye1Y = headPt.cy - eyeOffset;
-            eye2X = headPt.cx + eyeOffset * 0.7; eye2Y = headPt.cy + eyeOffset;
+            eye1X = headCx + eyeOffset * 0.7; eye1Y = headCy - eyeOffset;
+            eye2X = headCx + eyeOffset * 0.7; eye2Y = headCy + eyeOffset;
           } else if (dir.x === -1) {
-            eye1X = headPt.cx - eyeOffset * 0.7; eye1Y = headPt.cy - eyeOffset;
-            eye2X = headPt.cx - eyeOffset * 0.7; eye2Y = headPt.cy + eyeOffset;
+            eye1X = headCx - eyeOffset * 0.7; eye1Y = headCy - eyeOffset;
+            eye2X = headCx - eyeOffset * 0.7; eye2Y = headCy + eyeOffset;
           } else if (dir.y === 1) {
-            eye1X = headPt.cx - eyeOffset; eye1Y = headPt.cy + eyeOffset * 0.7;
-            eye2X = headPt.cx + eyeOffset; eye2Y = headPt.cy + eyeOffset * 0.7;
+            eye1X = headCx - eyeOffset; eye1Y = headCy + eyeOffset * 0.7;
+            eye2X = headCx + eyeOffset; eye2Y = headCy + eyeOffset * 0.7;
           } else if (dir.y === -1) {
-            eye1X = headPt.cx - eyeOffset; eye1Y = headPt.cy - eyeOffset * 0.7;
-            eye2X = headPt.cx + eyeOffset; eye2Y = headPt.cy - eyeOffset * 0.7;
+            eye1X = headCx - eyeOffset; eye1Y = headCy - eyeOffset * 0.7;
+            eye2X = headCx + eyeOffset; eye2Y = headCy - eyeOffset * 0.7;
           }
 
           // 眼白
@@ -1197,7 +1148,7 @@ function App() {
           ctx.arc(eye2X + dir.x * 2, eye2Y + dir.y * 2, pupilRadius, 0, Math.PI * 2);
           ctx.fill();
 
-          // 高光
+          // 灵动反光高光
           ctx.fillStyle = '#ffffff';
           ctx.beginPath();
           ctx.arc(eye1X + dir.x * 2 - 1, eye1Y + dir.y * 2 - 1, pupilRadius * 0.45, 0, Math.PI * 2);
@@ -2072,14 +2023,6 @@ function App() {
                     </div>
                   )}
 
-                  <div className="snake-lives-pill">
-                    {Array.from({ length: 3 }).map((_, idx) => (
-                      <span key={idx} className={`life-heart ${idx < snakeLives ? 'active' : 'lost'}`}>
-                        ❤️
-                      </span>
-                    ))}
-                  </div>
-
                   <div className="floating-score-container">
                     {snakeFloatingScores.map(f => (
                       <div key={f.id} className={`floating-score-item float-${f.type}`}>
@@ -2087,6 +2030,17 @@ function App() {
                       </div>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              {/* ❤️ 生命值居中 */}
+              <div className="topbar-center-col">
+                <div className="snake-lives-pill">
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <span key={idx} className={`life-heart ${idx < snakeLives ? 'active' : 'lost'}`}>
+                      ❤️
+                    </span>
+                  ))}
                 </div>
               </div>
 

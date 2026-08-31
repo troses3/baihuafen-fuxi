@@ -1865,6 +1865,27 @@ body {
   box-sizing: border-box;
 }
 
+.topbar-left-col {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+.topbar-center-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.topbar-right-col {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+}
+
 /* 🎯 独立一行的本轮捕食目标 Banner (超大字突出核心有效数字) */
 .snake-target-banner {
   display: flex;
