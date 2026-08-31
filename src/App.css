@@ -1840,5 +1840,283 @@ body {
   color: #ef4444;
 }
 
+/* =========================================================
+   🧩 掉落合成方块模式 (Drop & Merge) Styles
+   ========================================================= */
+
+.tetris-board-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* 顶部 Next 预告胶囊 */
+.tetris-next-box {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #f8fafc;
+  padding: 0.18rem 0.65rem 0.18rem 0.5rem;
+  border-radius: 100px;
+  border: 1px solid #e2e8f0;
+}
+
+.next-label {
+  font-size: 0.68rem;
+  font-weight: 850;
+  color: #94a3b8;
+  letter-spacing: 0.06rem;
+}
+
+.next-tile-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 24px;
+  padding: 0 0.4rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02rem;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.next-tile-preview.next-fraction {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+.next-tile-preview.next-percent {
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  border: 1px solid #86efac;
+  color: #15803d;
+}
+
+.next-math-frac {
+  font-family: inherit;
+  font-weight: 800;
+}
+
+.next-pct-val {
+  font-family: inherit;
+  font-weight: 850;
+}
+
+/* 4 轨道下落舞台 */
+.tetris-columns-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  width: 100%;
+  height: 400px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 0.45rem;
+  box-sizing: border-box;
+  border: 1.5px solid #f1f5f9;
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+/* 危险警戒线 (第 6 层警戒) */
+.tetris-danger-indicator {
+  position: absolute;
+  top: calc(100% / 7);
+  left: 0;
+  right: 0;
+  height: 1px;
+  border-top: 1.5px dashed rgba(239, 68, 68, 0.4);
+  pointer-events: none;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.6rem;
+}
+
+.danger-text {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #ef4444;
+  letter-spacing: 0.08rem;
+  opacity: 0.65;
+  background: #ffffff;
+  padding: 0 0.25rem;
+}
+
+/* 4 列单轨道 */
+.tetris-track-col {
+  position: relative;
+  height: 100%;
+  background: rgba(248, 250, 252, 0.7);
+  border-radius: 14px;
+  border: 1px dashed rgba(226, 232, 240, 0.85);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tetris-track-col:hover {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+.tetris-track-col.track-active {
+  background: rgba(238, 242, 255, 0.85);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+/* 轨道顶部下落指示箭头 */
+.track-head-indicator {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.track-arrow {
+  font-size: 0.68rem;
+  color: var(--accent-color);
+  animation: trackArrowBounce 0.7s infinite alternate ease-in-out;
+}
+
+@keyframes trackArrowBounce {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(3px); }
+}
+
+/* 放置栈容器 */
+.tetris-placed-stack {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+/* 下落与落位方块通用尺寸与样式 */
+.tetris-falling-tile,
+.tetris-placed-tile {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: calc(100% / 7 - 8px);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.tetris-falling-tile {
+  z-index: 20;
+  border-width: 2px;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.25);
+  transition: bottom 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
+  animation: fallingTileGlow 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes fallingTileGlow {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.02); }
+}
+
+.tetris-placed-tile {
+  z-index: 8;
+  animation: placedTilePop 0.18s ease-out;
+}
+
+@keyframes placedTilePop {
+  0% { transform: scale(0.92); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 移动端/桌面端 虚拟方向与直坠控制栏 */
+.tetris-touch-controls {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr;
+  gap: 0.55rem;
+  width: 100%;
+  margin-top: 0.85rem;
+}
+
+.tetris-ctrl-btn {
+  padding: 0.65rem 0.5rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 750;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tetris-ctrl-btn:hover {
+  background: #f8fafc;
+  color: var(--accent-color);
+  border-color: #cbd5e1;
+}
+
+.tetris-ctrl-btn:active {
+  transform: scale(0.95);
+  background: #f1f5f9;
+}
+
+.tetris-ctrl-btn.hard-drop-btn {
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.tetris-ctrl-btn.hard-drop-btn:hover {
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+}
+
+.tetris-ctrl-btn.hard-drop-btn:active {
+  background: #bfdbfe;
+}
+
+@media (max-width: 480px) {
+  .tetris-columns-grid {
+    height: 370px;
+    gap: 0.35rem;
+    padding: 0.35rem;
+  }
+  .tetris-falling-tile,
+  .tetris-placed-tile {
+    border-radius: 10px;
+    left: 2px;
+    right: 2px;
+    height: calc(100% / 7 - 6px);
+  }
+  .tetris-ctrl-btn {
+    padding: 0.6rem 0.3rem;
+    font-size: 0.78rem;
+  }
+}
+
 
 

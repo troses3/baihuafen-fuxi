@@ -122,6 +122,24 @@ function App() {
   const [lastGameResult, setLastGameResult] = useState(null);
   const lastMatchTimeRef = useRef(0);
 
+  // 🧩 掉落合成方块 (Drop & Merge) States
+  const [tetrisCols, setTetrisCols] = useState([[], [], [], []]);
+  const [tetrisFallingTile, setTetrisFallingTile] = useState(null);
+  const [tetrisNextTile, setTetrisNextTile] = useState(null);
+  const [tetrisScore, setTetrisScore] = useState(0);
+  const [tetrisHighScore, setTetrisHighScore] = useState(() => {
+    const saved = localStorage.getItem('baihuafen-tetris-highscore');
+    return saved ? Number(saved) : 0;
+  });
+  const [tetrisCombo, setTetrisCombo] = useState(0);
+  const [tetrisMaxCombo, setTetrisMaxCombo] = useState(0);
+  const [tetrisEliminatedPairs, setTetrisEliminatedPairs] = useState(0);
+  const [tetrisFloatingScores, setTetrisFloatingScores] = useState([]);
+  const [isTetrisPaused, setIsTetrisPaused] = useState(false);
+  const [isTetrisGameOver, setIsTetrisGameOver] = useState(false);
+  const [isTetrisNewRecord, setIsTetrisNewRecord] = useState(false);
+  const [tetrisSpeedMs, setTetrisSpeedMs] = useState(900);
+
   const [bestRecord, setBestRecord] = useState(() => {
     const saved = localStorage.getItem(BEST_TIME_KEY);
     return saved ? Number(saved) : null;
@@ -648,6 +666,283 @@ function App() {
     }
   };
 
+  // =========================================================
+  // 🧩 掉落合成方块模式 (Drop & Merge) Core Logic
+  // =========================================================
+  const getRandomDropTile = useCallback(() => {
+    const item = initialItems[Math.floor(Math.random() * initialItems.length)];
+    const isFrac = Math.random() > 0.5;
+    const fracParts = item.fraction.split('/');
+    if (isFrac) {
+      return {
+        id: `f_${item.id}_${Date.now()}_${Math.random()}`,
+        pairId: item.id,
+        type: 'fraction',
+        num: fracParts[0] || '1',
+        den: fracParts[1] || item.fraction,
+        isMatched: false,
+        isDropping: true,
+      };
+    } else {
+      return {
+        id: `p_${item.id}_${Date.now()}_${Math.random()}`,
+        pairId: item.id,
+        type: 'percent',
+        value: item.percent,
+        isMatched: false,
+        isDropping: true,
+      };
+    }
+  }, []);
+
+  const spawnNextFallingTile = useCallback((currentCols) => {
+    if (currentCols.every(c => c.length >= 6)) {
+      setIsTetrisGameOver(true);
+      setTetrisFallingTile(null);
+      return;
+    }
+
+    setTetrisNextTile(curNext => {
+      const nextFalling = curNext || getRandomDropTile();
+      
+      let defaultCol = 1;
+      let minLen = 99;
+      for (let c = 0; c < 4; c++) {
+        if (currentCols[c].length < minLen) {
+          minLen = currentCols[c].length;
+          defaultCol = c;
+        }
+      }
+
+      setTetrisFallingTile({
+        ...nextFalling,
+        colIdx: defaultCol,
+        rowY: 6,
+      });
+
+      // 45% 概率生成场上现有某个方块的配对，增加策略深度与消除快感
+      const activeTiles = currentCols.flat();
+      let newNext;
+      if (activeTiles.length > 0 && Math.random() < 0.45) {
+        const targetTile = activeTiles[Math.floor(Math.random() * activeTiles.length)];
+        const item = initialItems.find(i => i.id === targetTile.pairId) || initialItems[0];
+        const needFrac = targetTile.type === 'percent';
+        const fracParts = item.fraction.split('/');
+        newNext = needFrac ? {
+          id: `f_${item.id}_${Date.now()}_${Math.random()}`,
+          pairId: item.id,
+          type: 'fraction',
+          num: fracParts[0] || '1',
+          den: fracParts[1] || item.fraction,
+          isMatched: false,
+          isDropping: true,
+        } : {
+          id: `p_${item.id}_${Date.now()}_${Math.random()}`,
+          pairId: item.id,
+          type: 'percent',
+          value: item.percent,
+          isMatched: false,
+          isDropping: true,
+        };
+      } else {
+        newNext = getRandomDropTile();
+      }
+
+      return newNext;
+    });
+  }, [getRandomDropTile]);
+
+  const landAndResolveDropTile = useCallback((falling, cols) => {
+    if (!falling) return;
+    const colIdx = falling.colIdx;
+    const col = [...cols[colIdx]];
+    const topTile = col.length > 0 ? col[col.length - 1] : null;
+
+    if (topTile && topTile.pairId === falling.pairId && topTile.type !== falling.type) {
+      // 配对成功消除！
+      triggerHaptic('success');
+      const newCols = cols.map((c, i) => i === colIdx ? c.slice(0, c.length - 1) : [...c]);
+
+      setTetrisCombo(curCombo => {
+        const nextCombo = curCombo + 1;
+        setTetrisMaxCombo(m => Math.max(m, nextCombo));
+        const chainBonus = (nextCombo - 1) * 60;
+        const earned = 100 + chainBonus;
+
+        setTetrisScore(prevScore => {
+          const newScore = prevScore + earned;
+          const high = Number(localStorage.getItem('baihuafen-tetris-highscore') || 0);
+          if (newScore > high) {
+            localStorage.setItem('baihuafen-tetris-highscore', String(newScore));
+            setTetrisHighScore(newScore);
+            setIsTetrisNewRecord(true);
+          }
+          return newScore;
+        });
+
+        const fid = `${Date.now()}_${Math.random()}`;
+        const floatText = nextCombo >= 2 ? `+${earned} 🔥连锁 x${nextCombo}!` : `+${earned} 消除!`;
+        setTetrisFloatingScores(prev => [...prev.slice(-3), { id: fid, text: floatText, type: 'plus' }]);
+        setTimeout(() => {
+          setTetrisFloatingScores(prev => prev.filter(f => f.id !== fid));
+        }, 1100);
+
+        return nextCombo;
+      });
+
+      setTetrisEliminatedPairs(p => p + 1);
+      setTetrisCols(newCols);
+      spawnNextFallingTile(newCols);
+
+    } else {
+      if (col.length >= 6) {
+        triggerHaptic('error');
+        setIsTetrisGameOver(true);
+        setTetrisFallingTile(null);
+        return;
+      }
+
+      triggerHaptic('tap');
+      setTetrisCombo(0);
+      const landed = { ...falling, isDropping: false };
+      delete landed.rowY;
+      delete landed.colIdx;
+
+      const newCols = cols.map((c, i) => i === colIdx ? [...c, landed] : [...c]);
+      setTetrisCols(newCols);
+      spawnNextFallingTile(newCols);
+    }
+  }, [spawnNextFallingTile]);
+
+  const startNewDropGame = useCallback(() => {
+    const initialBoardPool = [...initialItems];
+    for (let i = initialBoardPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [initialBoardPool[i], initialBoardPool[j]] = [initialBoardPool[j], initialBoardPool[i]];
+    }
+
+    const initialCols = [[], [], [], []];
+    for (let c = 0; c < 4; c++) {
+      const count = Math.random() > 0.5 ? 2 : 1;
+      for (let k = 0; k < count; k++) {
+        const item = initialBoardPool.pop() || initialItems[Math.floor(Math.random() * initialItems.length)];
+        const isFrac = Math.random() > 0.5;
+        const fracParts = item.fraction.split('/');
+        const t = isFrac ? {
+          id: `f_${item.id}_${Date.now()}_${Math.random()}`,
+          pairId: item.id,
+          type: 'fraction',
+          num: fracParts[0] || '1',
+          den: fracParts[1] || item.fraction,
+          isMatched: false,
+        } : {
+          id: `p_${item.id}_${Date.now()}_${Math.random()}`,
+          pairId: item.id,
+          type: 'percent',
+          value: item.percent,
+          isMatched: false,
+        };
+        initialCols[c].push(t);
+      }
+    }
+
+    const firstTile = getRandomDropTile();
+    const nextT = getRandomDropTile();
+
+    setTetrisCols(initialCols);
+    setTetrisFallingTile({ ...firstTile, colIdx: 1, rowY: 6 });
+    setTetrisNextTile(nextT);
+    setTetrisScore(0);
+    setTetrisCombo(0);
+    setTetrisMaxCombo(0);
+    setTetrisEliminatedPairs(0);
+    setTetrisFloatingScores([]);
+    setIsTetrisPaused(false);
+    setIsTetrisGameOver(false);
+    setIsTetrisNewRecord(false);
+    setTetrisSpeedMs(900);
+  }, [getRandomDropTile]);
+
+  const handleTetrisMoveLeft = useCallback(() => {
+    if (!tetrisFallingTile || isTetrisPaused || isTetrisGameOver) return;
+    if (tetrisFallingTile.colIdx > 0) {
+      triggerHaptic('tap');
+      setTetrisFallingTile(prev => ({ ...prev, colIdx: prev.colIdx - 1 }));
+    }
+  }, [tetrisFallingTile, isTetrisPaused, isTetrisGameOver]);
+
+  const handleTetrisMoveRight = useCallback(() => {
+    if (!tetrisFallingTile || isTetrisPaused || isTetrisGameOver) return;
+    if (tetrisFallingTile.colIdx < 3) {
+      triggerHaptic('tap');
+      setTetrisFallingTile(prev => ({ ...prev, colIdx: prev.colIdx + 1 }));
+    }
+  }, [tetrisFallingTile, isTetrisPaused, isTetrisGameOver]);
+
+  const handleTetrisSelectCol = useCallback((targetCol) => {
+    if (!tetrisFallingTile || isTetrisPaused || isTetrisGameOver) return;
+    if (targetCol >= 0 && targetCol <= 3) {
+      triggerHaptic('tap');
+      setTetrisFallingTile(prev => ({ ...prev, colIdx: targetCol }));
+    }
+  }, [tetrisFallingTile, isTetrisPaused, isTetrisGameOver]);
+
+  const handleTetrisHardDrop = useCallback(() => {
+    if (!tetrisFallingTile || isTetrisPaused || isTetrisGameOver) return;
+    triggerHaptic('cardFlip');
+    landAndResolveDropTile(tetrisFallingTile, tetrisCols);
+  }, [tetrisFallingTile, isTetrisPaused, isTetrisGameOver, landAndResolveDropTile, tetrisCols]);
+
+  // Drop & Merge Game Loop Timer
+  useEffect(() => {
+    let interval = null;
+    if (quizMode === 'dropTetris' && !isTetrisPaused && !isTetrisGameOver && tetrisFallingTile) {
+      interval = setInterval(() => {
+        setTetrisFallingTile(currentFalling => {
+          if (!currentFalling) return null;
+          const colIdx = currentFalling.colIdx;
+          const targetLandingRow = tetrisCols[colIdx].length;
+
+          if (currentFalling.rowY > targetLandingRow) {
+            return { ...currentFalling, rowY: currentFalling.rowY - 1 };
+          } else {
+            landAndResolveDropTile(currentFalling, tetrisCols);
+            return currentFalling;
+          }
+        });
+      }, tetrisSpeedMs);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [quizMode, isTetrisPaused, isTetrisGameOver, tetrisFallingTile, tetrisCols, tetrisSpeedMs, landAndResolveDropTile]);
+
+  // Drop & Merge Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (quizMode !== 'dropTetris' || isTetrisPaused || isTetrisGameOver) return;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        handleTetrisMoveLeft();
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        handleTetrisMoveRight();
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S' || e.key === ' ') {
+        e.preventDefault();
+        handleTetrisHardDrop();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [quizMode, isTetrisPaused, isTetrisGameOver, handleTetrisMoveLeft, handleTetrisMoveRight, handleTetrisHardDrop]);
+
+  // Auto initialize dropTetris if needed
+  useEffect(() => {
+    if (quizMode === 'dropTetris' && !tetrisFallingTile && tetrisCols.every(c => c.length === 0)) {
+      startNewDropGame();
+    }
+  }, [quizMode, tetrisFallingTile, tetrisCols, startNewDropGame]);
+
 
   const searchMatchedItems = (searchQuery && searchQuery.trim() !== '')
     ? items.filter(item => {
@@ -924,11 +1219,13 @@ function App() {
             <span className="pill-db-name">🧮 百化分速记</span>
             <span className="pill-divider">·</span>
             <span className="pill-cat-name">
-              {quizMode === 'percentToFraction' ? '🎯 百化分' : quizMode === 'fractionToPercent' ? '🔄 分化百' : '🎮 消消乐'}
+              {quizMode === 'percentToFraction' ? '🎯 百化分' : quizMode === 'fractionToPercent' ? '🔄 分化百' : quizMode === 'matchGame' ? '🎮 消消乐' : '🧩 掉落消'}
             </span>
             <span className="pill-progress-text">
               {quizMode === 'matchGame' 
                 ? `(剩余 ${remainingPairs} 对)`
+                : quizMode === 'dropTetris'
+                ? `(⚡ ${tetrisScore})`
                 : `(${currentIndex + 1}/${items.length})`
               }
             </span>
@@ -1378,6 +1675,253 @@ function App() {
               </div>
             )}
           </div>
+        ) : quizMode === 'dropTetris' ? (
+          /* =========================================================
+             🧩 掉落合成方块游戏主界面 (Drop & Merge)
+             ========================================================= */
+          <div className="game-board-card tetris-board-card">
+            <div className="game-top-bar">
+              <div className="topbar-left-col">
+                <button 
+                  className="game-ctrl-btn" 
+                  onClick={() => {
+                    triggerHaptic('menuToggle');
+                    setIsTetrisPaused(prev => !prev);
+                  }}
+                  title={isTetrisPaused ? "继续游戏" : "暂停游戏"}
+                >
+                  {isTetrisPaused ? (
+                    <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  ) : (
+                    <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                  )}
+                </button>
+
+                <div className="ranked-score-wrapper">
+                  <div className="game-score-badge">
+                    <span className="score-icon">⚡</span>
+                    <span className="score-num">{tetrisScore.toLocaleString()}</span>
+                  </div>
+
+                  {tetrisCombo >= 2 && (
+                    <div className="game-combo-badge">
+                      🔥x{tetrisCombo}
+                    </div>
+                  )}
+
+                  <div className="floating-score-container">
+                    {tetrisFloatingScores.map(f => (
+                      <div key={f.id} className={`floating-score-item float-${f.type}`}>
+                        {f.text}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="topbar-center-col">
+                {tetrisNextTile && (
+                  <div className="tetris-next-box">
+                    <span className="next-label">NEXT</span>
+                    <div className={`next-tile-preview next-${tetrisNextTile.type}`}>
+                      {tetrisNextTile.type === 'fraction' ? (
+                        <span className="next-math-frac">{tetrisNextTile.num}/{tetrisNextTile.den}</span>
+                      ) : (
+                        <span className="next-pct-val">{tetrisNextTile.value}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="topbar-right-col">
+                <button 
+                  className="game-ctrl-btn" 
+                  onClick={() => {
+                    triggerHaptic('dangerReset');
+                    startNewDropGame();
+                  }}
+                  title="重新开局"
+                >
+                  <svg className="ctrl-svg-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* 4 轨道下落消除舞台 (4 Track Drop Columns) */}
+            <div className="tetris-columns-grid">
+              <div className="tetris-danger-indicator">
+                <span className="danger-text">DANGER LINE</span>
+              </div>
+
+              {tetrisCols.map((column, colIdx) => {
+                const isSelectedTrack = tetrisFallingTile?.colIdx === colIdx;
+                return (
+                  <div 
+                    key={colIdx} 
+                    className={`tetris-track-col ${isSelectedTrack ? 'track-active' : ''}`}
+                    onClick={() => handleTetrisSelectCol(colIdx)}
+                  >
+                    {/* 顶部指示箭头 */}
+                    <div className="track-head-indicator">
+                      {isSelectedTrack && <span className="track-arrow">▼</span>}
+                    </div>
+
+                    {/* 下落中的方块 */}
+                    {tetrisFallingTile && isSelectedTrack && (
+                      <div 
+                        className={`game-tile tetris-falling-tile tile-${tetrisFallingTile.type}`}
+                        style={{
+                          bottom: `calc(${tetrisFallingTile.rowY} * (100% / 7) + 4px)`
+                        }}
+                      >
+                        {tetrisFallingTile.type === 'fraction' ? (
+                          <div className="math-frac">
+                            <span className="frac-num">{tetrisFallingTile.num}</span>
+                            <span className="frac-line"></span>
+                            <span className="frac-den">{tetrisFallingTile.den}</span>
+                          </div>
+                        ) : (
+                          <span className="percent-val">{tetrisFallingTile.value}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 已落位堆叠方块 */}
+                    <div className="tetris-placed-stack">
+                      {column.map((tile, rIdx) => (
+                        <div
+                          key={tile.id || rIdx}
+                          className={`game-tile tetris-placed-tile tile-${tile.type}`}
+                          style={{
+                            bottom: `calc(${rIdx} * (100% / 7) + 4px)`
+                          }}
+                        >
+                          {tile.type === 'fraction' ? (
+                            <div className="math-frac">
+                              <span className="frac-num">{tile.num}</span>
+                              <span className="frac-line"></span>
+                              <span className="frac-den">{tile.den}</span>
+                            </div>
+                          ) : (
+                            <span className="percent-val">{tile.value}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 移动端/桌面端 快捷虚拟操控栏 */}
+            <div className="tetris-touch-controls">
+              <button 
+                className="tetris-ctrl-btn left-move-btn"
+                onClick={handleTetrisMoveLeft}
+                title="向左移动"
+              >
+                ◀ 左移
+              </button>
+              <button 
+                className="tetris-ctrl-btn hard-drop-btn"
+                onClick={handleTetrisHardDrop}
+                title="急速直坠"
+              >
+                ⚡ 直坠 (Drop)
+              </button>
+              <button 
+                className="tetris-ctrl-btn right-move-btn"
+                onClick={handleTetrisMoveRight}
+                title="向右移动"
+              >
+                右移 ▶
+              </button>
+            </div>
+
+            {/* ⏸ 暂停遮罩 */}
+            {isTetrisPaused && (
+              <div className="game-modal-overlay">
+                <div className="game-modal-card">
+                  <div className="modal-icon svg-modal-icon">
+                    <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="#64748b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="10" y1="15" x2="10" y2="9" />
+                      <line x1="14" y1="15" x2="14" y2="9" />
+                    </svg>
+                  </div>
+                  <h3 className="modal-title">游戏已暂停</h3>
+                  <p className="modal-subtitle">当前得分：{tetrisScore.toLocaleString()}</p>
+                  <div className="modal-actions">
+                    <button className="m-btn-primary" onClick={() => {
+                      triggerHaptic('menuToggle');
+                      setIsTetrisPaused(false);
+                    }}>
+                      继续游戏
+                    </button>
+                    <button className="m-btn-secondary" onClick={() => {
+                      triggerHaptic('dangerReset');
+                      startNewDropGame();
+                    }}>
+                      重新开始
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 💀 Game Over 结算弹窗 */}
+            {isTetrisGameOver && (
+              <div className="game-modal-overlay">
+                <div className="game-modal-card">
+                  <div className="modal-icon">🎮</div>
+                  <h3 className="modal-title">挑战结算</h3>
+                  {isTetrisNewRecord && <div className="new-record-badge">🏆 创下新历史高分纪录！</div>}
+
+                  <div className="ranked-victory-score-box">
+                    <span className="ranked-score-label">最终得分</span>
+                    <span className="ranked-score-val">{tetrisScore.toLocaleString()}</span>
+                  </div>
+
+                  <div className="victory-stats-grid">
+                    <div className="v-stat-box">
+                      <span className="v-stat-label">🎯 消除配对</span>
+                      <span className="v-stat-val">{tetrisEliminatedPairs} 对</span>
+                    </div>
+                    <div className="v-stat-box">
+                      <span className="v-stat-label">🔥 最高连击</span>
+                      <span className="v-stat-val">x{tetrisMaxCombo}</span>
+                    </div>
+                    <div className="v-stat-box" style={{ gridColumn: '1 / -1' }}>
+                      <span className="v-stat-label">历史最高纪录</span>
+                      <span className="v-stat-val" style={{ color: '#10b981' }}>
+                        {tetrisHighScore ? `${tetrisHighScore.toLocaleString()} 分` : `${tetrisScore.toLocaleString()} 分`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="modal-actions">
+                    <button className="m-btn-primary" onClick={startNewDropGame}>
+                      再来一局 🧩
+                    </button>
+                    <button 
+                      className="m-btn-secondary" 
+                      onClick={() => setQuizMode('percentToFraction')}
+                    >
+                      返回速记
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           /* =========================================================
              📝 百化分经典做题模式
@@ -1621,6 +2165,30 @@ function App() {
               退出
             </button>
           </>
+        ) : quizMode === 'dropTetris' ? (
+          <>
+            <button 
+              className="mode-btn sheet-btn" 
+              onClick={() => {
+                triggerHaptic('menuToggle');
+                setIsFormulaSheetOpen(true);
+              }}
+              title="查看百化分对照表"
+            >
+              📖 百化分表
+            </button>
+            <span className="mode-divider"></span>
+            <button 
+              className="mode-btn exit-game-btn" 
+              onClick={() => {
+                triggerHaptic('modeSwitch');
+                setQuizMode('percentToFraction');
+              }}
+              title="退出游戏模式"
+            >
+              退出
+            </button>
+          </>
         ) : (
           <>
             <button 
@@ -1658,6 +2226,16 @@ function App() {
               }}
             >
               🎮 消消乐
+            </button>
+            <button 
+              className={`mode-btn ${quizMode === 'dropTetris' ? 'active' : ''}`} 
+              onClick={() => { 
+                triggerHaptic('modeSwitch');
+                setQuizMode('dropTetris'); 
+                if (!tetrisFallingTile && tetrisCols.every(c => c.length === 0)) startNewDropGame(); 
+              }}
+            >
+              🧩 掉落消
             </button>
 
             <span className="mode-divider"></span>
