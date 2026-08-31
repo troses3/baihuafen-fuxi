@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import initialItems from '../data.json';
 import './App.css';
+import { triggerHaptic } from './utils/haptics';
 
 const STORAGE_KEY = 'baihuafen-tracker-data-v2';
 const BEST_TIME_KEY = 'baihuafen-match-best-time';
@@ -328,12 +329,14 @@ function App() {
     }
 
     if (selectedTile === null) {
+      triggerHaptic('light');
       setSelectedTile({ colIdx, tileId: clickedTile.id });
       return;
     }
 
     // 点击同一个卡片取消选中
     if (selectedTile.tileId === clickedTile.id) {
+      triggerHaptic('light');
       setSelectedTile(null);
       return;
     }
@@ -351,6 +354,7 @@ function App() {
     // 检查是否配对成功 (相同 pairId 且 类型不同)
     if (firstTile.pairId === secondTile.pairId && firstTile.type !== secondTile.type) {
       // 🎉 配对消除成功！
+      triggerHaptic('success');
       setIsProcessingMatch(true);
 
       // ⚡ 竞技模式计分与连击
@@ -569,6 +573,7 @@ function App() {
 
     } else {
       // ❌ MISMATCH 错选抖动与严厉连错惩罚
+      triggerHaptic('error');
       if (matchSubMode === 'ranked') {
         setComboCount(0);
         const nextErrors = consecutiveErrors + 1;
@@ -669,6 +674,7 @@ function App() {
   };
 
   const handleNext = useCallback((status) => {
+    triggerHaptic('light');
     const updatedItems = [...items];
     if (currentItem) {
       updatedItems[currentIndex].status = status;
@@ -751,6 +757,7 @@ function App() {
 
   const handlePrev = () => {
     if (history.length > 0) {
+      triggerHaptic('light');
       const prevIndex = history[history.length - 1];
       setHistory(prev => prev.slice(0, -1));
       setCurrentIndex(prevIndex);
@@ -765,6 +772,8 @@ function App() {
   const handleKeyPress = useCallback((key) => {
     if (quizMode === 'matchGame') return;
     if (feedbackState === 'correct' || feedbackState === 'revealed') return;
+
+    triggerHaptic('light');
 
     if (key === '⌫' || key === 'Backspace') {
       setInputVal(prev => prev.slice(0, -1));
@@ -791,6 +800,7 @@ function App() {
   const handleConfirm = useCallback(() => {
     if (quizMode === 'matchGame') return;
     if (isAnswered) {
+      triggerHaptic('light');
       handleNext(isCorrect ? 'known' : 'unknown');
       return;
     }
@@ -799,6 +809,12 @@ function App() {
     setIsCorrect(checkCorrect);
     setIsAnswered(true);
     setFeedbackState(checkCorrect ? 'correct' : 'revealed');
+
+    if (checkCorrect) {
+      triggerHaptic('success');
+    } else {
+      triggerHaptic('error');
+    }
 
     const updatedItems = [...items];
     updatedItems[currentIndex].status = checkCorrect ? 'known' : 'unknown';
