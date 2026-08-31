@@ -7,6 +7,15 @@ const STORAGE_KEY = 'baihuafen-tracker-data-v2';
 const BEST_TIME_KEY = 'baihuafen-match-best-time';
 const RANKED_LEADERBOARD_KEY = 'baihuafen-ranked-leaderboard';
 const MATCH_SUBMODE_KEY = 'baihuafen-match-submode';
+const SNAKE_SPEED_KEY = 'baihuafen-snake-speed-level';
+
+const SNAKE_SPEEDS = [
+  { level: 1, label: '🐢 慢速 (220ms)', shortLabel: '🐢 慢速', tick: 220 },
+  { level: 2, label: '🚶 舒适 (160ms)', shortLabel: '🚶 舒适', tick: 160 },
+  { level: 3, label: '🏃 标准 (120ms)', shortLabel: '🏃 标准', tick: 120 },
+  { level: 4, label: '⚡ 快速 (90ms)', shortLabel: '⚡ 快速', tick: 90 },
+  { level: 5, label: '🚀 极速 (65ms)', shortLabel: '🚀 极速', tick: 65 },
+];
 
 const getRankTier = (score) => {
   if (score >= 9500) return { name: '最强王者', icon: '🌌', color: '#db2777', badgeClass: 'tier-apex' };
@@ -166,6 +175,15 @@ function App() {
   const [isSnakeGameOver, setIsSnakeGameOver] = useState(false);
   const [isSnakeNewRecord, setIsSnakeNewRecord] = useState(false);
   const [snakeFloatingScores, setSnakeFloatingScores] = useState([]);
+  const [snakeSpeedLevel, setSnakeSpeedLevel] = useState(() => {
+    const saved = localStorage.getItem(SNAKE_SPEED_KEY);
+    return saved ? Number(saved) : 2;
+  });
+  const snakeSpeedLevelRef = useRef(snakeSpeedLevel);
+
+  useEffect(() => {
+    snakeSpeedLevelRef.current = snakeSpeedLevel;
+  }, [snakeSpeedLevel]);
 
   const [bestRecord, setBestRecord] = useState(() => {
     const saved = localStorage.getItem(BEST_TIME_KEY);
@@ -820,7 +838,6 @@ function App() {
     let animId;
     let lastTime = performance.now();
     let accumulator = 0;
-    const TICK_STEP = 80; // 80ms per grid move (purely discrete rapid retro stepping)
     const GRID = 16;
 
     const renderLoop = (time) => {
@@ -830,6 +847,9 @@ function App() {
 
         if (!isSnakePaused && !isSnakeGameOver && isSnakeRunningRef.current) {
           accumulator += dt;
+
+          const currentSpeedConfig = SNAKE_SPEEDS.find(s => s.level === snakeSpeedLevelRef.current) || SNAKE_SPEEDS[1];
+          const TICK_STEP = currentSpeedConfig.tick;
 
           while (accumulator >= TICK_STEP) {
             accumulator -= TICK_STEP;
@@ -985,7 +1005,7 @@ function App() {
         }
 
         // ==========================================
-        // 🎨 Canvas 60FPS Render Phase (12x12 Smooth Grid)
+        // 🎨 Canvas 60FPS Render Phase (16x16 Grid)
         // ==========================================
         const dpr = window.devicePixelRatio || 2;
         const displayWidth = canvas.clientWidth || 360;
@@ -1002,7 +1022,7 @@ function App() {
 
         const cellSize = displayWidth / GRID;
 
-        // 1. 棋盘背景 (与 12x12 网格完全一致的交替方格)
+        // 1. 棋盘背景 (与 16x16 网格完全一致的交替方格)
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, displayWidth, displayHeight);
 
@@ -1020,19 +1040,20 @@ function App() {
         foods.forEach(food => {
           const cardX = food.x * cellSize + 1.5;
           const cardY = food.y * cellSize + 1.5;
-          const cardSize = cellSize - 3; // 与 12x12 网格大小完全一致的正方形
+          const cardSize = cellSize - 3;
           const centerX = cardX + cardSize / 2;
           const centerY = cardY + cardSize / 2;
+          const cardRadius = Math.max(3, Math.round(cardSize * 0.22));
 
           ctx.save();
           ctx.shadowColor = 'rgba(15, 23, 42, 0.09)';
-          ctx.shadowBlur = 5;
+          ctx.shadowBlur = 4;
           ctx.shadowOffsetY = 1.5;
           ctx.fillStyle = '#ffffff';
           ctx.strokeStyle = '#cbd5e1';
           ctx.lineWidth = 1.5;
 
-          drawRoundedRect(ctx, cardX, cardY, cardSize, cardSize, 7);
+          drawRoundedRect(ctx, cardX, cardY, cardSize, cardSize, cardRadius);
           ctx.fill();
           ctx.stroke();
           ctx.restore();
@@ -1050,9 +1071,11 @@ function App() {
             suffix = '%';
           }
 
-          // 核心数字 12px~14px 超粗黑字，前缀后缀 8px 浅灰
-          const mainFont = `900 ${main.length >= 4 ? 11.5 : 13.5}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-          const subFont = '700 8px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          // 核心数字自适应字号超粗黑字，前缀后缀浅灰
+          const mainFontSize = Math.max(9, Math.round(cardSize * (main.length >= 4 ? 0.44 : 0.54)));
+          const subFontSize = Math.max(7, Math.round(cardSize * 0.30));
+          const mainFont = `900 ${mainFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          const subFont = `700 ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
 
           ctx.save();
 
@@ -2115,6 +2138,36 @@ function App() {
               onTouchEnd={handleArenaTouchEnd}
             >
               <canvas ref={canvasRef} className="snake-canvas" />
+            </div>
+
+            {/* ⚡ 移速滑块控制调节条 */}
+            <div className="snake-speed-slider-bar">
+              <div className="speed-slider-label">
+                <span className="speed-slider-title">⚡ 移速调节</span>
+                <span className="speed-level-badge">
+                  {SNAKE_SPEEDS.find(s => s.level === snakeSpeedLevel)?.label || '🚶 舒适 (160ms)'}
+                </span>
+              </div>
+              <div className="speed-slider-track-box">
+                <span className="speed-icon-end" title="最慢">🐢</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  step="1"
+                  value={snakeSpeedLevel}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setSnakeSpeedLevel(val);
+                    snakeSpeedLevelRef.current = val;
+                    localStorage.setItem(SNAKE_SPEED_KEY, String(val));
+                    triggerHaptic('tap');
+                  }}
+                  className="snake-speed-slider"
+                  aria-label="贪吃蛇移速调节"
+                />
+                <span className="speed-icon-end" title="最快">🚀</span>
+              </div>
             </div>
 
             {/* 底部操作提示 */}

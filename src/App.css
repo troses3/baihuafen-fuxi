@@ -1981,7 +1981,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.55rem;
+  margin-top: 0.45rem;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -1998,6 +1998,103 @@ body {
   border: 1px solid #e2e8f0;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
+
+/* ⚡ 贪吃蛇移速调节滑块条 */
+.snake-speed-slider-bar {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 0.5rem 0.85rem;
+  margin-top: 0.55rem;
+  box-sizing: border-box;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+}
+
+.speed-slider-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.speed-slider-title {
+  font-size: 0.76rem;
+  font-weight: 750;
+  color: #64748b;
+}
+
+.speed-level-badge {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 0.12rem 0.55rem;
+  border-radius: 100px;
+}
+
+.speed-slider-track-box {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.speed-icon-end {
+  font-size: 0.95rem;
+  user-select: none;
+  line-height: 1;
+}
+
+.snake-speed-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 100px;
+  background: #e2e8f0;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin: 0;
+}
+
+.snake-speed-slider:focus {
+  outline: none;
+}
+
+.snake-speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  border: 2.5px solid #ffffff;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.snake-speed-slider::-webkit-slider-thumb:active {
+  transform: scale(1.22);
+  background: #1d4ed8;
+}
+
+.snake-speed-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  border: 2.5px solid #ffffff;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
 
 
 
