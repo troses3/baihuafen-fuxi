@@ -733,7 +733,7 @@ function App() {
       [foodLabels[i], foodLabels[j]] = [foodLabels[j], foodLabels[i]];
     }
 
-    const GRID = 12;
+    const GRID = 16;
     const occupied = new Set((currentBody || []).map(b => `${b.x},${b.y}`));
     const newFoods = [];
 
@@ -772,9 +772,9 @@ function App() {
 
   const startNewSnakeGame = useCallback(() => {
     const initialBody = [
-      { x: 6, y: 6, prevX: 6, prevY: 6 },
-      { x: 5, y: 6, prevX: 5, prevY: 6 },
-      { x: 4, y: 6, prevX: 4, prevY: 6 },
+      { x: 8, y: 8, prevX: 8, prevY: 8 },
+      { x: 7, y: 8, prevX: 7, prevY: 8 },
+      { x: 6, y: 8, prevX: 6, prevY: 8 },
     ];
     const initialDir = { x: 1, y: 0 };
     const { target, foods } = generateSnakeFoodsAndTarget(initialBody);
@@ -820,8 +820,8 @@ function App() {
     let animId;
     let lastTime = performance.now();
     let accumulator = 0;
-    const TICK_STEP = 125; // 125ms per grid move (8 steps/s, high tempo & 60FPS fluid interpolation)
-    const GRID = 12;
+    const TICK_STEP = 80; // 80ms per grid move (purely discrete rapid retro stepping)
+    const GRID = 16;
 
     const renderLoop = (time) => {
       try {
@@ -1083,30 +1083,18 @@ function App() {
           ctx.restore();
         });
 
-        // 3. 绘制 60FPS 极速丝滑平滑插值网格蛇身 (Full 60FPS Sub-grid Lerp)
-        const progress = isSnakePaused || isSnakeGameOver ? 1 : Math.min(1, Math.max(0, accumulator / TICK_STEP));
+        // 3. 绘制复古纯网格离散蛇身 (Pure Grid-Locked Discrete Steps)
         const body = snakeBodyRef.current || [];
         const dir = snakeDirRef.current || { x: 1, y: 0 };
 
         if (body.length > 0) {
-          // A. 提取各节段 60FPS 插值平滑坐标
+          // A. 提取各节段纯网格对齐坐标
           const points = [];
           for (let i = 0; i < body.length; i++) {
             const seg = body[i];
-            let curX = seg.x;
-            let curY = seg.y;
-            let pX = seg.prevX !== undefined ? seg.prevX : curX;
-            let pY = seg.prevY !== undefined ? seg.prevY : curY;
-
-            // 跨边缘穿墙保护
-            if (Math.abs(curX - pX) > 1) pX = curX;
-            if (Math.abs(curY - pY) > 1) pY = curY;
-
-            const interpX = pX + (curX - pX) * progress;
-            const interpY = pY + (curY - pY) * progress;
-            const cx = interpX * cellSize + cellSize / 2;
-            const cy = interpY * cellSize + cellSize / 2;
-            points.push({ cx, cy, x: curX, y: curY });
+            const cx = seg.x * cellSize + cellSize / 2;
+            const cy = seg.y * cellSize + cellSize / 2;
+            points.push({ cx, cy, x: seg.x, y: seg.y });
           }
 
           // B. 绘制从尾到头的连续无缝身体管道
