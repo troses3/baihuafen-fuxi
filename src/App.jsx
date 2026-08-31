@@ -680,6 +680,9 @@ function App() {
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
   const snakeFoodsRef = useRef([]);
   const snakeTargetRef = useRef(null);
+  const snakeBodyRef = useRef([]);
+  const lastStepTimeRef = useRef(performance.now());
+  const stepDurationRef = useRef(200);
 
   const generateSnakeFoodsAndTarget = useCallback((currentBody) => {
     const targetItem = initialItems[Math.floor(Math.random() * initialItems.length)];
@@ -748,13 +751,14 @@ function App() {
 
   const startNewSnakeGame = useCallback(() => {
     const initialBody = [
-      { x: 6, y: 6 },
-      { x: 5, y: 6 },
-      { x: 4, y: 6 },
+      { x: 6, y: 6, prevX: 6, prevY: 6 },
+      { x: 5, y: 6, prevX: 5, prevY: 6 },
+      { x: 4, y: 6, prevX: 4, prevY: 6 },
     ];
     const initialDir = { x: 1, y: 0 };
     const { target, foods } = generateSnakeFoodsAndTarget(initialBody);
 
+    snakeBodyRef.current = initialBody;
     setSnakeBody(initialBody);
     setSnakeDir(initialDir);
     snakeDirRef.current = initialDir;
@@ -770,6 +774,7 @@ function App() {
     setIsSnakePaused(false);
     setIsSnakeGameOver(false);
     setIsSnakeNewRecord(false);
+    lastStepTimeRef.current = performance.now();
   }, [generateSnakeFoodsAndTarget]);
 
   const changeSnakeDirection = useCallback((newDir) => {
@@ -779,13 +784,16 @@ function App() {
     triggerHaptic('tap');
   }, []);
 
-  // 60FPS Snake Tick Loop (260ms comfortable pace)
+  // 60FPS Snake Tick Loop (Continuous smooth physics clock)
   useEffect(() => {
     let interval = null;
     if (quizMode === 'snakeGame' && !isSnakePaused && !isSnakeGameOver) {
-      const tickSpeed = 260;
+      const tickSpeed = 200;
+      stepDurationRef.current = tickSpeed;
 
       interval = setInterval(() => {
+        lastStepTimeRef.current = performance.now();
+
         setSnakeBody(prevBody => {
           if (!prevBody || prevBody.length === 0) return prevBody;
           const currentDir = nextDirRef.current;
@@ -811,7 +819,7 @@ function App() {
             return prevBody;
           }
 
-          // 2. 食物碰撞检测 (使用同步 snakeFoodsRef 确保100%即时命中)
+          // 2. 食物碰撞检测 (使用同步 snakeFoodsRef)
           const currentFoods = snakeFoodsRef.current || [];
           const eatenFood = currentFoods.find(f => f.x === nextX && f.y === nextY);
 
@@ -849,7 +857,17 @@ function App() {
               setSnakeEatenCount(c => c + 1);
 
               // 蛇身变长
-              const newBody = [{ x: nextX, y: nextY }, ...prevBody];
+              const newBody = [
+                { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
+                ...prevBody.map((seg, idx) => ({
+                  x: idx === 0 ? head.x : prevBody[idx - 1].x,
+                  y: idx === 0 ? head.y : prevBody[idx - 1].y,
+                  prevX: seg.x,
+                  prevY: seg.y,
+                }))
+              ];
+
+              snakeBodyRef.current = newBody;
 
               // 刷新下一组目标与食物
               const { target: newTarget, foods: newFoods } = generateSnakeFoodsAndTarget(newBody);
@@ -876,8 +894,18 @@ function App() {
                 setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
               }, 1000);
 
-              const newBody = [{ x: nextX, y: nextY }, ...prevBody.slice(0, -1)];
-              
+              const newBody = [
+                { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
+                ...prevBody.slice(0, -1).map((seg, idx) => ({
+                  x: idx === 0 ? head.x : prevBody[idx - 1].x,
+                  y: idx === 0 ? head.y : prevBody[idx - 1].y,
+                  prevX: seg.x,
+                  prevY: seg.y,
+                }))
+              ];
+
+              snakeBodyRef.current = newBody;
+
               // 错误球在其他空闲位置重新刷新
               const filtered = currentFoods.filter(f => f.id !== eatenFood.id);
               const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
@@ -896,7 +924,19 @@ function App() {
             }
           }
 
-          return [{ x: nextX, y: nextY }, ...prevBody.slice(0, -1)];
+          // 正常平滑步进
+          const newBody = [
+            { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
+            ...prevBody.slice(0, -1).map((seg, idx) => ({
+              x: idx === 0 ? head.x : prevBody[idx - 1].x,
+              y: idx === 0 ? head.y : prevBody[idx - 1].y,
+              prevX: seg.x,
+              prevY: seg.y,
+            }))
+          ];
+
+          snakeBodyRef.current = newBody;
+          return newBody;
         });
       }, tickSpeed);
     }
@@ -905,7 +945,7 @@ function App() {
     };
   }, [quizMode, isSnakePaused, isSnakeGameOver, generateSnakeFoodsAndTarget]);
 
-  // Canvas Drawing Routine (12x12 Grid with Pill Badges)
+  // 60FPS Canvas Animation Loop (Smooth Lerp + Neutral Answer Food Badges)
   useEffect(() => {
     if (quizMode !== 'snakeGame') return;
     const canvas = canvasRef.current;
@@ -913,126 +953,153 @@ function App() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 2;
-    const displayWidth = canvas.clientWidth || 340;
-    const displayHeight = canvas.clientHeight || 340;
+    let animId;
+    const render = (time) => {
+      const dpr = window.devicePixelRatio || 2;
+      const displayWidth = canvas.clientWidth || 340;
+      const displayHeight = canvas.clientHeight || 340;
 
-    if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
-      canvas.width = displayWidth * dpr;
-      canvas.height = displayHeight * dpr;
-    }
-    ctx.resetTransform?.();
-    ctx.scale(dpr, dpr);
+      if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
+        canvas.width = displayWidth * dpr;
+        canvas.height = displayHeight * dpr;
+      }
+      ctx.resetTransform?.();
+      ctx.scale(dpr, dpr);
 
-    const GRID = 12;
-    const cellSize = displayWidth / GRID;
+      const GRID = 12;
+      const cellSize = displayWidth / GRID;
 
-    // 背景
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, displayWidth, displayHeight);
+      // 棋盘背景
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, displayWidth, displayHeight);
 
-    // 棋盘格
-    ctx.fillStyle = '#f8fafc';
-    for (let r = 0; r < GRID; r++) {
-      for (let c = 0; c < GRID; c++) {
-        if ((r + c) % 2 === 0) {
-          ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+      ctx.fillStyle = '#f8fafc';
+      for (let r = 0; r < GRID; r++) {
+        for (let c = 0; c < GRID; c++) {
+          if ((r + c) % 2 === 0) {
+            ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+          }
         }
       }
-    }
 
-    // 绘制 4 颗能量食物药丸卡片 (Food Pill Cards)
-    snakeFoods.forEach(food => {
-      const centerX = food.x * cellSize + cellSize / 2;
-      const centerY = food.y * cellSize + cellSize / 2;
-      const pillW = cellSize * 0.90;
-      const pillH = cellSize * 0.72;
-      const pillX = centerX - pillW / 2;
-      const pillY = centerY - pillH / 2;
-
-      ctx.save();
-      ctx.shadowColor = food.isCorrect ? 'rgba(59, 130, 246, 0.35)' : 'rgba(0, 0, 0, 0.06)';
-      ctx.shadowBlur = food.isCorrect ? 8 : 4;
-      ctx.fillStyle = food.isCorrect ? '#eff6ff' : '#ffffff';
-      ctx.strokeStyle = food.isCorrect ? '#3b82f6' : '#cbd5e1';
-      ctx.lineWidth = food.isCorrect ? 1.8 : 1.2;
-
-      ctx.beginPath();
-      ctx.roundRect(pillX, pillY, pillW, pillH, 6);
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `800 ${food.value.length >= 5 ? 10 : 11}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-      ctx.fillStyle = food.isCorrect ? '#1d4ed8' : '#334155';
-      ctx.fillText(food.value, centerX, centerY + 0.5);
-      ctx.restore();
-    });
-
-    // 绘制蛇身
-    if (snakeBody && snakeBody.length > 0) {
-      snakeBody.forEach((seg, idx) => {
-        const x = seg.x * cellSize + 2;
-        const y = seg.y * cellSize + 2;
-        const size = cellSize - 4;
-        const radius = idx === 0 ? size / 2.2 : size / 3.2;
+      // 绘制 4 颗能量食物药丸卡片 (完全统一的视觉样式，杜绝剧透答案！)
+      const foods = snakeFoodsRef.current || [];
+      foods.forEach(food => {
+        const centerX = food.x * cellSize + cellSize / 2;
+        const centerY = food.y * cellSize + cellSize / 2;
+        const pillW = cellSize * 0.90;
+        const pillH = cellSize * 0.72;
+        const pillX = centerX - pillW / 2;
+        const pillY = centerY - pillH / 2;
 
         ctx.save();
-        if (idx === 0) {
-          ctx.fillStyle = '#2563eb';
-          ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
-          ctx.shadowBlur = 6;
-        } else {
-          const ratio = idx / snakeBody.length;
-          ctx.fillStyle = `rgb(${Math.floor(59 + ratio * 30)}, ${Math.floor(130 + ratio * 35)}, ${Math.floor(246 - ratio * 20)})`;
-        }
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1.2;
 
         ctx.beginPath();
-        ctx.roundRect(x, y, size, size, radius);
+        ctx.roundRect(pillX, pillY, pillW, pillH, 7);
         ctx.fill();
+        ctx.stroke();
         ctx.restore();
 
-        // 蛇头眼睛
-        if (idx === 0) {
-          const eyeOffset = size * 0.22;
-          const eyeRadius = size * 0.13;
-          const pupilRadius = size * 0.065;
-          const centerX = seg.x * cellSize + cellSize / 2;
-          const centerY = seg.y * cellSize + cellSize / 2;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `800 ${food.value.length >= 5 ? 10 : 11.5}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = '#1e293b';
+        ctx.fillText(food.value, centerX, centerY + 0.5);
+        ctx.restore();
+      });
 
-          let eye1X = centerX, eye1Y = centerY, eye2X = centerX, eye2Y = centerY;
-          if (snakeDir.x === 1) {
-            eye1X = centerX + eyeOffset; eye1Y = centerY - eyeOffset;
-            eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
-          } else if (snakeDir.x === -1) {
-            eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
-            eye2X = centerX - eyeOffset; eye2Y = centerY + eyeOffset;
-          } else if (snakeDir.y === 1) {
-            eye1X = centerX - eyeOffset; eye1Y = centerY + eyeOffset;
-            eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
-          } else if (snakeDir.y === -1) {
-            eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
-            eye2X = centerX + eyeOffset; eye2Y = centerY - eyeOffset;
+      // 60FPS 平滑插值蛇身 (Smooth Lerp Interpolation)
+      const elapsed = time - lastStepTimeRef.current;
+      const progress = isSnakePaused || isSnakeGameOver ? 1 : Math.min(1, Math.max(0, elapsed / (stepDurationRef.current || 200)));
+      const body = snakeBodyRef.current || [];
+      const dir = snakeDirRef.current || { x: 1, y: 0 };
+
+      if (body.length > 0) {
+        body.forEach((seg, idx) => {
+          let curX = seg.x;
+          let curY = seg.y;
+          let pX = seg.prevX !== undefined ? seg.prevX : curX;
+          let pY = seg.prevY !== undefined ? seg.prevY : curY;
+
+          // 穿墙平滑保护 (跨边缘不插值)
+          if (Math.abs(curX - pX) > 1) pX = curX;
+          if (Math.abs(curY - pY) > 1) pY = curY;
+
+          const interpX = pX + (curX - pX) * progress;
+          const interpY = pY + (curY - pY) * progress;
+
+          const x = interpX * cellSize + 2;
+          const y = interpY * cellSize + 2;
+          const size = cellSize - 4;
+          const radius = idx === 0 ? size / 2.2 : size / 3.2;
+
+          ctx.save();
+          if (idx === 0) {
+            ctx.fillStyle = '#2563eb';
+            ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
+            ctx.shadowBlur = 6;
+          } else {
+            const ratio = idx / body.length;
+            ctx.fillStyle = `rgb(${Math.floor(59 + ratio * 30)}, ${Math.floor(130 + ratio * 35)}, ${Math.floor(246 - ratio * 20)})`;
           }
 
-          ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.arc(eye1X, eye1Y, eyeRadius, 0, Math.PI * 2);
-          ctx.arc(eye2X, eye2Y, eyeRadius, 0, Math.PI * 2);
+          ctx.roundRect(x, y, size, size, radius);
           ctx.fill();
+          ctx.restore();
 
-          ctx.fillStyle = '#0f172a';
-          ctx.beginPath();
-          ctx.arc(eye1X + snakeDir.x * 1.5, eye1Y + snakeDir.y * 1.5, pupilRadius, 0, Math.PI * 2);
-          ctx.arc(eye2X + snakeDir.x * 1.5, eye2Y + snakeDir.y * 1.5, pupilRadius, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      });
-    }
-  }, [quizMode, snakeBody, snakeFoods, snakeDir]);
+          // 蛇头眼睛
+          if (idx === 0) {
+            const eyeOffset = size * 0.22;
+            const eyeRadius = size * 0.13;
+            const pupilRadius = size * 0.065;
+            const centerX = interpX * cellSize + cellSize / 2;
+            const centerY = interpY * cellSize + cellSize / 2;
+
+            let eye1X = centerX, eye1Y = centerY, eye2X = centerX, eye2Y = centerY;
+            if (dir.x === 1) {
+              eye1X = centerX + eyeOffset; eye1Y = centerY - eyeOffset;
+              eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
+            } else if (dir.x === -1) {
+              eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
+              eye2X = centerX - eyeOffset; eye2Y = centerY + eyeOffset;
+            } else if (dir.y === 1) {
+              eye1X = centerX - eyeOffset; eye1Y = centerY + eyeOffset;
+              eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
+            } else if (dir.y === -1) {
+              eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
+              eye2X = centerX + eyeOffset; eye2Y = centerY - eyeOffset;
+            }
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(eye1X, eye1Y, eyeRadius, 0, Math.PI * 2);
+            ctx.arc(eye2X, eye2Y, eyeRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(eye1X + dir.x * 1.5, eye1Y + dir.y * 1.5, pupilRadius, 0, Math.PI * 2);
+            ctx.arc(eye2X + dir.x * 1.5, eye2Y + dir.y * 1.5, pupilRadius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+      }
+
+      animId = requestAnimationFrame(render);
+    };
+
+    animId = requestAnimationFrame(render);
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }, [quizMode, isSnakePaused, isSnakeGameOver]);
 
   // Touch Swipe & Tap Handlers for Snake
   const handleArenaTouchStart = (e) => {
