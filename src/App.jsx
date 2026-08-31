@@ -804,6 +804,9 @@ function App() {
     if (newDir.x === -current.x && newDir.y === -current.y) return;
     nextDirRef.current = newDir;
     triggerHaptic('tap');
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate(15); } catch (e) {}
+    }
   }, []);
 
   // 60FPS/120FPS Unified RAF Physics + Render Engine
@@ -844,6 +847,9 @@ function App() {
               const isSelfBite = prevBody.some((seg, idx) => idx > 0 && seg.x === nextX && seg.y === nextY);
               if (isSelfBite) {
                 triggerHaptic('error');
+                if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+                  try { navigator.vibrate([80, 50, 80]); } catch (e) {}
+                }
                 setSnakeLives(prevLives => {
                   const nextLives = prevLives - 1;
                   if (nextLives <= 0) {
@@ -861,8 +867,11 @@ function App() {
 
               if (eatenFood) {
                 if (eatenFood.isCorrect) {
-                  // 🎯 吞噬正确能量球！
+                  // 🎯 吞噬正确能量球！(触发振动)
                   triggerHaptic('success');
+                  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+                    try { navigator.vibrate([40, 50, 40]); } catch (e) {}
+                  }
 
                   setSnakeCombo(prevCombo => {
                     const nextCombo = prevCombo + 1;
@@ -911,8 +920,11 @@ function App() {
                   setSnakeFoods(newFoods);
 
                 } else {
-                  // ❌ 误吞错误干扰球
+                  // ❌ 误吞错误干扰球 (触发警告振动)
                   triggerHaptic('error');
+                  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+                    try { navigator.vibrate([80, 50, 80]); } catch (e) {}
+                  }
                   setSnakeCombo(0);
                   setSnakeLives(prevLives => {
                     const nextLives = prevLives - 1;
@@ -976,8 +988,8 @@ function App() {
         // 🎨 Canvas 60FPS Render Phase
         // ==========================================
         const dpr = window.devicePixelRatio || 2;
-        const displayWidth = canvas.clientWidth || 320;
-        const displayHeight = canvas.clientHeight || 320;
+        const displayWidth = canvas.clientWidth || 340;
+        const displayHeight = canvas.clientHeight || 340;
 
         if (canvas.width !== Math.floor(displayWidth * dpr) || canvas.height !== Math.floor(displayHeight * dpr)) {
           canvas.width = Math.floor(displayWidth * dpr);
@@ -1004,12 +1016,12 @@ function App() {
           }
         }
 
-        // 2. 绘制 4 颗能量食物药丸卡片 (完全统一的白底胶囊与深灰字，杜绝剧透答案！)
+        // 2. 绘制 4 颗能量食物药丸卡片 (缩小 1/ 和 %，突出有效数字)
         const foods = snakeFoodsRef.current || [];
         foods.forEach(food => {
           const centerX = food.x * cellSize + cellSize / 2;
           const centerY = food.y * cellSize + cellSize / 2;
-          const pillW = cellSize * 0.90;
+          const pillW = cellSize * 0.92;
           const pillH = cellSize * 0.74;
           const pillX = centerX - pillW / 2;
           const pillY = centerY - pillH / 2;
@@ -1027,89 +1039,170 @@ function App() {
           ctx.stroke();
           ctx.restore();
 
+          // 解析数值与前缀后缀
+          let prefix = '';
+          let main = food.value;
+          let suffix = '';
+
+          if (food.value.startsWith('1/')) {
+            prefix = '1/';
+            main = food.value.slice(2);
+          } else if (food.value.endsWith('%')) {
+            main = food.value.slice(0, -1);
+            suffix = '%';
+          }
+
+          const prefixFont = '700 9.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          const mainFont = `900 ${main.length >= 4 ? 12 : 13.5}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          const suffixFont = '700 9.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
           ctx.save();
-          ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.font = `800 ${food.value.length >= 5 ? 11 : 12.5}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+
+          ctx.font = prefixFont;
+          const prefixWidth = prefix ? ctx.measureText(prefix).width : 0;
+
+          ctx.font = mainFont;
+          const mainWidth = ctx.measureText(main).width;
+
+          ctx.font = suffixFont;
+          const suffixWidth = suffix ? ctx.measureText(suffix).width : 0;
+
+          const totalWidth = prefixWidth + mainWidth + suffixWidth;
+          let startX = centerX - totalWidth / 2;
+
+          if (prefix) {
+            ctx.font = prefixFont;
+            ctx.fillStyle = '#64748b';
+            ctx.textAlign = 'left';
+            ctx.fillText(prefix, startX, centerY + 0.5);
+            startX += prefixWidth;
+          }
+
+          ctx.font = mainFont;
           ctx.fillStyle = '#0f172a';
-          ctx.fillText(food.value, centerX, centerY + 0.5);
+          ctx.textAlign = 'left';
+          ctx.fillText(main, startX, centerY + 0.5);
+          startX += mainWidth;
+
+          if (suffix) {
+            ctx.font = suffixFont;
+            ctx.fillStyle = '#64748b';
+            ctx.textAlign = 'left';
+            ctx.fillText(suffix, startX, centerY + 0.5);
+          }
+
           ctx.restore();
         });
 
-        // 3. 绘制 60FPS 平滑插值蛇身 (Smooth Lerp)
+        // 3. 绘制 60FPS 平滑连续无缝蛇身 (Continuous Connected Snake Body)
         const progress = isSnakePaused || isSnakeGameOver ? 1 : Math.min(1, Math.max(0, accumulator / (TICK_STEP || 210)));
         const body = snakeBodyRef.current || [];
         const dir = snakeDirRef.current || { x: 1, y: 0 };
 
         if (body.length > 0) {
-          body.forEach((seg, idx) => {
+          // A. 提取各节段插值平滑中心坐标
+          const points = [];
+          for (let i = 0; i < body.length; i++) {
+            const seg = body[i];
             let curX = seg.x;
             let curY = seg.y;
             let pX = seg.prevX !== undefined ? seg.prevX : curX;
             let pY = seg.prevY !== undefined ? seg.prevY : curY;
 
-            // 穿墙平滑保护 (跨边缘不插值)
+            // 跨边缘穿墙保护
             if (Math.abs(curX - pX) > 1) pX = curX;
             if (Math.abs(curY - pY) > 1) pY = curY;
 
             const interpX = pX + (curX - pX) * progress;
             const interpY = pY + (curY - pY) * progress;
+            const cx = interpX * cellSize + cellSize / 2;
+            const cy = interpY * cellSize + cellSize / 2;
+            points.push({ cx, cy, x: curX, y: curY, interpX, interpY });
+          }
 
-            const x = interpX * cellSize + 2;
-            const y = interpY * cellSize + 2;
-            const size = cellSize - 4;
-            const radius = idx === 0 ? size / 2.2 : size / 3.2;
+          // B. 绘制从尾到头的连续无缝身体管道 (Thick Continuous Segment Paths)
+          for (let i = points.length - 1; i > 0; i--) {
+            const p1 = points[i];
+            const p2 = points[i - 1];
+            const dist = Math.hypot(p1.cx - p2.cx, p1.cy - p2.cy);
+
+            if (dist < cellSize * 1.6) {
+              const ratio = i / points.length;
+              ctx.save();
+              ctx.strokeStyle = `rgb(${Math.floor(45 + ratio * 35)}, ${Math.floor(115 + ratio * 45)}, ${Math.floor(245 - ratio * 15)})`;
+              ctx.lineWidth = cellSize * 0.72;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.beginPath();
+              ctx.moveTo(p1.cx, p1.cy);
+              ctx.lineTo(p2.cx, p2.cy);
+              ctx.stroke();
+              ctx.restore();
+            }
+          }
+
+          // C. 绘制每个关节圆形饱满核 (Joint Nodes)
+          for (let i = points.length - 1; i >= 0; i--) {
+            const pt = points[i];
+            const ratio = i / points.length;
+            const radius = i === 0 ? cellSize * 0.38 : (cellSize * 0.36 - (ratio * cellSize * 0.08));
 
             ctx.save();
-            if (idx === 0) {
+            if (i === 0) {
               ctx.fillStyle = '#2563eb';
-              ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
-              ctx.shadowBlur = 6;
+              ctx.shadowColor = 'rgba(37, 99, 235, 0.4)';
+              ctx.shadowBlur = 8;
             } else {
-              const ratio = idx / body.length;
-              ctx.fillStyle = `rgb(${Math.floor(59 + ratio * 30)}, ${Math.floor(130 + ratio * 35)}, ${Math.floor(246 - ratio * 20)})`;
+              ctx.fillStyle = `rgb(${Math.floor(45 + ratio * 35)}, ${Math.floor(115 + ratio * 45)}, ${Math.floor(245 - ratio * 15)})`;
             }
-
-            drawRoundedRect(ctx, x, y, size, size, radius);
+            ctx.beginPath();
+            ctx.arc(pt.cx, pt.cy, Math.max(radius, cellSize * 0.26), 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
+          }
 
-            // 蛇头眼睛
-            if (idx === 0) {
-              const eyeOffset = size * 0.22;
-              const eyeRadius = size * 0.13;
-              const pupilRadius = size * 0.065;
-              const centerX = interpX * cellSize + cellSize / 2;
-              const centerY = interpY * cellSize + cellSize / 2;
+          // D. 绘制蛇头眼睛与高光 (Eyes & Catchlights)
+          const headPt = points[0];
+          const eyeOffset = cellSize * 0.20;
+          const eyeRadius = cellSize * 0.13;
+          const pupilRadius = cellSize * 0.065;
+          let eye1X = headPt.cx, eye1Y = headPt.cy, eye2X = headPt.cx, eye2Y = headPt.cy;
 
-              let eye1X = centerX, eye1Y = centerY, eye2X = centerX, eye2Y = centerY;
-              if (dir.x === 1) {
-                eye1X = centerX + eyeOffset; eye1Y = centerY - eyeOffset;
-                eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
-              } else if (dir.x === -1) {
-                eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
-                eye2X = centerX - eyeOffset; eye2Y = centerY + eyeOffset;
-              } else if (dir.y === 1) {
-                eye1X = centerX - eyeOffset; eye1Y = centerY + eyeOffset;
-                eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
-              } else if (dir.y === -1) {
-                eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
-                eye2X = centerX + eyeOffset; eye2Y = centerY - eyeOffset;
-              }
+          if (dir.x === 1) {
+            eye1X = headPt.cx + eyeOffset * 0.7; eye1Y = headPt.cy - eyeOffset;
+            eye2X = headPt.cx + eyeOffset * 0.7; eye2Y = headPt.cy + eyeOffset;
+          } else if (dir.x === -1) {
+            eye1X = headPt.cx - eyeOffset * 0.7; eye1Y = headPt.cy - eyeOffset;
+            eye2X = headPt.cx - eyeOffset * 0.7; eye2Y = headPt.cy + eyeOffset;
+          } else if (dir.y === 1) {
+            eye1X = headPt.cx - eyeOffset; eye1Y = headPt.cy + eyeOffset * 0.7;
+            eye2X = headPt.cx + eyeOffset; eye2Y = headPt.cy + eyeOffset * 0.7;
+          } else if (dir.y === -1) {
+            eye1X = headPt.cx - eyeOffset; eye1Y = headPt.cy - eyeOffset * 0.7;
+            eye2X = headPt.cx + eyeOffset; eye2Y = headPt.cy - eyeOffset * 0.7;
+          }
 
-              ctx.fillStyle = '#ffffff';
-              ctx.beginPath();
-              ctx.arc(eye1X, eye1Y, eyeRadius, 0, Math.PI * 2);
-              ctx.arc(eye2X, eye2Y, eyeRadius, 0, Math.PI * 2);
-              ctx.fill();
+          // 眼白
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(eye1X, eye1Y, eyeRadius, 0, Math.PI * 2);
+          ctx.arc(eye2X, eye2Y, eyeRadius, 0, Math.PI * 2);
+          ctx.fill();
 
-              ctx.fillStyle = '#0f172a';
-              ctx.beginPath();
-              ctx.arc(eye1X + dir.x * 1.5, eye1Y + dir.y * 1.5, pupilRadius, 0, Math.PI * 2);
-              ctx.arc(eye2X + dir.x * 1.5, eye2Y + dir.y * 1.5, pupilRadius, 0, Math.PI * 2);
-              ctx.fill();
-            }
-          });
+          // 瞳孔
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          ctx.arc(eye1X + dir.x * 2, eye1Y + dir.y * 2, pupilRadius, 0, Math.PI * 2);
+          ctx.arc(eye2X + dir.x * 2, eye2Y + dir.y * 2, pupilRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 高光
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(eye1X + dir.x * 2 - 1, eye1Y + dir.y * 2 - 1, pupilRadius * 0.45, 0, Math.PI * 2);
+          ctx.arc(eye2X + dir.x * 2 - 1, eye2Y + dir.y * 2 - 1, pupilRadius * 0.45, 0, Math.PI * 2);
+          ctx.fill();
         }
       } catch (err) {
         console.error('Snake render error:', err);
@@ -1945,8 +2038,8 @@ function App() {
              🐍 能量贪吃蛇游戏主界面 (Snake Runner)
              ========================================================= */
           <div className="game-board-card snake-board-card">
-            {/* 顶部状态栏：得分/连击/生命值/目标/重新开局 */}
-            <div className="game-top-bar">
+            {/* 顶部状态栏：得分/连击/生命值/重新开局 */}
+            <div className="game-top-bar snake-top-bar">
               <div className="topbar-left-col">
                 <button 
                   className="game-ctrl-btn" 
@@ -1997,15 +2090,6 @@ function App() {
                 </div>
               </div>
 
-              <div className="topbar-center-col">
-                {snakeTarget && (
-                  <div className="snake-target-pill">
-                    <span className="target-pill-label">🎯 目标</span>
-                    <span className="target-pill-val">{snakeTarget.promptText}</span>
-                  </div>
-                )}
-              </div>
-
               <div className="topbar-right-col">
                 <button 
                   className="game-ctrl-btn" 
@@ -2023,7 +2107,29 @@ function App() {
               </div>
             </div>
 
-            {/* 60FPS Canvas 渲染竞技场 */}
+            {/* 🎯 独立一行的本轮捕食目标 Banner (另起一行，突出核心有效数字) */}
+            {snakeTarget && (
+              <div className="snake-target-banner">
+                <span className="target-banner-badge">🎯 本轮目标</span>
+                <div className="target-banner-val">
+                  {snakeTarget.promptText.startsWith('1/') ? (
+                    <>
+                      <span className="num-prefix">1/</span>
+                      <span className="num-main">{snakeTarget.promptText.slice(2)}</span>
+                    </>
+                  ) : snakeTarget.promptText.endsWith('%') ? (
+                    <>
+                      <span className="num-main">{snakeTarget.promptText.slice(0, -1)}</span>
+                      <span className="num-suffix">%</span>
+                    </>
+                  ) : (
+                    <span className="num-main">{snakeTarget.promptText}</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 60FPS Canvas 渲染竞技场 (全宽正方形) */}
             <div 
               className="snake-arena-wrapper"
               onTouchStart={handleArenaTouchStart}

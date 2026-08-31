@@ -1854,37 +1854,62 @@ body {
   width: 100%;
 }
 
-/* 顶部目标提示胶囊 */
-.snake-target-pill {
+.snake-top-bar {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  background: linear-gradient(135deg, #eff6ff, #dbeafe);
-  padding: 0.22rem 0.8rem 0.22rem 0.6rem;
-  border-radius: 100px;
-  border: 1.5px solid #93c5fd;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
-  animation: targetPillPulse 1.2s infinite alternate ease-in-out;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 0.45rem;
+  padding: 0 0.1rem;
+  box-sizing: border-box;
 }
 
-@keyframes targetPillPulse {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.03); }
+/* 🎯 独立一行的本轮捕食目标 Banner (另起一行，突出有效数字) */
+.snake-target-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.35rem 0.8rem;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1.5px solid #bfdbfe;
+  border-radius: 14px;
+  margin-bottom: 0.45rem;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
 }
 
-.target-pill-label {
-  font-size: 0.72rem;
-  font-weight: 850;
+.target-banner-badge {
+  font-size: 0.74rem;
+  font-weight: 800;
   color: #1d4ed8;
-  letter-spacing: 0.04rem;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(191, 219, 254, 0.6);
+  letter-spacing: 0.02rem;
 }
 
-.target-pill-val {
-  font-size: 1.15rem;
-  font-weight: 850;
-  color: #1e3a8a;
-  letter-spacing: 0.03rem;
+.target-banner-val {
+  display: inline-flex;
+  align-items: baseline;
   font-variant-numeric: tabular-nums;
+}
+
+.target-banner-val .num-prefix,
+.target-banner-val .num-suffix {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.target-banner-val .num-main {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #1e3a8a;
+  letter-spacing: 0.02rem;
+  margin: 0 0.06rem;
 }
 
 /* 生命值爱心槽 */
@@ -1907,19 +1932,19 @@ body {
   filter: grayscale(1) opacity(0.3);
 }
 
-/* Canvas 竞技场容器 */
+/* Canvas 竞技场容器 (全宽纯正方形) */
 .snake-arena-wrapper {
   position: relative;
   width: 100%;
-  max-width: 360px;
   aspect-ratio: 1 / 1;
   background: #ffffff;
-  border-radius: 20px;
+  border-radius: 18px;
   border: 1.5px solid #e2e8f0;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 2px 8px rgba(0, 0, 0, 0.02);
-  margin: 0.3rem 0;
+  margin: 0;
   touch-action: none; /* 禁用默认触摸滚动，启用滑动手势 */
+  box-sizing: border-box;
 }
 
 .snake-canvas {
@@ -1933,26 +1958,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.6rem;
+  margin-top: 0.5rem;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .hint-pill {
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 750;
   color: #64748b;
   background: #f8fafc;
-  padding: 0.3rem 0.85rem;
+  padding: 0.28rem 0.8rem;
   border-radius: 100px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-}
-
-@media (max-width: 480px) {
-  .snake-arena-wrapper {
-    max-width: 330px;
-  }
 }
 
 
