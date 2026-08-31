@@ -759,14 +759,20 @@ function App() {
     const GRID = 10;
     const occupied = new Set((currentBody || []).map(b => `${b.x},${b.y}`));
 
-    // 🚫 核心安全走廊：严禁新生成的食物挡在蛇头正前方道路上 (预留前方 3 格安全缓冲区，防止来不及反应)
+    // 🚫 核心安全机制：前进方向的那一条整行/整列直线绝对不能出现任何食物！
     if (currentBody && currentBody.length > 0) {
       const head = currentBody[0];
       const dir = customDir || snakeDirRef.current || { x: 1, y: 0 };
-      for (let step = 1; step <= 3; step++) {
-        const safeX = (head.x + dir.x * step + GRID) % GRID;
-        const safeY = (head.y + dir.y * step + GRID) % GRID;
-        occupied.add(`${safeX},${safeY}`);
+      if (dir.x !== 0) {
+        // 水平前进（向左或向右）：整行 y = head.y 严禁刷新任何食物
+        for (let x = 0; x < GRID; x++) {
+          occupied.add(`${x},${head.y}`);
+        }
+      } else if (dir.y !== 0) {
+        // 垂直前进（向上或向下）：整列 x = head.x 严禁刷新任何食物
+        for (let y = 0; y < GRID; y++) {
+          occupied.add(`${head.x},${y}`);
+        }
       }
     }
 
@@ -1038,15 +1044,19 @@ function App() {
 
                   snakeBodyRef.current = newBody;
 
-                  // 错误球在其他空闲位置重新刷新 (同样严禁刷新在蛇头正前方 3 格安全走廊)
+                  // 错误球在其他空闲位置重新刷新 (同样严禁刷新在蛇头前进的整条直线道路上)
                   const filtered = currentFoods.filter(f => f.id !== eatenFood.id);
                   const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
                   currentFoods.forEach(f => occupied.add(`${f.x},${f.y}`));
                   const newHead = newBody[0];
-                  for (let step = 1; step <= 3; step++) {
-                    const safeX = (newHead.x + currentDir.x * step + GRID) % GRID;
-                    const safeY = (newHead.y + currentDir.y * step + GRID) % GRID;
-                    occupied.add(`${safeX},${safeY}`);
+                  if (currentDir.x !== 0) {
+                    for (let x = 0; x < GRID; x++) {
+                      occupied.add(`${x},${newHead.y}`);
+                    }
+                  } else if (currentDir.y !== 0) {
+                    for (let y = 0; y < GRID; y++) {
+                      occupied.add(`${newHead.x},${y}`);
+                    }
                   }
                   let rx = Math.floor(Math.random() * GRID);
                   let ry = Math.floor(Math.random() * GRID);
