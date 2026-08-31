@@ -713,12 +713,12 @@ function App() {
   const isSnakeRunningRef = useRef(false);
 
   const getSafeRandomFoodPositions = useCallback(() => {
-    // 4 象限分布 + 局部随机微扰，确保绝对不贴边、不重叠且视野开阔
+    // 4 象限中心分布 + 局部随机微扰，确保绝不贴边、绝不挤在一起，视野极其开阔
     const quads = [
-      { minX: 140, maxX: 420, minY: 140, maxY: 420 },
-      { minX: 580, maxX: 860, minY: 140, maxY: 420 },
-      { minX: 140, maxX: 420, minY: 580, maxY: 860 },
-      { minX: 580, maxX: 860, minY: 580, maxY: 860 },
+      { minX: 200, maxX: 380, minY: 200, maxY: 380 }, // Top-Left
+      { minX: 620, maxX: 800, minY: 200, maxY: 380 }, // Top-Right
+      { minX: 200, maxX: 380, minY: 620, maxY: 800 }, // Bottom-Left
+      { minX: 620, maxX: 800, minY: 620, maxY: 800 }, // Bottom-Right
     ];
     // 打乱象限
     for (let i = quads.length - 1; i > 0; i--) {
@@ -957,7 +957,7 @@ function App() {
 
           // 7. 碰撞检测：食物吞噬
           const currentFoods = snakeFoodsRef.current || [];
-          const eatenFood = currentFoods.find(f => Math.hypot(state.x - f.x, state.y - f.y) < 55);
+          const eatenFood = currentFoods.find(f => Math.hypot(state.x - f.x, state.y - f.y) < 65);
 
           if (eatenFood) {
             if (eatenFood.isCorrect) {
@@ -1064,8 +1064,8 @@ function App() {
         // 🎨 60FPS Ultra-Smooth Canvas Render Phase
         // ==========================================
         const dpr = window.devicePixelRatio || 2;
-        const displayWidth = canvas.clientWidth || 340;
-        const displayHeight = canvas.clientHeight || 340;
+        const displayWidth = canvas.clientWidth || 360;
+        const displayHeight = canvas.clientHeight || 360;
 
         if (canvas.width !== Math.floor(displayWidth * dpr) || canvas.height !== Math.floor(displayHeight * dpr)) {
           canvas.width = Math.floor(displayWidth * dpr);
@@ -1078,7 +1078,7 @@ function App() {
 
         const scale = displayWidth / 1000;
 
-        // 1. 棋盘背景 (柔和微网格)
+        // 1. 棋盘背景 (超细腻柔和微网格)
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, displayWidth, displayHeight);
 
@@ -1092,25 +1092,25 @@ function App() {
           }
         }
 
-        // 2. 绘制 4 颗能量食物药丸卡片 (缩小 1/ 和 %，突出核心有效数字)
+        // 2. 绘制 4 颗能量食物药丸卡片 (1/ 和 % 超小浅灰，核心有效数字超大超粗 900 突出！)
         const foods = snakeFoodsRef.current || [];
         foods.forEach(food => {
           const centerX = food.x * scale;
           const centerY = food.y * scale;
-          const pillW = 94 * scale;
-          const pillH = 70 * scale;
+          const pillW = 130 * scale; // 宽敞大气药丸卡片
+          const pillH = 84 * scale;
           const pillX = centerX - pillW / 2;
           const pillY = centerY - pillH / 2;
 
           ctx.save();
-          ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetY = 1.5;
+          ctx.shadowColor = 'rgba(15, 23, 42, 0.10)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetY = 3;
           ctx.fillStyle = '#ffffff';
           ctx.strokeStyle = '#cbd5e1';
-          ctx.lineWidth = 1.4;
+          ctx.lineWidth = 1.8;
 
-          drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 7);
+          drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 14 * scale);
           ctx.fill();
           ctx.stroke();
           ctx.restore();
@@ -1128,9 +1128,10 @@ function App() {
             suffix = '%';
           }
 
-          const prefixFont = '700 9.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          const mainFont = `900 ${main.length >= 4 ? 12 : 13.5}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-          const suffixFont = '700 9.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          // 核心数字 19px~22px 超粗黑字，前缀后缀 10px 浅灰
+          const prefixFont = '700 10.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          const mainFont = `900 ${main.length >= 4 ? 18.5 : 22}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          const suffixFont = '700 10.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
           ctx.save();
           ctx.textBaseline = 'middle';
@@ -1149,23 +1150,23 @@ function App() {
 
           if (prefix) {
             ctx.font = prefixFont;
-            ctx.fillStyle = '#64748b';
+            ctx.fillStyle = '#94a3b8'; // 浅灰低调前缀
             ctx.textAlign = 'left';
-            ctx.fillText(prefix, startX, centerY + 0.5);
-            startX += prefixWidth;
+            ctx.fillText(prefix, startX, centerY - 2.5);
+            startX += prefixWidth + 1.5;
           }
 
           ctx.font = mainFont;
-          ctx.fillStyle = '#0f172a';
+          ctx.fillStyle = '#0f172a'; // 极深极粗高对比核心有效数字
           ctx.textAlign = 'left';
           ctx.fillText(main, startX, centerY + 0.5);
-          startX += mainWidth;
+          startX += mainWidth + 1.5;
 
           if (suffix) {
             ctx.font = suffixFont;
-            ctx.fillStyle = '#64748b';
+            ctx.fillStyle = '#94a3b8'; // 浅灰低调后缀
             ctx.textAlign = 'left';
-            ctx.fillText(suffix, startX, centerY + 0.5);
+            ctx.fillText(suffix, startX, centerY - 2.5);
           }
 
           ctx.restore();
@@ -1186,12 +1187,12 @@ function App() {
             const p2 = segments[i - 1];
             const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
-            // 穿墙时不连接跨越整个屏幕的长线
-            if (dist < 180) {
+            // 穿墙时(dist > 150)不连接跨屏长线，杜绝断裂长条
+            if (dist < 150) {
               const ratio = i / segments.length;
               ctx.save();
               ctx.strokeStyle = `rgb(${Math.floor(37 + ratio * 40)}, ${Math.floor(99 + ratio * 45)}, ${Math.floor(235 - ratio * 15)})`;
-              ctx.lineWidth = Math.max(16, (30 - ratio * 8)) * scale;
+              ctx.lineWidth = Math.max(16, (32 - ratio * 8)) * scale;
               ctx.lineCap = 'round';
               ctx.lineJoin = 'round';
               ctx.beginPath();
@@ -1206,7 +1207,7 @@ function App() {
           for (let i = segments.length - 1; i >= 0; i--) {
             const pt = segments[i];
             const ratio = i / segments.length;
-            const radius = i === 0 ? 17 * scale : Math.max(8 * scale, (15 - ratio * 5) * scale);
+            const radius = i === 0 ? 17.5 * scale : Math.max(8 * scale, (15 - ratio * 5) * scale);
 
             ctx.save();
             if (i === 0) {
@@ -1228,10 +1229,10 @@ function App() {
           const headY = head.y * scale;
           const angle = head.angle;
 
-          const eyeForward = 9 * scale;
+          const eyeForward = 9.5 * scale;
           const eyeLateral = 7.5 * scale;
-          const eyeRadius = 4.6 * scale;
-          const pupilRadius = 2.2 * scale;
+          const eyeRadius = 4.8 * scale;
+          const pupilRadius = 2.4 * scale;
 
           const eye1X = headX + Math.cos(angle) * eyeForward - Math.sin(angle) * eyeLateral;
           const eye1Y = headY + Math.sin(angle) * eyeForward + Math.cos(angle) * eyeLateral;
@@ -1246,8 +1247,8 @@ function App() {
           ctx.fill();
 
           // 瞳孔 (朝向运动方向微偏移)
-          const pupilOffsetX = Math.cos(angle) * 1.3 * scale;
-          const pupilOffsetY = Math.sin(angle) * 1.3 * scale;
+          const pupilOffsetX = Math.cos(angle) * 1.4 * scale;
+          const pupilOffsetY = Math.sin(angle) * 1.4 * scale;
 
           ctx.fillStyle = '#0f172a';
           ctx.beginPath();
@@ -1258,8 +1259,8 @@ function App() {
           // 灵动反光高光
           ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.arc(eye1X + pupilOffsetX - 0.7, eye1Y + pupilOffsetY - 0.7, pupilRadius * 0.45, 0, Math.PI * 2);
-          ctx.arc(eye2X + pupilOffsetX - 0.7, eye2Y + pupilOffsetY - 0.7, pupilRadius * 0.45, 0, Math.PI * 2);
+          ctx.arc(eye1X + pupilOffsetX - 0.8, eye1Y + pupilOffsetY - 0.8, pupilRadius * 0.45, 0, Math.PI * 2);
+          ctx.arc(eye2X + pupilOffsetX - 0.8, eye2Y + pupilOffsetY - 0.8, pupilRadius * 0.45, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.restore();
@@ -2090,11 +2091,11 @@ function App() {
           </div>
         ) : quizMode === 'snakeGame' ? (
           /* =========================================================
-             🐍 能量贪吃蛇游戏主界面 (Snake Runner)
+             🐍 能量贪吃蛇游戏主界面 (Snake Runner) - 整体正方形一体化设计
              ========================================================= */
-          <div className="game-board-card snake-board-card">
+          <div className="snake-game-stage">
             {/* 顶部状态栏：得分/连击/生命值/重新开局 */}
-            <div className="game-top-bar snake-top-bar">
+            <div className="snake-stage-header">
               <div className="topbar-left-col">
                 <button 
                   className="game-ctrl-btn" 
@@ -2162,7 +2163,7 @@ function App() {
               </div>
             </div>
 
-            {/* 🎯 独立一行的本轮捕食目标 Banner (另起一行，突出核心有效数字) */}
+            {/* 🎯 独立一行的本轮捕食目标 Banner (另起一行，超大字突出核心有效数字) */}
             {snakeTarget && (
               <div className="snake-target-banner">
                 <span className="target-banner-badge">🎯 本轮目标</span>
@@ -2184,7 +2185,7 @@ function App() {
               </div>
             )}
 
-            {/* 60FPS Canvas 渲染竞技场 (全宽正方形) */}
+            {/* 60FPS Canvas 渲染竞技场 (全宽正方形主舞台) */}
             <div 
               className="snake-arena-wrapper"
               onTouchStart={handleArenaTouchStart}

@@ -1844,50 +1844,51 @@ body {
 }
 
 /* =========================================================
-   🐍 能量贪吃蛇模式 (Snake Runner) Styles
+   🐍 能量贪吃蛇模式 (Snake Runner) Styles - 整体正方形主舞台设计
    ========================================================= */
 
-.snake-board-card {
+.snake-game-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
+  box-sizing: border-box;
 }
 
-.snake-top-bar {
+.snake-stage-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-bottom: 0.45rem;
-  padding: 0 0.1rem;
+  margin-bottom: 0.55rem;
+  padding: 0 0.15rem;
   box-sizing: border-box;
 }
 
-/* 🎯 独立一行的本轮捕食目标 Banner (另起一行，突出有效数字) */
+/* 🎯 独立一行的本轮捕食目标 Banner (超大字突出核心有效数字) */
 .snake-target-banner {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  gap: 0.75rem;
   width: 100%;
-  padding: 0.35rem 0.8rem;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border: 1.5px solid #bfdbfe;
-  border-radius: 14px;
-  margin-bottom: 0.45rem;
+  padding: 0.5rem 1rem;
+  background: #ffffff;
+  border: 1.5px solid #dbeafe;
+  border-radius: 16px;
+  margin-bottom: 0.55rem;
   box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.08);
 }
 
 .target-banner-badge {
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 800;
   color: #1d4ed8;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 0.15rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid rgba(191, 219, 254, 0.6);
+  background: #eff6ff;
+  padding: 0.22rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #bfdbfe;
   letter-spacing: 0.02rem;
 }
 
@@ -1899,17 +1900,18 @@ body {
 
 .target-banner-val .num-prefix,
 .target-banner-val .num-suffix {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #64748b;
+  color: #94a3b8;
+  margin: 0 0.05rem;
 }
 
 .target-banner-val .num-main {
-  font-size: 1.35rem;
+  font-size: 1.65rem;
   font-weight: 900;
   color: #1e3a8a;
   letter-spacing: 0.02rem;
-  margin: 0 0.06rem;
+  margin: 0 0.05rem;
 }
 
 /* 生命值爱心槽 */
@@ -1932,16 +1934,16 @@ body {
   filter: grayscale(1) opacity(0.3);
 }
 
-/* Canvas 竞技场容器 (全宽纯正方形) */
+/* Canvas 竞技场容器 (全宽纯正方形主舞台，大圆角与高级投影) */
 .snake-arena-wrapper {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
   background: #ffffff;
-  border-radius: 18px;
+  border-radius: 24px;
   border: 1.5px solid #e2e8f0;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 2px 8px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
   margin: 0;
   touch-action: none; /* 禁用默认触摸滚动，启用滑动手势 */
   box-sizing: border-box;
@@ -1958,7 +1960,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.5rem;
+  margin-top: 0.55rem;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -1967,11 +1969,13 @@ body {
   font-size: 0.74rem;
   font-weight: 750;
   color: #64748b;
-  background: #f8fafc;
-  padding: 0.28rem 0.8rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 0.28rem 0.85rem;
   border-radius: 100px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
 
