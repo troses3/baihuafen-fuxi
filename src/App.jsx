@@ -1126,85 +1126,96 @@ function App() {
             <div className="game-top-bar">
               {matchSubMode === 'ranked' ? (
                 <>
-                  <div className="ranked-score-wrapper">
-                    <div className="game-score-badge">
-                      <span className="score-icon">⚡</span>
-                      <span className="score-num">{rankedScore.toLocaleString()}</span>
-                    </div>
+                  <div className="topbar-left-col">
+                    <div className="ranked-score-wrapper">
+                      <div className="game-score-badge">
+                        <span className="score-icon">⚡</span>
+                        <span className="score-num">{rankedScore.toLocaleString()}</span>
+                      </div>
 
-                    {/* 飘字积分浮动动效 */}
-                    <div className="floating-score-container">
-                      {floatingScores.map(f => (
-                        <div key={f.id} className={`floating-score-item float-${f.type}`}>
-                          {f.text}
+                      {comboCount >= 2 && (
+                        <div className="game-combo-badge">
+                          🔥x{comboCount}
                         </div>
-                      ))}
+                      )}
+
+                      {/* 飘字积分浮动动效 */}
+                      <div className="floating-score-container">
+                        {floatingScores.map(f => (
+                          <div key={f.id} className={`floating-score-item float-${f.type}`}>
+                            {f.text}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="ranked-center-stats">
-                    {comboCount >= 2 && (
-                      <div className="game-combo-badge">
-                        🔥 x{comboCount} 连击
-                      </div>
-                    )}
-                    <div className="game-timer-badge ranked-timer">
+                  <div className="topbar-center-col">
+                    <div className="game-timer-badge">
                       <span className="game-timer-display">{formatTime(timerSeconds)}</span>
                     </div>
                   </div>
 
-                  <button 
-                    className="game-ctrl-btn" 
-                    onClick={() => {
-                      triggerHaptic('dangerReset');
-                      startNewGame();
-                    }}
-                    title="重新开始"
-                  >
-                    <svg className="ctrl-svg-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                      <path d="M21 3v5h-5" />
-                    </svg>
-                  </button>
+                  <div className="topbar-right-col">
+                    <button 
+                      className="game-ctrl-btn" 
+                      onClick={() => {
+                        triggerHaptic('dangerReset');
+                        startNewGame();
+                      }}
+                      title="重新开始"
+                    >
+                      <svg className="ctrl-svg-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                        <path d="M21 3v5h-5" />
+                      </svg>
+                    </button>
+                  </div>
                 </>
               ) : (
                 <>
-                  <button 
-                    className="game-ctrl-btn" 
-                    onClick={() => {
-                      triggerHaptic('menuToggle');
-                      setIsGamePaused(prev => !prev);
-                    }}
-                    title={isGamePaused ? "继续游戏" : "暂停游戏"}
-                  >
-                    {isGamePaused ? (
-                      <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    ) : (
-                      <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                      </svg>
-                    )}
-                  </button>
-
-                  <div className="game-timer-badge">
-                    <span className="game-timer-display">{formatTime(timerSeconds)}</span>
+                  <div className="topbar-left-col">
+                    <button 
+                      className="game-ctrl-btn" 
+                      onClick={() => {
+                        triggerHaptic('menuToggle');
+                        setIsGamePaused(prev => !prev);
+                      }}
+                      title={isGamePaused ? "继续游戏" : "暂停游戏"}
+                    >
+                      {isGamePaused ? (
+                        <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      ) : (
+                        <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
 
-                  <button 
-                    className="game-ctrl-btn" 
-                    onClick={() => {
-                      triggerHaptic('dangerReset');
-                      startNewGame();
-                    }}
-                    title="重新洗牌开局"
-                  >
-                    <svg className="ctrl-svg-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                      <path d="M21 3v5h-5" />
-                    </svg>
-                  </button>
+                  <div className="topbar-center-col">
+                    <div className="game-timer-badge">
+                      <span className="game-timer-display">{formatTime(timerSeconds)}</span>
+                    </div>
+                  </div>
+
+                  <div className="topbar-right-col">
+                    <button 
+                      className="game-ctrl-btn" 
+                      onClick={() => {
+                        triggerHaptic('dangerReset');
+                        startNewGame();
+                      }}
+                      title="重新洗牌开局"
+                    >
+                      <svg className="ctrl-svg-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                        <path d="M21 3v5h-5" />
+                      </svg>
+                    </button>
+                  </div>
                 </>
               )}
             </div>
