@@ -63,11 +63,9 @@ export function triggerHaptic(type = 'tap') {
         case 'tap':
           navigator.vibrate(15);
           break;
+        case 'hint':
         case 'modeSwitch':
           navigator.vibrate([22, 35, 18]);
-          break;
-        case 'hint':
-          navigator.vibrate([30, 40, 25]);
           break;
         case 'optionSelect':
           navigator.vibrate(22);
@@ -112,16 +110,11 @@ export function triggerHaptic(type = 'tap') {
         iosClick();
         break;
 
+      case 'hint':
       case 'modeSwitch':
         // Crisp dual switch toggle for mode shift
         iosClick();
         setTimeout(iosClick, 50);
-        break;
-
-      case 'hint':
-        // Distinct alert pulse for hint
-        iosClick();
-        setTimeout(iosClick, 60);
         break;
 
       case 'menuToggle':
