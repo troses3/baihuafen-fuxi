@@ -4,6 +4,16 @@ import './App.css';
 
 const STORAGE_KEY = 'baihuafen-tracker-data-v2';
 const BEST_TIME_KEY = 'baihuafen-match-best-time';
+const RANKED_LEADERBOARD_KEY = 'baihuafen-ranked-leaderboard';
+const MATCH_SUBMODE_KEY = 'baihuafen-match-submode';
+
+const getRankTier = (score) => {
+  if (score >= 5500) return { name: '百化分宗师', icon: '👑', color: '#8b5cf6', badgeClass: 'tier-grandmaster' };
+  if (score >= 4500) return { name: '璀璨钻石', icon: '💎', color: '#06b6d4', badgeClass: 'tier-diamond' };
+  if (score >= 3500) return { name: '荣耀黄金', icon: '🥇', color: '#f59e0b', badgeClass: 'tier-gold' };
+  if (score >= 2500) return { name: '疾风白银', icon: '🥈', color: '#64748b', badgeClass: 'tier-silver' };
+  return { name: '坚韧青铜', icon: '🥉', color: '#92400e', badgeClass: 'tier-bronze' };
+};
 
 const renderHighlightedText = (text, query) => {
   if (!text) return '';
@@ -76,6 +86,9 @@ function App() {
   const [calculatedMarginTop, setCalculatedMarginTop] = useState(0);
 
   // 🎮 Match Elimination Game States (4-Column Vertical Gravity)
+  const [matchSubMode, setMatchSubMode] = useState(() => {
+    return localStorage.getItem(MATCH_SUBMODE_KEY) || 'practice'; // 'practice' | 'ranked'
+  });
   const [gameColumns, setGameColumns] = useState([[], [], [], []]); // 4 列垂直立柱栈
   const [drawPilePairs, setDrawPilePairs] = useState([]); // 按对存储的储备池 (18对)
   const [remainingPairs, setRemainingPairs] = useState(30);
@@ -88,6 +101,25 @@ function App() {
   const [hintsRemaining, setHintsRemaining] = useState(3);
   const [hintedTileIds, setHintedTileIds] = useState([]); // [id1, id2] 提示高亮
   const [isFormulaSheetOpen, setIsFormulaSheetOpen] = useState(false); // 📖 百化分速查表弹窗
+  
+  // ⚡ 竞技排位积分系统 states
+  const [rankedScore, setRankedScore] = useState(0);
+  const [comboCount, setComboCount] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+  const [floatingScores, setFloatingScores] = useState([]);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [leaderboardData, setLeaderboardData] = useState(() => {
+    try {
+      const saved = localStorage.getItem(RANKED_LEADERBOARD_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [lastGameResult, setLastGameResult] = useState(null);
+  const lastMatchTimeRef = useRef(0);
+
   const [bestRecord, setBestRecord] = useState(() => {
     const saved = localStorage.getItem(BEST_TIME_KEY);
     return saved ? Number(saved) : null;
@@ -169,7 +201,18 @@ function App() {
     setHintsRemaining(3);
     setHintedTileIds([]);
     setIsNewRecord(false);
+    setRankedScore(0);
+    setComboCount(0);
+    setMaxCombo(0);
+    setConsecutiveErrors(0);
+    setFloatingScores([]);
+    setLastGameResult(null);
+    lastMatchTimeRef.current = 0;
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(MATCH_SUBMODE_KEY, matchSubMode);
+  }, [matchSubMode]);
 
   useEffect(() => {
     localStorage.setItem('baihuafen-tracker-random', isRandom);
@@ -309,6 +352,35 @@ function App() {
       // 🎉 配对消除成功！
       setIsProcessingMatch(true);
 
+      // ⚡ 竞技模式计分与连击
+      if (matchSubMode === 'ranked') {
+        const now = Date.now();
+        const timeDiff = lastMatchTimeRef.current > 0 ? (now - lastMatchTimeRef.current) / 1000 : 999;
+        lastMatchTimeRef.current = now;
+
+        const newCombo = comboCount + 1;
+        const comboBonus = newCombo >= 2 ? (newCombo - 1) * 50 : 0;
+        const isSpeed = timeDiff <= 1.8;
+        const speedBonus = isSpeed ? 50 : 0;
+        const earned = 100 + comboBonus + speedBonus;
+
+        setRankedScore(prev => prev + earned);
+        setComboCount(newCombo);
+        setMaxCombo(prev => Math.max(prev, newCombo));
+        setConsecutiveErrors(0);
+
+        let floatText = `+${earned}`;
+        if (newCombo >= 2 && isSpeed) floatText = `+${earned} ⚡极速 x${newCombo}!`;
+        else if (newCombo >= 2) floatText = `+${earned} 🔥连击 x${newCombo}!`;
+        else if (isSpeed) floatText = `+${earned} ⚡极速!`;
+
+        const fid = `${now}_${Math.random()}`;
+        setFloatingScores(prev => [...prev.slice(-3), { id: fid, text: floatText, type: 'plus' }]);
+        setTimeout(() => {
+          setFloatingScores(prev => prev.filter(f => f.id !== fid));
+        }, 1100);
+      }
+
       // 1. 标记消除动画
       setGameColumns(prevCols => {
         return prevCols.map((col, cIdx) => {
@@ -419,17 +491,94 @@ function App() {
         if (nextRemaining === 0) {
           setIsGameVictory(true);
           const finalTime = timerRef.current;
-          const currentBest = localStorage.getItem(BEST_TIME_KEY);
-          if (!currentBest || finalTime < Number(currentBest)) {
-            localStorage.setItem(BEST_TIME_KEY, String(finalTime));
-            setBestRecord(finalTime);
-            setIsNewRecord(true);
+          
+          if (matchSubMode === 'ranked') {
+            let timeBonus = 100;
+            if (finalTime <= 25) timeBonus = 1500;
+            else if (finalTime <= 35) timeBonus = 1200;
+            else if (finalTime <= 45) timeBonus = 900;
+            else if (finalTime <= 60) timeBonus = 600;
+            else if (finalTime <= 90) timeBonus = 300;
+
+            setRankedScore(currentBaseScore => {
+              const finalTotalScore = currentBaseScore + timeBonus;
+              const accuracy = Math.round((30 / (30 + mismatchesCount)) * 100);
+              const tier = getRankTier(finalTotalScore);
+
+              const newEntry = {
+                id: `${Date.now()}_${Math.random()}`,
+                timestamp: Date.now(),
+                dateStr: new Date().toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+                score: finalTotalScore,
+                baseScore: currentBaseScore,
+                timeBonus,
+                timeSeconds: finalTime,
+                maxCombo: maxCombo,
+                accuracy,
+                mismatches: mismatchesCount,
+                rankTier: tier.name,
+              };
+
+              let updatedLeaderboard = [];
+              try {
+                const s = localStorage.getItem(RANKED_LEADERBOARD_KEY);
+                const list = s ? JSON.parse(s) : [];
+                updatedLeaderboard = [...list, newEntry]
+                  .sort((a, b) => b.score - a.score || a.timeSeconds - b.timeSeconds)
+                  .slice(0, 10);
+              } catch {
+                updatedLeaderboard = [newEntry];
+              }
+
+              localStorage.setItem(RANKED_LEADERBOARD_KEY, JSON.stringify(updatedLeaderboard));
+              setLeaderboardData(updatedLeaderboard);
+
+              const rankIndex = updatedLeaderboard.findIndex(e => e.id === newEntry.id) + 1;
+              const isTop1 = rankIndex === 1;
+              setIsNewRecord(isTop1);
+              setLastGameResult({ ...newEntry, rankIndex });
+
+              return finalTotalScore;
+            });
+          } else {
+            // 练习模式
+            const currentBest = localStorage.getItem(BEST_TIME_KEY);
+            if (!currentBest || finalTime < Number(currentBest)) {
+              localStorage.setItem(BEST_TIME_KEY, String(finalTime));
+              setBestRecord(finalTime);
+              setIsNewRecord(true);
+            }
           }
         }
       }, 220);
 
     } else {
-      // ❌ MISMATCH 错选抖动
+      // ❌ MISMATCH 错选抖动与扣分惩罚
+      if (matchSubMode === 'ranked') {
+        setComboCount(0);
+        const nextErrors = consecutiveErrors + 1;
+        setConsecutiveErrors(nextErrors);
+
+        let penalty = 50;
+        let penaltyText = '-50 匹配错误';
+        if (nextErrors === 2) {
+          penalty = 100;
+          penaltyText = '-100 ⚠️ 连错惩罚!';
+        } else if (nextErrors >= 3) {
+          penalty = 180;
+          penaltyText = `-180 🚨 ${nextErrors}连错重罚!`;
+        }
+
+        setRankedScore(prev => Math.max(0, prev - penalty));
+
+        const now = Date.now();
+        const fid = `${now}_${Math.random()}`;
+        setFloatingScores(prev => [...prev.slice(-3), { id: fid, text: penaltyText, type: 'minus' }]);
+        setTimeout(() => {
+          setFloatingScores(prev => prev.filter(f => f.id !== fid));
+        }, 1200);
+      }
+
       setGameColumns(prevCols => {
         return prevCols.map((col, cIdx) => {
           if (cIdx === firstColIdx || cIdx === secondColIdx) {
@@ -892,29 +1041,98 @@ function App() {
           </div>
         ) : quizMode === 'matchGame' ? (
           /* =========================================================
-             🎮 4x6 消消乐游戏主界面
+             🎮 4x6 消消乐游戏主界面（练习模式 + 竞技模式）
              ========================================================= */
           <div className="game-board-card">
+            {/* 顶部分段子模式切换栏 */}
+            <div className="match-submode-pill-bar">
+              <button 
+                className={`submode-pill-btn ${matchSubMode === 'practice' ? 'active' : ''}`}
+                onClick={() => {
+                  if (matchSubMode !== 'practice') {
+                    setMatchSubMode('practice');
+                    localStorage.setItem(MATCH_SUBMODE_KEY, 'practice');
+                    startNewGame();
+                  }
+                }}
+              >
+                🌱 休闲练习
+              </button>
+              <button 
+                className={`submode-pill-btn ${matchSubMode === 'ranked' ? 'active' : ''}`}
+                onClick={() => {
+                  if (matchSubMode !== 'ranked') {
+                    setMatchSubMode('ranked');
+                    localStorage.setItem(MATCH_SUBMODE_KEY, 'ranked');
+                    startNewGame();
+                  }
+                }}
+              >
+                ⚡ 巅峰竞技
+              </button>
+            </div>
+
             <div className="game-top-bar">
-              <button 
-                className="game-ctrl-btn" 
-                onClick={() => setIsGamePaused(prev => !prev)}
-                title={isGamePaused ? "继续游戏" : "暂停游戏"}
-              >
-                {isGamePaused ? '▶' : '⏸'}
-              </button>
+              {matchSubMode === 'ranked' ? (
+                <>
+                  <div className="ranked-score-wrapper">
+                    <div className="game-score-badge">
+                      <span className="score-icon">⚡</span>
+                      <span className="score-num">{rankedScore.toLocaleString()}</span>
+                    </div>
 
-              <div className="game-timer-badge">
-                <span className="game-timer-display">{formatTime(timerSeconds)}</span>
-              </div>
+                    {/* 飘字积分浮动动效 */}
+                    <div className="floating-score-container">
+                      {floatingScores.map(f => (
+                        <div key={f.id} className={`floating-score-item float-${f.type}`}>
+                          {f.text}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-              <button 
-                className="game-ctrl-btn" 
-                onClick={startNewGame}
-                title="重新洗牌开局"
-              >
-                🔄
-              </button>
+                  <div className="ranked-center-stats">
+                    {comboCount >= 2 && (
+                      <div className="game-combo-badge">
+                        🔥 x{comboCount} 连击
+                      </div>
+                    )}
+                    <div className="game-timer-badge ranked-timer">
+                      <span className="game-timer-display">{formatTime(timerSeconds)}</span>
+                    </div>
+                  </div>
+
+                  <button 
+                    className="game-ctrl-btn" 
+                    onClick={startNewGame}
+                    title="重新开始"
+                  >
+                    🔄
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    className="game-ctrl-btn" 
+                    onClick={() => setIsGamePaused(prev => !prev)}
+                    title={isGamePaused ? "继续游戏" : "暂停游戏"}
+                  >
+                    {isGamePaused ? '▶' : '⏸'}
+                  </button>
+
+                  <div className="game-timer-badge">
+                    <span className="game-timer-display">{formatTime(timerSeconds)}</span>
+                  </div>
+
+                  <button 
+                    className="game-ctrl-btn" 
+                    onClick={startNewGame}
+                    title="重新洗牌开局"
+                  >
+                    🔄
+                  </button>
+                </>
+              )}
             </div>
 
             {/* 4 列垂直立柱下落消除网格 (Column Vertical Gravity Stacks) */}
@@ -957,7 +1175,6 @@ function App() {
               ))}
             </div>
 
-
             {/* ⏸ 暂停遮罩 */}
             {isGamePaused && (
               <div className="game-modal-overlay">
@@ -982,37 +1199,84 @@ function App() {
               <div className="game-modal-overlay">
                 <div className="game-modal-card">
                   <div className="modal-icon victory-icon">🎉</div>
-                  <h3 className="modal-title">恭喜通关！</h3>
-                  {isNewRecord && <div className="new-record-badge">✨ 刷新历史最佳纪录！✨</div>}
-                  
-                  <div className="victory-stats-grid">
-                    <div className="v-stat-box">
-                      <span className="v-stat-label">本次用时</span>
-                      <span className="v-stat-val">{formatTime(timerSeconds)}</span>
-                    </div>
-                    <div className="v-stat-box">
-                      <span className="v-stat-label">失误次数</span>
-                      <span className="v-stat-val">{mismatchesCount} 次</span>
-                    </div>
-                    <div className="v-stat-box" style={{ gridColumn: '1 / -1' }}>
-                      <span className="v-stat-label">历史最佳纪录</span>
-                      <span className="v-stat-val" style={{ color: '#10b981' }}>
-                        {bestRecord ? formatTime(bestRecord) : formatTime(timerSeconds)}
-                      </span>
-                    </div>
-                  </div>
+                  <h3 className="modal-title">
+                    {matchSubMode === 'ranked' ? '竞技挑战完成！' : '恭喜通关！'}
+                  </h3>
 
-                  <div className="modal-actions">
-                    <button className="m-btn-primary" onClick={startNewGame}>
-                      再来一局
-                    </button>
-                    <button 
-                      className="m-btn-secondary" 
-                      onClick={() => setQuizMode('percentToFraction')}
-                    >
-                      返回速记
-                    </button>
-                  </div>
+                  {matchSubMode === 'ranked' && lastGameResult ? (
+                    <>
+                      {isNewRecord && <div className="new-record-badge">🏆 创下新历史高分纪录！</div>}
+                      
+                      <div className="ranked-victory-score-box">
+                        <span className="ranked-score-label">总最终积分</span>
+                        <span className="ranked-score-val">{rankedScore.toLocaleString()}</span>
+                        <div className={`rank-tier-pill ${getRankTier(rankedScore).badgeClass}`}>
+                          {getRankTier(rankedScore).icon} {getRankTier(rankedScore).name}
+                        </div>
+                      </div>
+
+                      <div className="victory-stats-grid">
+                        <div className="v-stat-box">
+                          <span className="v-stat-label">⏱️ 通关用时</span>
+                          <span className="v-stat-val">{formatTime(lastGameResult.timeSeconds)}</span>
+                        </div>
+                        <div className="v-stat-box">
+                          <span className="v-stat-label">⚡ 极速加成</span>
+                          <span className="v-stat-val" style={{ color: '#f59e0b' }}>+{lastGameResult.timeBonus}</span>
+                        </div>
+                        <div className="v-stat-box">
+                          <span className="v-stat-label">🔥 最高连击</span>
+                          <span className="v-stat-val">x{lastGameResult.maxCombo}</span>
+                        </div>
+                        <div className="v-stat-box">
+                          <span className="v-stat-label">🎯 准确率</span>
+                          <span className="v-stat-val">{lastGameResult.accuracy}%</span>
+                        </div>
+                      </div>
+
+                      <div className="modal-actions">
+                        <button className="m-btn-primary" onClick={startNewGame}>
+                          再战一局 ⚡
+                        </button>
+                        <button className="m-btn-secondary" onClick={() => setIsLeaderboardOpen(true)}>
+                          查看排行榜 🏆
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {isNewRecord && <div className="new-record-badge">✨ 刷新历史最佳纪录！✨</div>}
+                      
+                      <div className="victory-stats-grid">
+                        <div className="v-stat-box">
+                          <span className="v-stat-label">本次用时</span>
+                          <span className="v-stat-val">{formatTime(timerSeconds)}</span>
+                        </div>
+                        <div className="v-stat-box">
+                          <span className="v-stat-label">失误次数</span>
+                          <span className="v-stat-val">{mismatchesCount} 次</span>
+                        </div>
+                        <div className="v-stat-box" style={{ gridColumn: '1 / -1' }}>
+                          <span className="v-stat-label">历史最佳纪录</span>
+                          <span className="v-stat-val" style={{ color: '#10b981' }}>
+                            {bestRecord ? formatTime(bestRecord) : formatTime(timerSeconds)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="modal-actions">
+                        <button className="m-btn-primary" onClick={startNewGame}>
+                          再来一局
+                        </button>
+                        <button 
+                          className="m-btn-secondary" 
+                          onClick={() => setQuizMode('percentToFraction')}
+                        >
+                          返回速记
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1141,17 +1405,100 @@ function App() {
         </div>
       )}
 
+      {/* 🏆 本地排行榜弹窗 (Leaderboard Modal) */}
+      {isLeaderboardOpen && (
+        <div className="sheet-modal-overlay" onClick={() => setIsLeaderboardOpen(false)}>
+          <div className="sheet-modal-card leaderboard-card" onClick={e => e.stopPropagation()}>
+            <div className="sheet-modal-header">
+              <h3 className="sheet-modal-title">🏆 巅峰竞技排行榜 (Top 10)</h3>
+              <button className="sheet-close-btn" onClick={() => setIsLeaderboardOpen(false)}>✕</button>
+            </div>
+            <div className="sheet-modal-body">
+              {leaderboardData.length === 0 ? (
+                <div className="empty-state-card" style={{ padding: '2.5rem 1rem' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>⚡</div>
+                  <h3>暂无巅峰竞技战绩</h3>
+                  <p>切换到「巅峰竞技」模式完成一局，即可上榜！</p>
+                  <button 
+                    className="empty-state-btn" 
+                    onClick={() => {
+                      setIsLeaderboardOpen(false);
+                      setMatchSubMode('ranked');
+                      localStorage.setItem(MATCH_SUBMODE_KEY, 'ranked');
+                      startNewGame();
+                    }}
+                  >
+                    开始巅峰挑战
+                  </button>
+                </div>
+              ) : (
+                <div className="leaderboard-list">
+                  {leaderboardData.map((rec, idx) => {
+                    const tier = getRankTier(rec.score);
+                    return (
+                      <div key={rec.id || idx} className={`leaderboard-item ${idx < 3 ? `top-${idx + 1}` : ''}`}>
+                        <div className="lb-rank-col">
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                        </div>
+                        <div className="lb-info-col">
+                          <div className="lb-main-row">
+                            <span className="lb-score-text">{rec.score.toLocaleString()} 分</span>
+                            <span className={`rank-tier-badge-sm ${tier.badgeClass}`}>
+                              {tier.icon} {tier.name}
+                            </span>
+                          </div>
+                          <div className="lb-sub-row">
+                            <span>⏱️ {formatTime(rec.timeSeconds)}</span>
+                            <span>🔥 x{rec.maxCombo || 0} 连击</span>
+                            <span>🎯 {rec.accuracy || 100}%</span>
+                            <span className="lb-date">{rec.dateStr}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div className="leaderboard-footer-actions">
+                    <button 
+                      className="clear-lb-btn"
+                      onClick={() => {
+                        if (window.confirm('确定要清空全部巅峰排行榜历史记录吗？')) {
+                          localStorage.removeItem(RANKED_LEADERBOARD_KEY);
+                          setLeaderboardData([]);
+                        }
+                      }}
+                    >
+                      清空历史战绩
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 底部悬浮模式栏（极简单层设计） */}
       <nav className="floating-mode-bar" ref={modeBarRef}>
         {quizMode === 'matchGame' ? (
           <>
-            <button 
-              className={`mode-btn hint-btn ${hintsRemaining <= 0 ? 'disabled' : ''}`} 
-              onClick={handleUseHint}
-              title="提示一组配对"
-            >
-              💡 提示 <span className="hint-count-badge">{hintsRemaining}</span>
-            </button>
+            {matchSubMode === 'practice' ? (
+              <button 
+                className={`mode-btn hint-btn ${hintsRemaining <= 0 ? 'disabled' : ''}`} 
+                onClick={handleUseHint}
+                title="提示一组配对"
+              >
+                💡 提示 <span className="hint-count-badge">{hintsRemaining}</span>
+              </button>
+            ) : (
+              <button 
+                className="mode-btn leaderboard-btn" 
+                onClick={() => setIsLeaderboardOpen(true)}
+                title="查看巅峰排行榜"
+              >
+                🏆 排行榜
+              </button>
+            )}
             <button 
               className="mode-btn sheet-btn" 
               onClick={() => setIsFormulaSheetOpen(true)}
