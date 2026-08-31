@@ -1925,76 +1925,30 @@ body {
   display: block;
 }
 
-/* 底部虚拟十字方向键 (D-Pad) */
-.snake-dpad-container {
+/* 底部滑动/轻触手势提示条 */
+.snake-hint-bar {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: center;
   margin-top: 0.6rem;
   user-select: none;
   -webkit-user-select: none;
 }
 
-.dpad-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-}
-
-.dpad-btn {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #334155;
-  font-size: 1.15rem;
-  font-weight: 850;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
-  touch-action: manipulation;
-}
-
-.dpad-btn:hover {
-  background: #f8fafc;
-  color: var(--accent-color);
-  border-color: #cbd5e1;
-}
-
-.dpad-btn:active {
-  transform: scale(0.92);
-  background: #eff6ff;
-  color: #2563eb;
-  border-color: #93c5fd;
-}
-
-.dpad-btn.dpad-center {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  font-size: 0.95rem;
-  background: #f8fafc;
+.hint-pill {
+  font-size: 0.76rem;
+  font-weight: 750;
   color: #64748b;
+  background: #f8fafc;
+  padding: 0.3rem 0.85rem;
+  border-radius: 100px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 @media (max-width: 480px) {
   .snake-arena-wrapper {
-    max-width: 320px;
-  }
-  .dpad-btn {
-    width: 44px;
-    height: 44px;
-    font-size: 1.05rem;
-  }
-  .dpad-btn.dpad-center {
-    width: 40px;
-    height: 40px;
+    max-width: 330px;
   }
 }
 

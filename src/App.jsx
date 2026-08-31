@@ -677,7 +677,9 @@ function App() {
   const canvasRef = useRef(null);
   const snakeDirRef = useRef({ x: 1, y: 0 });
   const nextDirRef = useRef({ x: 1, y: 0 });
-  const touchStartRef = useRef({ x: 0, y: 0 });
+  const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
+  const snakeFoodsRef = useRef([]);
+  const snakeTargetRef = useRef(null);
 
   const generateSnakeFoodsAndTarget = useCallback((currentBody) => {
     const targetItem = initialItems[Math.floor(Math.random() * initialItems.length)];
@@ -707,6 +709,7 @@ function App() {
       [foodLabels[i], foodLabels[j]] = [foodLabels[j], foodLabels[i]];
     }
 
+    const GRID = 12;
     const occupied = new Set((currentBody || []).map(b => `${b.x},${b.y}`));
     const newFoods = [];
 
@@ -715,8 +718,8 @@ function App() {
       let x = 0;
       let y = 0;
       while (tries < 100) {
-        x = Math.floor(Math.random() * 16);
-        y = Math.floor(Math.random() * 16);
+        x = Math.floor(Math.random() * GRID);
+        y = Math.floor(Math.random() * GRID);
         const key = `${x},${y}`;
         if (!occupied.has(key)) {
           occupied.add(key);
@@ -727,7 +730,7 @@ function App() {
       }
     });
 
-    return {
+    const result = {
       target: {
         item: targetItem,
         promptText,
@@ -737,13 +740,17 @@ function App() {
       },
       foods: newFoods,
     };
+
+    snakeFoodsRef.current = newFoods;
+    snakeTargetRef.current = result.target;
+    return result;
   }, []);
 
   const startNewSnakeGame = useCallback(() => {
     const initialBody = [
-      { x: 8, y: 8 },
-      { x: 7, y: 8 },
-      { x: 6, y: 8 },
+      { x: 6, y: 6 },
+      { x: 5, y: 6 },
+      { x: 4, y: 6 },
     ];
     const initialDir = { x: 1, y: 0 };
     const { target, foods } = generateSnakeFoodsAndTarget(initialBody);
@@ -772,11 +779,11 @@ function App() {
     triggerHaptic('tap');
   }, []);
 
-  // 60FPS Snake Tick Loop
+  // 60FPS Snake Tick Loop (260ms comfortable pace)
   useEffect(() => {
     let interval = null;
     if (quizMode === 'snakeGame' && !isSnakePaused && !isSnakeGameOver) {
-      const tickSpeed = Math.max(100, 150 - Math.min(snakeEatenCount, 15) * 3);
+      const tickSpeed = 260;
 
       interval = setInterval(() => {
         setSnakeBody(prevBody => {
@@ -786,7 +793,7 @@ function App() {
           setSnakeDir(currentDir);
 
           const head = prevBody[0];
-          const GRID = 16;
+          const GRID = 12;
           const nextX = (head.x + currentDir.x + GRID) % GRID;
           const nextY = (head.y + currentDir.y + GRID) % GRID;
 
@@ -804,16 +811,13 @@ function App() {
             return prevBody;
           }
 
-          // 2. 食物碰撞检测
-          let eatenFood = null;
-          setSnakeFoods(curFoods => {
-            const hit = curFoods.find(f => f.x === nextX && f.y === nextY);
-            if (hit) eatenFood = hit;
-            return curFoods;
-          });
+          // 2. 食物碰撞检测 (使用同步 snakeFoodsRef 确保100%即时命中)
+          const currentFoods = snakeFoodsRef.current || [];
+          const eatenFood = currentFoods.find(f => f.x === nextX && f.y === nextY);
 
           if (eatenFood) {
             if (eatenFood.isCorrect) {
+              // 🎯 吞噬正确能量球！
               triggerHaptic('success');
 
               setSnakeCombo(prevCombo => {
@@ -844,7 +848,10 @@ function App() {
 
               setSnakeEatenCount(c => c + 1);
 
+              // 蛇身变长
               const newBody = [{ x: nextX, y: nextY }, ...prevBody];
+
+              // 刷新下一组目标与食物
               const { target: newTarget, foods: newFoods } = generateSnakeFoodsAndTarget(newBody);
               setSnakeTarget(newTarget);
               setSnakeFoods(newFoods);
@@ -852,6 +859,7 @@ function App() {
               return newBody;
 
             } else {
+              // ❌ 误吞错误干扰球
               triggerHaptic('error');
               setSnakeCombo(0);
               setSnakeLives(prevLives => {
@@ -869,18 +877,20 @@ function App() {
               }, 1000);
 
               const newBody = [{ x: nextX, y: nextY }, ...prevBody.slice(0, -1)];
-              setSnakeFoods(curFoods => {
-                const filtered = curFoods.filter(f => f.id !== eatenFood.id);
-                const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
-                curFoods.forEach(f => occupied.add(`${f.x},${f.y}`));
-                let rx = Math.floor(Math.random() * 16);
-                let ry = Math.floor(Math.random() * 16);
-                while (occupied.has(`${rx},${ry}`)) {
-                  rx = Math.floor(Math.random() * 16);
-                  ry = Math.floor(Math.random() * 16);
-                }
-                return [...filtered, { ...eatenFood, x: rx, y: ry }];
-              });
+              
+              // 错误球在其他空闲位置重新刷新
+              const filtered = currentFoods.filter(f => f.id !== eatenFood.id);
+              const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
+              currentFoods.forEach(f => occupied.add(`${f.x},${f.y}`));
+              let rx = Math.floor(Math.random() * 12);
+              let ry = Math.floor(Math.random() * 12);
+              while (occupied.has(`${rx},${ry}`)) {
+                rx = Math.floor(Math.random() * 12);
+                ry = Math.floor(Math.random() * 12);
+              }
+              const updatedFoods = [...filtered, { ...eatenFood, x: rx, y: ry }];
+              snakeFoodsRef.current = updatedFoods;
+              setSnakeFoods(updatedFoods);
 
               return newBody;
             }
@@ -893,9 +903,9 @@ function App() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [quizMode, isSnakePaused, isSnakeGameOver, snakeEatenCount, generateSnakeFoodsAndTarget]);
+  }, [quizMode, isSnakePaused, isSnakeGameOver, generateSnakeFoodsAndTarget]);
 
-  // Canvas Drawing Routine
+  // Canvas Drawing Routine (12x12 Grid with Pill Badges)
   useEffect(() => {
     if (quizMode !== 'snakeGame') return;
     const canvas = canvasRef.current;
@@ -914,12 +924,14 @@ function App() {
     ctx.resetTransform?.();
     ctx.scale(dpr, dpr);
 
-    const GRID = 16;
+    const GRID = 12;
     const cellSize = displayWidth / GRID;
 
+    // 背景
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, displayWidth, displayHeight);
 
+    // 棋盘格
     ctx.fillStyle = '#f8fafc';
     for (let r = 0; r < GRID; r++) {
       for (let c = 0; c < GRID; c++) {
@@ -929,21 +941,24 @@ function App() {
       }
     }
 
-    // 绘制 4 颗能量食物球 (Food Orbs with Labels)
+    // 绘制 4 颗能量食物药丸卡片 (Food Pill Cards)
     snakeFoods.forEach(food => {
       const centerX = food.x * cellSize + cellSize / 2;
       const centerY = food.y * cellSize + cellSize / 2;
-      const radius = cellSize * 0.44;
+      const pillW = cellSize * 0.90;
+      const pillH = cellSize * 0.72;
+      const pillX = centerX - pillW / 2;
+      const pillY = centerY - pillH / 2;
 
       ctx.save();
-      ctx.shadowColor = food.isCorrect ? 'rgba(59, 130, 246, 0.35)' : 'rgba(148, 163, 184, 0.2)';
-      ctx.shadowBlur = 8;
-      ctx.fillStyle = food.isCorrect ? '#eff6ff' : '#f8fafc';
+      ctx.shadowColor = food.isCorrect ? 'rgba(59, 130, 246, 0.35)' : 'rgba(0, 0, 0, 0.06)';
+      ctx.shadowBlur = food.isCorrect ? 8 : 4;
+      ctx.fillStyle = food.isCorrect ? '#eff6ff' : '#ffffff';
       ctx.strokeStyle = food.isCorrect ? '#3b82f6' : '#cbd5e1';
       ctx.lineWidth = food.isCorrect ? 1.8 : 1.2;
 
       ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.roundRect(pillX, pillY, pillW, pillH, 6);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
@@ -951,9 +966,9 @@ function App() {
       ctx.save();
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = `800 ${Math.max(9, cellSize * 0.42)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-      ctx.fillStyle = food.isCorrect ? '#1d4ed8' : '#475569';
-      ctx.fillText(food.value, centerX, centerY);
+      ctx.font = `800 ${food.value.length >= 5 ? 10 : 11}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.fillStyle = food.isCorrect ? '#1d4ed8' : '#334155';
+      ctx.fillText(food.value, centerX, centerY + 0.5);
       ctx.restore();
     });
 
@@ -963,12 +978,12 @@ function App() {
         const x = seg.x * cellSize + 2;
         const y = seg.y * cellSize + 2;
         const size = cellSize - 4;
-        const radius = idx === 0 ? size / 2.2 : size / 3;
+        const radius = idx === 0 ? size / 2.2 : size / 3.2;
 
         ctx.save();
         if (idx === 0) {
           ctx.fillStyle = '#2563eb';
-          ctx.shadowColor = 'rgba(37, 99, 235, 0.4)';
+          ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
           ctx.shadowBlur = 6;
         } else {
           const ratio = idx / snakeBody.length;
@@ -980,10 +995,11 @@ function App() {
         ctx.fill();
         ctx.restore();
 
+        // 蛇头眼睛
         if (idx === 0) {
           const eyeOffset = size * 0.22;
-          const eyeRadius = size * 0.12;
-          const pupilRadius = size * 0.06;
+          const eyeRadius = size * 0.13;
+          const pupilRadius = size * 0.065;
           const centerX = seg.x * cellSize + cellSize / 2;
           const centerY = seg.y * cellSize + cellSize / 2;
 
@@ -1018,10 +1034,10 @@ function App() {
     }
   }, [quizMode, snakeBody, snakeFoods, snakeDir]);
 
-  // Touch Swipe Handlers for Snake
+  // Touch Swipe & Tap Handlers for Snake
   const handleArenaTouchStart = (e) => {
     const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
   };
 
   const handleArenaTouchEnd = (e) => {
@@ -1033,12 +1049,36 @@ function App() {
     const absDy = Math.abs(dy);
 
     if (Math.max(absDx, absDy) > 20) {
+      // 扫动手势 (Swipe)
       if (absDx > absDy) {
         if (dx > 0) changeSnakeDirection({ x: 1, y: 0 });
         else changeSnakeDirection({ x: -1, y: 0 });
       } else {
         if (dy > 0) changeSnakeDirection({ x: 0, y: 1 });
         else changeSnakeDirection({ x: 0, y: -1 });
+      }
+    } else {
+      // 点击转向 (Tap relative to head)
+      const canvas = canvasRef.current;
+      if (canvas && snakeBody && snakeBody.length > 0) {
+        const rect = canvas.getBoundingClientRect();
+        const tapX = touch.clientX - rect.left;
+        const tapY = touch.clientY - rect.top;
+        const GRID = 12;
+        const cellSize = rect.width / GRID;
+        const head = snakeBody[0];
+        const headX = head.x * cellSize + cellSize / 2;
+        const headY = head.y * cellSize + cellSize / 2;
+        const diffX = tapX - headX;
+        const diffY = tapY - headY;
+
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+          if (diffX > 0) changeSnakeDirection({ x: 1, y: 0 });
+          else changeSnakeDirection({ x: -1, y: 0 });
+        } else {
+          if (diffY > 0) changeSnakeDirection({ x: 0, y: 1 });
+          else changeSnakeDirection({ x: 0, y: -1 });
+        }
       }
     }
   };
@@ -1899,49 +1939,9 @@ function App() {
               <canvas ref={canvasRef} className="snake-canvas" />
             </div>
 
-            {/* 底部高质感虚拟十字方向键 (D-Pad) */}
-            <div className="snake-dpad-container">
-              <div className="dpad-row dpad-top">
-                <button 
-                  className="dpad-btn dpad-up" 
-                  onClick={() => changeSnakeDirection({ x: 0, y: -1 })}
-                  title="向上移动"
-                >
-                  ▲
-                </button>
-              </div>
-              <div className="dpad-row dpad-middle">
-                <button 
-                  className="dpad-btn dpad-left" 
-                  onClick={() => changeSnakeDirection({ x: -1, y: 0 })}
-                  title="向左移动"
-                >
-                  ◀
-                </button>
-                <button 
-                  className="dpad-btn dpad-center" 
-                  onClick={() => setIsSnakePaused(p => !p)}
-                  title="暂停/继续"
-                >
-                  {isSnakePaused ? '▶' : '⏸'}
-                </button>
-                <button 
-                  className="dpad-btn dpad-right" 
-                  onClick={() => changeSnakeDirection({ x: 1, y: 0 })}
-                  title="向右移动"
-                >
-                  ▶
-                </button>
-              </div>
-              <div className="dpad-row dpad-bottom">
-                <button 
-                  className="dpad-btn dpad-down" 
-                  onClick={() => changeSnakeDirection({ x: 0, y: 1 })}
-                  title="向下移动"
-                >
-                  ▼
-                </button>
-              </div>
+            {/* 底部操作提示 */}
+            <div className="snake-hint-bar">
+              <span className="hint-pill">👆 屏幕任意滑动 / 轻触转向</span>
             </div>
 
             {/* ⏸ 暂停遮罩 */}
