@@ -1092,25 +1092,24 @@ function App() {
           }
         }
 
-        // 2. 绘制 4 颗能量食物药丸卡片 (1/ 和 % 超小浅灰，核心有效数字超大超粗 900 突出！)
+        // 2. 绘制 4 颗能量食物方块卡片 (纯正方形 1:1 Squircle Token，1/ 和 % 弱化，核心数字极大突出！)
         const foods = snakeFoodsRef.current || [];
         foods.forEach(food => {
           const centerX = food.x * scale;
           const centerY = food.y * scale;
-          const pillW = 130 * scale; // 宽敞大气药丸卡片
-          const pillH = 84 * scale;
-          const pillX = centerX - pillW / 2;
-          const pillY = centerY - pillH / 2;
+          const cardSize = 96 * scale; // 纯正方形 1:1 尺寸
+          const cardX = centerX - cardSize / 2;
+          const cardY = centerY - cardSize / 2;
 
           ctx.save();
           ctx.shadowColor = 'rgba(15, 23, 42, 0.10)';
-          ctx.shadowBlur = 8;
-          ctx.shadowOffsetY = 3;
+          ctx.shadowBlur = 7;
+          ctx.shadowOffsetY = 2.5;
           ctx.fillStyle = '#ffffff';
           ctx.strokeStyle = '#cbd5e1';
           ctx.lineWidth = 1.8;
 
-          drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 14 * scale);
+          drawRoundedRect(ctx, cardX, cardY, cardSize, cardSize, 16 * scale);
           ctx.fill();
           ctx.stroke();
           ctx.restore();
@@ -1128,9 +1127,9 @@ function App() {
             suffix = '%';
           }
 
-          // 核心数字 19px~22px 超粗黑字，前缀后缀 10px 浅灰
+          // 核心有效数字超粗超大 900 黑色，前缀/后缀浅灰低调
           const prefixFont = '700 10.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          const mainFont = `900 ${main.length >= 4 ? 18.5 : 22}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          const mainFont = `900 ${main.length >= 4 ? 17.5 : 21}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
           const suffixFont = '700 10.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
           ctx.save();
