@@ -364,6 +364,9 @@ function App() {
         lastMatchTimeRef.current = now;
 
         const newCombo = comboCount + 1;
+        if (newCombo >= 3) {
+          triggerHaptic('combo');
+        }
         // 阶梯连击奖励
         let comboBonus = 0;
         if (newCombo >= 10) comboBonus = 220;
@@ -508,6 +511,7 @@ function App() {
 
         // 检查通关
         if (nextRemaining === 0) {
+          triggerHaptic('celebration');
           setIsGameVictory(true);
           const finalTime = timerRef.current;
           
@@ -850,6 +854,7 @@ function App() {
   }, [quizMode, handleKeyPress, handleConfirm]);
 
   const handleFilterClick = (targetFilter) => {
+    triggerHaptic('optionSelect');
     if (filter === targetFilter) {
       setFilter('all');
       return;
@@ -893,6 +898,7 @@ function App() {
             className="header-icon-btn reset-header-btn" 
             title="重置学习进度"
             onClick={() => {
+              triggerHaptic('dangerReset');
               if(window.confirm('确定要重置所有学习进度吗？')) {
                 localStorage.removeItem(STORAGE_KEY);
                 window.location.reload();
@@ -908,7 +914,10 @@ function App() {
           {/* 中间：可交互的沉浸指示胶囊 */}
           <button 
             className={`header-meta-pill ${isPanelOpen ? 'active' : ''}`}
-            onClick={() => setIsPanelOpen(prev => !prev)}
+            onClick={() => {
+              triggerHaptic('menuToggle');
+              setIsPanelOpen(prev => !prev);
+            }}
             title={isPanelOpen ? "收起筛选面板" : "展开掌握度面板"}
           >
             <span className="pill-db-name">🧮 百化分速记</span>
@@ -932,7 +941,10 @@ function App() {
           {/* 右上角：搜索按钮 */}
           <button 
             className={`header-icon-btn search-header-btn ${(isSearchOpen || searchQuery) ? 'active' : ''}`} 
-            onClick={() => setIsSearchOpen(prev => !prev)} 
+            onClick={() => {
+              triggerHaptic('menuToggle');
+              setIsSearchOpen(prev => !prev);
+            }} 
             title="搜索百化分数据"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
@@ -976,11 +988,13 @@ function App() {
                 onPointerDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  triggerHaptic('clear');
                   setSearchQuery('');
                 }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  triggerHaptic('clear');
                   setSearchQuery('');
                 }}
                 title="清空搜索"
@@ -1016,7 +1030,10 @@ function App() {
               </button>
               <button 
                 className={`stat-item ${filter === 'all' ? 'active-all' : ''}`}
-                onClick={() => setFilter('all')}
+                onClick={() => {
+                  triggerHaptic('optionSelect');
+                  setFilter('all');
+                }}
                 title="查看全部"
               >
                 总计: <span className="stat-count">{total}</span>
@@ -1524,7 +1541,10 @@ function App() {
             ) : (
               <button 
                 className="mode-btn leaderboard-btn" 
-                onClick={() => setIsLeaderboardOpen(true)}
+                onClick={() => {
+                  triggerHaptic('menuToggle');
+                  setIsLeaderboardOpen(true);
+                }}
                 title="查看巅峰排行榜"
               >
                 🏆 排行榜
@@ -1532,7 +1552,10 @@ function App() {
             )}
             <button 
               className="mode-btn sheet-btn" 
-              onClick={() => setIsFormulaSheetOpen(true)}
+              onClick={() => {
+                triggerHaptic('menuToggle');
+                setIsFormulaSheetOpen(true);
+              }}
               title="查看百化分对照表"
             >
               📖 百化分表
@@ -1540,7 +1563,10 @@ function App() {
             <span className="mode-divider"></span>
             <button 
               className="mode-btn exit-game-btn" 
-              onClick={() => setQuizMode('percentToFraction')}
+              onClick={() => {
+                triggerHaptic('optionSelect');
+                setQuizMode('percentToFraction');
+              }}
               title="退出游戏模式"
             >
               退出
@@ -1551,6 +1577,7 @@ function App() {
             <button 
               className={`mode-btn ${quizMode === 'percentToFraction' ? 'active' : ''}`} 
               onClick={() => { 
+                triggerHaptic('optionSelect');
                 setQuizMode('percentToFraction'); 
                 setInputVal(''); 
                 setFeedbackState('idle'); 
@@ -1563,6 +1590,7 @@ function App() {
             <button 
               className={`mode-btn ${quizMode === 'fractionToPercent' ? 'active' : ''}`} 
               onClick={() => { 
+                triggerHaptic('optionSelect');
                 setQuizMode('fractionToPercent'); 
                 setInputVal(''); 
                 setFeedbackState('idle'); 
@@ -1575,6 +1603,7 @@ function App() {
             <button 
               className={`mode-btn ${quizMode === 'matchGame' ? 'active' : ''}`} 
               onClick={() => { 
+                triggerHaptic('optionSelect');
                 setQuizMode('matchGame'); 
                 if (gameColumns.every(col => col.length === 0)) startNewGame(); 
               }}
@@ -1584,10 +1613,22 @@ function App() {
 
             <span className="mode-divider"></span>
 
-            <button className={`mode-btn random-btn ${!isRandom ? 'active' : ''}`} onClick={() => setIsRandom(false)}>
+            <button 
+              className={`mode-btn random-btn ${!isRandom ? 'active' : ''}`} 
+              onClick={() => {
+                triggerHaptic('optionSelect');
+                setIsRandom(false);
+              }}
+            >
               顺序
             </button>
-            <button className={`mode-btn random-btn ${isRandom ? 'active' : ''}`} onClick={() => setIsRandom(true)}>
+            <button 
+              className={`mode-btn random-btn ${isRandom ? 'active' : ''}`} 
+              onClick={() => {
+                triggerHaptic('optionSelect');
+                setIsRandom(true);
+              }}
+            >
               随机
             </button>
           </>
