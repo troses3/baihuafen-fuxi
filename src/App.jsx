@@ -672,7 +672,7 @@ function App() {
   };
 
   // =========================================================
-  // 🐍 能量贪吃蛇模式 (Snake Runner) Core Logic
+  // 🐍 能量贪吃蛇模式 (Snake Runner) Core Logic - Zero-Flicker 60FPS RAF Engine
   // =========================================================
   const canvasRef = useRef(null);
   const snakeDirRef = useRef({ x: 1, y: 0 });
@@ -681,8 +681,7 @@ function App() {
   const snakeFoodsRef = useRef([]);
   const snakeTargetRef = useRef(null);
   const snakeBodyRef = useRef([]);
-  const lastStepTimeRef = useRef(performance.now());
-  const stepDurationRef = useRef(200);
+  const isSnakeRunningRef = useRef(false);
 
   const generateSnakeFoodsAndTarget = useCallback((currentBody) => {
     const targetItem = initialItems[Math.floor(Math.random() * initialItems.length)];
@@ -712,7 +711,7 @@ function App() {
       [foodLabels[i], foodLabels[j]] = [foodLabels[j], foodLabels[i]];
     }
 
-    const GRID = 12;
+    const GRID = 10;
     const occupied = new Set((currentBody || []).map(b => `${b.x},${b.y}`));
     const newFoods = [];
 
@@ -751,18 +750,20 @@ function App() {
 
   const startNewSnakeGame = useCallback(() => {
     const initialBody = [
-      { x: 6, y: 6, prevX: 6, prevY: 6 },
-      { x: 5, y: 6, prevX: 5, prevY: 6 },
-      { x: 4, y: 6, prevX: 4, prevY: 6 },
+      { x: 5, y: 5, prevX: 5, prevY: 5 },
+      { x: 4, y: 5, prevX: 4, prevY: 5 },
+      { x: 3, y: 5, prevX: 3, prevY: 5 },
     ];
     const initialDir = { x: 1, y: 0 };
     const { target, foods } = generateSnakeFoodsAndTarget(initialBody);
 
     snakeBodyRef.current = initialBody;
-    setSnakeBody(initialBody);
-    setSnakeDir(initialDir);
     snakeDirRef.current = initialDir;
     nextDirRef.current = initialDir;
+    isSnakeRunningRef.current = true;
+
+    setSnakeBody(initialBody);
+    setSnakeDir(initialDir);
     setSnakeTarget(target);
     setSnakeFoods(foods);
     setSnakeScore(0);
@@ -774,7 +775,6 @@ function App() {
     setIsSnakePaused(false);
     setIsSnakeGameOver(false);
     setIsSnakeNewRecord(false);
-    lastStepTimeRef.current = performance.now();
   }, [generateSnakeFoodsAndTarget]);
 
   const changeSnakeDirection = useCallback((newDir) => {
@@ -784,116 +784,156 @@ function App() {
     triggerHaptic('tap');
   }, []);
 
-  // 60FPS Snake Tick Loop (Continuous smooth physics clock)
+  // 60FPS/120FPS Unified RAF Physics + Render Engine
   useEffect(() => {
-    let interval = null;
-    if (quizMode === 'snakeGame' && !isSnakePaused && !isSnakeGameOver) {
-      const tickSpeed = 200;
-      stepDurationRef.current = tickSpeed;
+    if (quizMode !== 'snakeGame') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) return;
 
-      interval = setInterval(() => {
-        lastStepTimeRef.current = performance.now();
+    let animId;
+    let lastTime = performance.now();
+    let accumulator = 0;
+    const TICK_STEP = 210; // ms per grid move (smooth controllable pace)
 
-        setSnakeBody(prevBody => {
-          if (!prevBody || prevBody.length === 0) return prevBody;
-          const currentDir = nextDirRef.current;
-          snakeDirRef.current = currentDir;
-          setSnakeDir(currentDir);
+    const renderLoop = (time) => {
+      const dt = Math.min(time - lastTime, 100);
+      lastTime = time;
 
-          const head = prevBody[0];
-          const GRID = 12;
-          const nextX = (head.x + currentDir.x + GRID) % GRID;
-          const nextY = (head.y + currentDir.y + GRID) % GRID;
+      if (!isSnakePaused && !isSnakeGameOver && isSnakeRunningRef.current) {
+        accumulator += dt;
 
-          // 1. 自咬检测
-          const isSelfBite = prevBody.some((seg, idx) => idx > 0 && seg.x === nextX && seg.y === nextY);
-          if (isSelfBite) {
-            triggerHaptic('error');
-            setSnakeLives(prevLives => {
-              const nextLives = prevLives - 1;
-              if (nextLives <= 0) {
-                setIsSnakeGameOver(true);
-              }
-              return Math.max(0, nextLives);
-            });
-            return prevBody;
-          }
+        while (accumulator >= TICK_STEP) {
+          accumulator -= TICK_STEP;
 
-          // 2. 食物碰撞检测 (使用同步 snakeFoodsRef)
-          const currentFoods = snakeFoodsRef.current || [];
-          const eatenFood = currentFoods.find(f => f.x === nextX && f.y === nextY);
+          // Logical Step
+          const prevBody = snakeBodyRef.current;
+          if (prevBody && prevBody.length > 0) {
+            const currentDir = nextDirRef.current;
+            snakeDirRef.current = currentDir;
+            const head = prevBody[0];
+            const GRID = 10;
+            const nextX = (head.x + currentDir.x + GRID) % GRID;
+            const nextY = (head.y + currentDir.y + GRID) % GRID;
 
-          if (eatenFood) {
-            if (eatenFood.isCorrect) {
-              // 🎯 吞噬正确能量球！
-              triggerHaptic('success');
-
-              setSnakeCombo(prevCombo => {
-                const nextCombo = prevCombo + 1;
-                setSnakeMaxCombo(m => Math.max(m, nextCombo));
-                const earned = 100 + (nextCombo - 1) * 40;
-
-                setSnakeScore(prevScore => {
-                  const newScore = prevScore + earned;
-                  const high = Number(localStorage.getItem('baihuafen-snake-highscore') || 0);
-                  if (newScore > high) {
-                    localStorage.setItem('baihuafen-snake-highscore', String(newScore));
-                    setSnakeHighScore(newScore);
-                    setIsSnakeNewRecord(true);
-                  }
-                  return newScore;
-                });
-
-                const fid = `${Date.now()}_${Math.random()}`;
-                const floatText = nextCombo >= 2 ? `+${earned} 🔥x${nextCombo}!` : `+${earned} 🎯!`;
-                setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: floatText, type: 'plus' }]);
-                setTimeout(() => {
-                  setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
-                }, 1000);
-
-                return nextCombo;
-              });
-
-              setSnakeEatenCount(c => c + 1);
-
-              // 蛇身变长
-              const newBody = [
-                { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
-                ...prevBody.map((seg, idx) => ({
-                  x: idx === 0 ? head.x : prevBody[idx - 1].x,
-                  y: idx === 0 ? head.y : prevBody[idx - 1].y,
-                  prevX: seg.x,
-                  prevY: seg.y,
-                }))
-              ];
-
-              snakeBodyRef.current = newBody;
-
-              // 刷新下一组目标与食物
-              const { target: newTarget, foods: newFoods } = generateSnakeFoodsAndTarget(newBody);
-              setSnakeTarget(newTarget);
-              setSnakeFoods(newFoods);
-
-              return newBody;
-
-            } else {
-              // ❌ 误吞错误干扰球
+            // 1. 自咬检测
+            const isSelfBite = prevBody.some((seg, idx) => idx > 0 && seg.x === nextX && seg.y === nextY);
+            if (isSelfBite) {
               triggerHaptic('error');
-              setSnakeCombo(0);
               setSnakeLives(prevLives => {
                 const nextLives = prevLives - 1;
                 if (nextLives <= 0) {
+                  isSnakeRunningRef.current = false;
                   setIsSnakeGameOver(true);
                 }
                 return Math.max(0, nextLives);
               });
+              break;
+            }
 
-              const fid = `${Date.now()}_${Math.random()}`;
-              setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: '-1 ❤️ 误吞!', type: 'minus' }]);
-              setTimeout(() => {
-                setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
-              }, 1000);
+            // 2. 食物碰撞检测
+            const currentFoods = snakeFoodsRef.current || [];
+            const eatenFood = currentFoods.find(f => f.x === nextX && f.y === nextY);
 
+            if (eatenFood) {
+              if (eatenFood.isCorrect) {
+                // 🎯 吞噬正确能量球！
+                triggerHaptic('success');
+
+                setSnakeCombo(prevCombo => {
+                  const nextCombo = prevCombo + 1;
+                  setSnakeMaxCombo(m => Math.max(m, nextCombo));
+                  const earned = 100 + (nextCombo - 1) * 40;
+
+                  setSnakeScore(prevScore => {
+                    const newScore = prevScore + earned;
+                    const high = Number(localStorage.getItem('baihuafen-snake-highscore') || 0);
+                    if (newScore > high) {
+                      localStorage.setItem('baihuafen-snake-highscore', String(newScore));
+                      setSnakeHighScore(newScore);
+                      setIsSnakeNewRecord(true);
+                    }
+                    return newScore;
+                  });
+
+                  const fid = `${Date.now()}_${Math.random()}`;
+                  const floatText = nextCombo >= 2 ? `+${earned} 🔥x${nextCombo}!` : `+${earned} 🎯!`;
+                  setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: floatText, type: 'plus' }]);
+                  setTimeout(() => {
+                    setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
+                  }, 1000);
+
+                  return nextCombo;
+                });
+
+                setSnakeEatenCount(c => c + 1);
+
+                // 蛇身变长
+                const newBody = [
+                  { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
+                  ...prevBody.map((seg, idx) => ({
+                    x: idx === 0 ? head.x : prevBody[idx - 1].x,
+                    y: idx === 0 ? head.y : prevBody[idx - 1].y,
+                    prevX: seg.x,
+                    prevY: seg.y,
+                  }))
+                ];
+
+                snakeBodyRef.current = newBody;
+
+                // 刷新下一组目标与食物
+                const { target: newTarget, foods: newFoods } = generateSnakeFoodsAndTarget(newBody);
+                setSnakeTarget(newTarget);
+                setSnakeFoods(newFoods);
+
+              } else {
+                // ❌ 误吞错误干扰球
+                triggerHaptic('error');
+                setSnakeCombo(0);
+                setSnakeLives(prevLives => {
+                  const nextLives = prevLives - 1;
+                  if (nextLives <= 0) {
+                    isSnakeRunningRef.current = false;
+                    setIsSnakeGameOver(true);
+                  }
+                  return Math.max(0, nextLives);
+                });
+
+                const fid = `${Date.now()}_${Math.random()}`;
+                setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: '-1 ❤️ 误吞!', type: 'minus' }]);
+                setTimeout(() => {
+                  setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
+                }, 1000);
+
+                const newBody = [
+                  { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
+                  ...prevBody.slice(0, -1).map((seg, idx) => ({
+                    x: idx === 0 ? head.x : prevBody[idx - 1].x,
+                    y: idx === 0 ? head.y : prevBody[idx - 1].y,
+                    prevX: seg.x,
+                    prevY: seg.y,
+                  }))
+                ];
+
+                snakeBodyRef.current = newBody;
+
+                // 错误球在其他空闲位置重新刷新
+                const filtered = currentFoods.filter(f => f.id !== eatenFood.id);
+                const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
+                currentFoods.forEach(f => occupied.add(`${f.x},${f.y}`));
+                let rx = Math.floor(Math.random() * 10);
+                let ry = Math.floor(Math.random() * 10);
+                while (occupied.has(`${rx},${ry}`)) {
+                  rx = Math.floor(Math.random() * 10);
+                  ry = Math.floor(Math.random() * 10);
+                }
+                const updatedFoods = [...filtered, { ...eatenFood, x: rx, y: ry }];
+                snakeFoodsRef.current = updatedFoods;
+                setSnakeFoods(updatedFoods);
+              }
+            } else {
+              // 正常向前平滑移动
               const newBody = [
                 { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
                 ...prevBody.slice(0, -1).map((seg, idx) => ({
@@ -903,73 +943,30 @@ function App() {
                   prevY: seg.y,
                 }))
               ];
-
               snakeBodyRef.current = newBody;
-
-              // 错误球在其他空闲位置重新刷新
-              const filtered = currentFoods.filter(f => f.id !== eatenFood.id);
-              const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
-              currentFoods.forEach(f => occupied.add(`${f.x},${f.y}`));
-              let rx = Math.floor(Math.random() * 12);
-              let ry = Math.floor(Math.random() * 12);
-              while (occupied.has(`${rx},${ry}`)) {
-                rx = Math.floor(Math.random() * 12);
-                ry = Math.floor(Math.random() * 12);
-              }
-              const updatedFoods = [...filtered, { ...eatenFood, x: rx, y: ry }];
-              snakeFoodsRef.current = updatedFoods;
-              setSnakeFoods(updatedFoods);
-
-              return newBody;
             }
           }
-
-          // 正常平滑步进
-          const newBody = [
-            { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
-            ...prevBody.slice(0, -1).map((seg, idx) => ({
-              x: idx === 0 ? head.x : prevBody[idx - 1].x,
-              y: idx === 0 ? head.y : prevBody[idx - 1].y,
-              prevX: seg.x,
-              prevY: seg.y,
-            }))
-          ];
-
-          snakeBodyRef.current = newBody;
-          return newBody;
-        });
-      }, tickSpeed);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [quizMode, isSnakePaused, isSnakeGameOver, generateSnakeFoodsAndTarget]);
-
-  // 60FPS Canvas Animation Loop (Smooth Lerp + Neutral Answer Food Badges)
-  useEffect(() => {
-    if (quizMode !== 'snakeGame') return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animId;
-    const render = (time) => {
-      const dpr = window.devicePixelRatio || 2;
-      const displayWidth = canvas.clientWidth || 340;
-      const displayHeight = canvas.clientHeight || 340;
-
-      if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
-        canvas.width = displayWidth * dpr;
-        canvas.height = displayHeight * dpr;
+        }
       }
-      ctx.resetTransform?.();
-      ctx.scale(dpr, dpr);
 
-      const GRID = 12;
+      // ==========================================
+      // 🎨 Canvas 60FPS Render Phase
+      // ==========================================
+      const dpr = window.devicePixelRatio || 2;
+      const displayWidth = canvas.clientWidth || 320;
+      const displayHeight = canvas.clientHeight || 320;
+
+      if (canvas.width !== Math.floor(displayWidth * dpr) || canvas.height !== Math.floor(displayHeight * dpr)) {
+        canvas.width = Math.floor(displayWidth * dpr);
+        canvas.height = Math.floor(displayHeight * dpr);
+      }
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const GRID = 10;
       const cellSize = displayWidth / GRID;
 
-      // 棋盘背景
+      // 1. 棋盘背景
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, displayWidth, displayHeight);
 
@@ -982,22 +979,23 @@ function App() {
         }
       }
 
-      // 绘制 4 颗能量食物药丸卡片 (完全统一的视觉样式，杜绝剧透答案！)
+      // 2. 绘制 4 颗能量食物药丸卡片 (完全统一的白底胶囊与深灰字，杜绝剧透答案！)
       const foods = snakeFoodsRef.current || [];
       foods.forEach(food => {
         const centerX = food.x * cellSize + cellSize / 2;
         const centerY = food.y * cellSize + cellSize / 2;
         const pillW = cellSize * 0.90;
-        const pillH = cellSize * 0.72;
+        const pillH = cellSize * 0.74;
         const pillX = centerX - pillW / 2;
         const pillY = centerY - pillH / 2;
 
         ctx.save();
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.06)';
+        ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
         ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 1.5;
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.4;
 
         ctx.beginPath();
         ctx.roundRect(pillX, pillY, pillW, pillH, 7);
@@ -1008,15 +1006,14 @@ function App() {
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = `800 ${food.value.length >= 5 ? 10 : 11.5}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.fillStyle = '#1e293b';
+        ctx.font = `800 ${food.value.length >= 5 ? 11 : 12.5}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.fillStyle = '#0f172a';
         ctx.fillText(food.value, centerX, centerY + 0.5);
         ctx.restore();
       });
 
-      // 60FPS 平滑插值蛇身 (Smooth Lerp Interpolation)
-      const elapsed = time - lastStepTimeRef.current;
-      const progress = isSnakePaused || isSnakeGameOver ? 1 : Math.min(1, Math.max(0, elapsed / (stepDurationRef.current || 200)));
+      // 3. 绘制 60FPS 平滑插值蛇身 (Smooth Lerp)
+      const progress = isSnakePaused || isSnakeGameOver ? 1 : Math.min(1, Math.max(0, accumulator / TICK_STEP));
       const body = snakeBodyRef.current || [];
       const dir = snakeDirRef.current || { x: 1, y: 0 };
 
@@ -1092,14 +1089,14 @@ function App() {
         });
       }
 
-      animId = requestAnimationFrame(render);
+      animId = requestAnimationFrame(renderLoop);
     };
 
-    animId = requestAnimationFrame(render);
+    animId = requestAnimationFrame(renderLoop);
     return () => {
       if (animId) cancelAnimationFrame(animId);
     };
-  }, [quizMode, isSnakePaused, isSnakeGameOver]);
+  }, [quizMode, isSnakePaused, isSnakeGameOver, generateSnakeFoodsAndTarget]);
 
   // Touch Swipe & Tap Handlers for Snake
   const handleArenaTouchStart = (e) => {
@@ -1127,13 +1124,14 @@ function App() {
     } else {
       // 点击转向 (Tap relative to head)
       const canvas = canvasRef.current;
-      if (canvas && snakeBody && snakeBody.length > 0) {
+      const body = snakeBodyRef.current;
+      if (canvas && body && body.length > 0) {
         const rect = canvas.getBoundingClientRect();
         const tapX = touch.clientX - rect.left;
         const tapY = touch.clientY - rect.top;
-        const GRID = 12;
+        const GRID = 10;
         const cellSize = rect.width / GRID;
-        const head = snakeBody[0];
+        const head = body[0];
         const headX = head.x * cellSize + cellSize / 2;
         const headY = head.y * cellSize + cellSize / 2;
         const diffX = tapX - headX;
@@ -1181,6 +1179,8 @@ function App() {
       startNewSnakeGame();
     }
   }, [quizMode, snakeTarget, snakeFoods.length, startNewSnakeGame]);
+
+
 
 
   const searchMatchedItems = (searchQuery && searchQuery.trim() !== '')
@@ -2010,82 +2010,6 @@ function App() {
             <div className="snake-hint-bar">
               <span className="hint-pill">👆 屏幕任意滑动 / 轻触转向</span>
             </div>
-
-            {/* ⏸ 暂停遮罩 */}
-            {isSnakePaused && (
-              <div className="game-modal-overlay">
-                <div className="game-modal-card">
-                  <div className="modal-icon svg-modal-icon">
-                    <svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="#64748b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="10" y1="15" x2="10" y2="9" />
-                      <line x1="14" y1="15" x2="14" y2="9" />
-                    </svg>
-                  </div>
-                  <h3 className="modal-title">游戏已暂停</h3>
-                  <p className="modal-subtitle">当前得分：{snakeScore.toLocaleString()}</p>
-                  <div className="modal-actions">
-                    <button className="m-btn-primary" onClick={() => {
-                      triggerHaptic('menuToggle');
-                      setIsSnakePaused(false);
-                    }}>
-                      继续游戏
-                    </button>
-                    <button className="m-btn-secondary" onClick={() => {
-                      triggerHaptic('dangerReset');
-                      startNewSnakeGame();
-                    }}>
-                      重新开始
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 💀 Game Over 结算弹窗 */}
-            {isSnakeGameOver && (
-              <div className="game-modal-overlay">
-                <div className="game-modal-card">
-                  <div className="modal-icon">🐍</div>
-                  <h3 className="modal-title">贪吃蛇挑战结算</h3>
-                  {isSnakeNewRecord && <div className="new-record-badge">🏆 创下新历史高分纪录！</div>}
-
-                  <div className="ranked-victory-score-box">
-                    <span className="ranked-score-label">最终得分</span>
-                    <span className="ranked-score-val">{snakeScore.toLocaleString()}</span>
-                  </div>
-
-                  <div className="victory-stats-grid">
-                    <div className="v-stat-box">
-                      <span className="v-stat-label">🎯 吞噬正确</span>
-                      <span className="v-stat-val">{snakeEatenCount} 个</span>
-                    </div>
-                    <div className="v-stat-box">
-                      <span className="v-stat-label">🔥 最高连击</span>
-                      <span className="v-stat-val">x{snakeMaxCombo}</span>
-                    </div>
-                    <div className="v-stat-box" style={{ gridColumn: '1 / -1' }}>
-                      <span className="v-stat-label">历史最高纪录</span>
-                      <span className="v-stat-val" style={{ color: '#10b981' }}>
-                        {snakeHighScore ? `${snakeHighScore.toLocaleString()} 分` : `${snakeScore.toLocaleString()} 分`}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="modal-actions">
-                    <button className="m-btn-primary" onClick={startNewSnakeGame}>
-                      再来一局 🐍
-                    </button>
-                    <button 
-                      className="m-btn-secondary" 
-                      onClick={() => setQuizMode('percentToFraction')}
-                    >
-                      返回速记
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           /* =========================================================
@@ -2187,6 +2111,82 @@ function App() {
           </>
         )}
       </main>
+
+      {/* 🐍 贪吃蛇 暂停遮罩 (Root Fixed Modal) */}
+      {isSnakePaused && (
+        <div className="game-modal-overlay" onClick={() => setIsSnakePaused(false)}>
+          <div className="game-modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon svg-modal-icon">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#64748b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="10" y1="15" x2="10" y2="9" />
+                <line x1="14" y1="15" x2="14" y2="9" />
+              </svg>
+            </div>
+            <h3 className="modal-title">游戏已暂停</h3>
+            <p className="modal-subtitle">当前得分：{snakeScore.toLocaleString()}</p>
+            <div className="modal-actions">
+              <button className="m-btn-primary" onClick={() => {
+                triggerHaptic('menuToggle');
+                setIsSnakePaused(false);
+              }}>
+                继续游戏
+              </button>
+              <button className="m-btn-secondary" onClick={() => {
+                triggerHaptic('dangerReset');
+                startNewSnakeGame();
+              }}>
+                重新开始
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🐍 贪吃蛇 Game Over 结算弹窗 (Root Fixed Modal) */}
+      {isSnakeGameOver && (
+        <div className="game-modal-overlay">
+          <div className="game-modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon">🐍</div>
+            <h3 className="modal-title">贪吃蛇挑战结算</h3>
+            {isSnakeNewRecord && <div className="new-record-badge">🏆 创下新历史高分纪录！</div>}
+
+            <div className="ranked-victory-score-box">
+              <span className="ranked-score-label">最终得分</span>
+              <span className="ranked-score-val">{snakeScore.toLocaleString()}</span>
+            </div>
+
+            <div className="victory-stats-grid">
+              <div className="v-stat-box">
+                <span className="v-stat-label">🎯 吞噬正确</span>
+                <span className="v-stat-val">{snakeEatenCount} 个</span>
+              </div>
+              <div className="v-stat-box">
+                <span className="v-stat-label">🔥 最高连击</span>
+                <span className="v-stat-val">x{snakeMaxCombo}</span>
+              </div>
+              <div className="v-stat-box" style={{ gridColumn: '1 / -1' }}>
+                <span className="v-stat-label">历史最高纪录</span>
+                <span className="v-stat-val" style={{ color: '#10b981' }}>
+                  {snakeHighScore ? `${snakeHighScore.toLocaleString()} 分` : `${snakeScore.toLocaleString()} 分`}
+                </span>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="m-btn-primary" onClick={startNewSnakeGame}>
+                再来一局 🐍
+              </button>
+              <button 
+                className="m-btn-secondary" 
+                onClick={() => setQuizMode('percentToFraction')}
+              >
+                返回速记
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 📖 百化分速查表弹窗 (Formula Sheet Modal) */}
       {isFormulaSheetOpen && (
