@@ -728,7 +728,7 @@ function App() {
   const snakeEffectsRef = useRef([]);
   const isSnakeRunningRef = useRef(false);
 
-  const generateSnakeFoodsAndTarget = useCallback((currentBody) => {
+  const generateSnakeFoodsAndTarget = useCallback((currentBody, customDir) => {
     const targetItem = initialItems[Math.floor(Math.random() * initialItems.length)];
     const isPromptFrac = Math.random() > 0.5;
     const promptText = isPromptFrac ? targetItem.fraction : targetItem.percent;
@@ -758,6 +758,18 @@ function App() {
 
     const GRID = 10;
     const occupied = new Set((currentBody || []).map(b => `${b.x},${b.y}`));
+
+    // 🚫 核心安全走廊：严禁新生成的食物挡在蛇头正前方道路上 (预留前方 3 格安全缓冲区，防止来不及反应)
+    if (currentBody && currentBody.length > 0) {
+      const head = currentBody[0];
+      const dir = customDir || snakeDirRef.current || { x: 1, y: 0 };
+      for (let step = 1; step <= 3; step++) {
+        const safeX = (head.x + dir.x * step + GRID) % GRID;
+        const safeY = (head.y + dir.y * step + GRID) % GRID;
+        occupied.add(`${safeX},${safeY}`);
+      }
+    }
+
     const newFoods = [];
 
     foodLabels.forEach(fl => {
@@ -967,8 +979,8 @@ function App() {
 
                   snakeBodyRef.current = newBody;
 
-                  // 刷新下一组目标与食物
-                  const { target: newTarget, foods: newFoods } = generateSnakeFoodsAndTarget(newBody);
+                  // 刷新下一组目标与食物 (传入当前前进方向，避开前方 3 格安全走廊)
+                  const { target: newTarget, foods: newFoods } = generateSnakeFoodsAndTarget(newBody, currentDir);
                   setSnakeTarget(newTarget);
                   setSnakeFoods(newFoods);
 
@@ -1026,15 +1038,23 @@ function App() {
 
                   snakeBodyRef.current = newBody;
 
-                  // 错误球在其他空闲位置重新刷新
+                  // 错误球在其他空闲位置重新刷新 (同样严禁刷新在蛇头正前方 3 格安全走廊)
                   const filtered = currentFoods.filter(f => f.id !== eatenFood.id);
                   const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
                   currentFoods.forEach(f => occupied.add(`${f.x},${f.y}`));
+                  const newHead = newBody[0];
+                  for (let step = 1; step <= 3; step++) {
+                    const safeX = (newHead.x + currentDir.x * step + GRID) % GRID;
+                    const safeY = (newHead.y + currentDir.y * step + GRID) % GRID;
+                    occupied.add(`${safeX},${safeY}`);
+                  }
                   let rx = Math.floor(Math.random() * GRID);
                   let ry = Math.floor(Math.random() * GRID);
-                  while (occupied.has(`${rx},${ry}`)) {
+                  let tries = 0;
+                  while (occupied.has(`${rx},${ry}`) && tries < 100) {
                     rx = Math.floor(Math.random() * GRID);
                     ry = Math.floor(Math.random() * GRID);
+                    tries++;
                   }
                   const updatedFoods = [...filtered, { ...eatenFood, x: rx, y: ry }];
                   snakeFoodsRef.current = updatedFoods;
