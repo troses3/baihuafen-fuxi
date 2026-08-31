@@ -41,30 +41,52 @@ const formatTime = (secs) => {
   return `${m}:${s}`;
 };
 
+const drawRoundedRect = (ctx, x, y, width, height, radius) => {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, radius);
+    return;
+  }
+  let r = radius;
+  if (width < 2 * r) r = width / 2;
+  if (height < 2 * r) r = height / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+};
+
 function App() {
   const [items, setItems] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('baihuafen-tracker-data');
-    const statusMap = {};
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          parsed.forEach(p => {
-            if (p.id && p.status && p.status !== 'new') {
-              statusMap[p.id] = p.status;
-            }
-          });
-        }
-      } catch (e) {}
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('baihuafen-tracker-data');
+      const statusMap = {};
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(p => {
+              if (p.id && p.status && p.status !== 'new') {
+                statusMap[p.id] = p.status;
+              }
+            });
+          }
+        } catch (e) {}
+      }
+      return initialItems.map(item => ({
+        ...item,
+        status: statusMap[item.id] || 'new'
+      }));
+    } catch {
+      return initialItems.map(item => ({ ...item, status: 'new' }));
     }
-    return initialItems.map(item => ({
-      ...item,
-      status: statusMap[item.id] || 'new'
-    }));
   });
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const currentItem = items[currentIndex] || items[0] || null;
+  const currentItem = items[currentIndex] || items[0] || { id: 1, percent: '', fraction: '', status: 'new' };
   const [stats, setStats] = useState({ known: 0, unknown: 0 });
   const [filter, setFilter] = useState('all'); // 'all', 'known', 'unknown'
   const [isRandom, setIsRandom] = useState(() => {
@@ -789,7 +811,7 @@ function App() {
     if (quizMode !== 'snakeGame') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     let animId;
@@ -798,99 +820,30 @@ function App() {
     const TICK_STEP = 210; // ms per grid move (smooth controllable pace)
 
     const renderLoop = (time) => {
-      const dt = Math.min(time - lastTime, 100);
-      lastTime = time;
+      try {
+        const dt = Math.min(time - lastTime, 100);
+        lastTime = time;
 
-      if (!isSnakePaused && !isSnakeGameOver && isSnakeRunningRef.current) {
-        accumulator += dt;
+        if (!isSnakePaused && !isSnakeGameOver && isSnakeRunningRef.current) {
+          accumulator += dt;
 
-        while (accumulator >= TICK_STEP) {
-          accumulator -= TICK_STEP;
+          while (accumulator >= TICK_STEP) {
+            accumulator -= TICK_STEP;
 
-          // Logical Step
-          const prevBody = snakeBodyRef.current;
-          if (prevBody && prevBody.length > 0) {
-            const currentDir = nextDirRef.current;
-            snakeDirRef.current = currentDir;
-            const head = prevBody[0];
-            const GRID = 10;
-            const nextX = (head.x + currentDir.x + GRID) % GRID;
-            const nextY = (head.y + currentDir.y + GRID) % GRID;
+            // Logical Step
+            const prevBody = snakeBodyRef.current;
+            if (prevBody && prevBody.length > 0) {
+              const currentDir = nextDirRef.current;
+              snakeDirRef.current = currentDir;
+              const head = prevBody[0];
+              const GRID = 10;
+              const nextX = (head.x + currentDir.x + GRID) % GRID;
+              const nextY = (head.y + currentDir.y + GRID) % GRID;
 
-            // 1. 自咬检测
-            const isSelfBite = prevBody.some((seg, idx) => idx > 0 && seg.x === nextX && seg.y === nextY);
-            if (isSelfBite) {
-              triggerHaptic('error');
-              setSnakeLives(prevLives => {
-                const nextLives = prevLives - 1;
-                if (nextLives <= 0) {
-                  isSnakeRunningRef.current = false;
-                  setIsSnakeGameOver(true);
-                }
-                return Math.max(0, nextLives);
-              });
-              break;
-            }
-
-            // 2. 食物碰撞检测
-            const currentFoods = snakeFoodsRef.current || [];
-            const eatenFood = currentFoods.find(f => f.x === nextX && f.y === nextY);
-
-            if (eatenFood) {
-              if (eatenFood.isCorrect) {
-                // 🎯 吞噬正确能量球！
-                triggerHaptic('success');
-
-                setSnakeCombo(prevCombo => {
-                  const nextCombo = prevCombo + 1;
-                  setSnakeMaxCombo(m => Math.max(m, nextCombo));
-                  const earned = 100 + (nextCombo - 1) * 40;
-
-                  setSnakeScore(prevScore => {
-                    const newScore = prevScore + earned;
-                    const high = Number(localStorage.getItem('baihuafen-snake-highscore') || 0);
-                    if (newScore > high) {
-                      localStorage.setItem('baihuafen-snake-highscore', String(newScore));
-                      setSnakeHighScore(newScore);
-                      setIsSnakeNewRecord(true);
-                    }
-                    return newScore;
-                  });
-
-                  const fid = `${Date.now()}_${Math.random()}`;
-                  const floatText = nextCombo >= 2 ? `+${earned} 🔥x${nextCombo}!` : `+${earned} 🎯!`;
-                  setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: floatText, type: 'plus' }]);
-                  setTimeout(() => {
-                    setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
-                  }, 1000);
-
-                  return nextCombo;
-                });
-
-                setSnakeEatenCount(c => c + 1);
-
-                // 蛇身变长
-                const newBody = [
-                  { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
-                  ...prevBody.map((seg, idx) => ({
-                    x: idx === 0 ? head.x : prevBody[idx - 1].x,
-                    y: idx === 0 ? head.y : prevBody[idx - 1].y,
-                    prevX: seg.x,
-                    prevY: seg.y,
-                  }))
-                ];
-
-                snakeBodyRef.current = newBody;
-
-                // 刷新下一组目标与食物
-                const { target: newTarget, foods: newFoods } = generateSnakeFoodsAndTarget(newBody);
-                setSnakeTarget(newTarget);
-                setSnakeFoods(newFoods);
-
-              } else {
-                // ❌ 误吞错误干扰球
+              // 1. 自咬检测
+              const isSelfBite = prevBody.some((seg, idx) => idx > 0 && seg.x === nextX && seg.y === nextY);
+              if (isSelfBite) {
                 triggerHaptic('error');
-                setSnakeCombo(0);
                 setSnakeLives(prevLives => {
                   const nextLives = prevLives - 1;
                   if (nextLives <= 0) {
@@ -899,13 +852,111 @@ function App() {
                   }
                   return Math.max(0, nextLives);
                 });
+                break;
+              }
 
-                const fid = `${Date.now()}_${Math.random()}`;
-                setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: '-1 ❤️ 误吞!', type: 'minus' }]);
-                setTimeout(() => {
-                  setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
-                }, 1000);
+              // 2. 食物碰撞检测
+              const currentFoods = snakeFoodsRef.current || [];
+              const eatenFood = currentFoods.find(f => f.x === nextX && f.y === nextY);
 
+              if (eatenFood) {
+                if (eatenFood.isCorrect) {
+                  // 🎯 吞噬正确能量球！
+                  triggerHaptic('success');
+
+                  setSnakeCombo(prevCombo => {
+                    const nextCombo = prevCombo + 1;
+                    setSnakeMaxCombo(m => Math.max(m, nextCombo));
+                    const earned = 100 + (nextCombo - 1) * 40;
+
+                    setSnakeScore(prevScore => {
+                      const newScore = prevScore + earned;
+                      const high = Number(localStorage.getItem('baihuafen-snake-highscore') || 0);
+                      if (newScore > high) {
+                        localStorage.setItem('baihuafen-snake-highscore', String(newScore));
+                        setSnakeHighScore(newScore);
+                        setIsSnakeNewRecord(true);
+                      }
+                      return newScore;
+                    });
+
+                    const fid = `${Date.now()}_${Math.random()}`;
+                    const floatText = nextCombo >= 2 ? `+${earned} 🔥x${nextCombo}!` : `+${earned} 🎯!`;
+                    setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: floatText, type: 'plus' }]);
+                    setTimeout(() => {
+                      setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
+                    }, 1000);
+
+                    return nextCombo;
+                  });
+
+                  setSnakeEatenCount(c => c + 1);
+
+                  // 蛇身变长
+                  const newBody = [
+                    { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
+                    ...prevBody.map((seg, idx) => ({
+                      x: idx === 0 ? head.x : prevBody[idx - 1].x,
+                      y: idx === 0 ? head.y : prevBody[idx - 1].y,
+                      prevX: seg.x,
+                      prevY: seg.y,
+                    }))
+                  ];
+
+                  snakeBodyRef.current = newBody;
+
+                  // 刷新下一组目标与食物
+                  const { target: newTarget, foods: newFoods } = generateSnakeFoodsAndTarget(newBody);
+                  setSnakeTarget(newTarget);
+                  setSnakeFoods(newFoods);
+
+                } else {
+                  // ❌ 误吞错误干扰球
+                  triggerHaptic('error');
+                  setSnakeCombo(0);
+                  setSnakeLives(prevLives => {
+                    const nextLives = prevLives - 1;
+                    if (nextLives <= 0) {
+                      isSnakeRunningRef.current = false;
+                      setIsSnakeGameOver(true);
+                    }
+                    return Math.max(0, nextLives);
+                  });
+
+                  const fid = `${Date.now()}_${Math.random()}`;
+                  setSnakeFloatingScores(prev => [...prev.slice(-3), { id: fid, text: '-1 ❤️ 误吞!', type: 'minus' }]);
+                  setTimeout(() => {
+                    setSnakeFloatingScores(prev => prev.filter(f => f.id !== fid));
+                  }, 1000);
+
+                  const newBody = [
+                    { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
+                    ...prevBody.slice(0, -1).map((seg, idx) => ({
+                      x: idx === 0 ? head.x : prevBody[idx - 1].x,
+                      y: idx === 0 ? head.y : prevBody[idx - 1].y,
+                      prevX: seg.x,
+                      prevY: seg.y,
+                    }))
+                  ];
+
+                  snakeBodyRef.current = newBody;
+
+                  // 错误球在其他空闲位置重新刷新
+                  const filtered = currentFoods.filter(f => f.id !== eatenFood.id);
+                  const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
+                  currentFoods.forEach(f => occupied.add(`${f.x},${f.y}`));
+                  let rx = Math.floor(Math.random() * 10);
+                  let ry = Math.floor(Math.random() * 10);
+                  while (occupied.has(`${rx},${ry}`)) {
+                    rx = Math.floor(Math.random() * 10);
+                    ry = Math.floor(Math.random() * 10);
+                  }
+                  const updatedFoods = [...filtered, { ...eatenFood, x: rx, y: ry }];
+                  snakeFoodsRef.current = updatedFoods;
+                  setSnakeFoods(updatedFoods);
+                }
+              } else {
+                // 正常向前平滑移动
                 const newBody = [
                   { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
                   ...prevBody.slice(0, -1).map((seg, idx) => ({
@@ -915,178 +966,153 @@ function App() {
                     prevY: seg.y,
                   }))
                 ];
-
                 snakeBodyRef.current = newBody;
-
-                // 错误球在其他空闲位置重新刷新
-                const filtered = currentFoods.filter(f => f.id !== eatenFood.id);
-                const occupied = new Set(newBody.map(b => `${b.x},${b.y}`));
-                currentFoods.forEach(f => occupied.add(`${f.x},${f.y}`));
-                let rx = Math.floor(Math.random() * 10);
-                let ry = Math.floor(Math.random() * 10);
-                while (occupied.has(`${rx},${ry}`)) {
-                  rx = Math.floor(Math.random() * 10);
-                  ry = Math.floor(Math.random() * 10);
-                }
-                const updatedFoods = [...filtered, { ...eatenFood, x: rx, y: ry }];
-                snakeFoodsRef.current = updatedFoods;
-                setSnakeFoods(updatedFoods);
               }
-            } else {
-              // 正常向前平滑移动
-              const newBody = [
-                { x: nextX, y: nextY, prevX: head.x, prevY: head.y },
-                ...prevBody.slice(0, -1).map((seg, idx) => ({
-                  x: idx === 0 ? head.x : prevBody[idx - 1].x,
-                  y: idx === 0 ? head.y : prevBody[idx - 1].y,
-                  prevX: seg.x,
-                  prevY: seg.y,
-                }))
-              ];
-              snakeBodyRef.current = newBody;
             }
           }
         }
-      }
 
-      // ==========================================
-      // 🎨 Canvas 60FPS Render Phase
-      // ==========================================
-      const dpr = window.devicePixelRatio || 2;
-      const displayWidth = canvas.clientWidth || 320;
-      const displayHeight = canvas.clientHeight || 320;
+        // ==========================================
+        // 🎨 Canvas 60FPS Render Phase
+        // ==========================================
+        const dpr = window.devicePixelRatio || 2;
+        const displayWidth = canvas.clientWidth || 320;
+        const displayHeight = canvas.clientHeight || 320;
 
-      if (canvas.width !== Math.floor(displayWidth * dpr) || canvas.height !== Math.floor(displayHeight * dpr)) {
-        canvas.width = Math.floor(displayWidth * dpr);
-        canvas.height = Math.floor(displayHeight * dpr);
-      }
+        if (canvas.width !== Math.floor(displayWidth * dpr) || canvas.height !== Math.floor(displayHeight * dpr)) {
+          canvas.width = Math.floor(displayWidth * dpr);
+          canvas.height = Math.floor(displayHeight * dpr);
+        }
 
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        if (typeof ctx.setTransform === 'function') {
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
 
-      const GRID = 10;
-      const cellSize = displayWidth / GRID;
+        const GRID = 10;
+        const cellSize = displayWidth / GRID;
 
-      // 1. 棋盘背景
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, displayWidth, displayHeight);
+        // 1. 棋盘背景
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, displayWidth, displayHeight);
 
-      ctx.fillStyle = '#f8fafc';
-      for (let r = 0; r < GRID; r++) {
-        for (let c = 0; c < GRID; c++) {
-          if ((r + c) % 2 === 0) {
-            ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+        ctx.fillStyle = '#f8fafc';
+        for (let r = 0; r < GRID; r++) {
+          for (let c = 0; c < GRID; c++) {
+            if ((r + c) % 2 === 0) {
+              ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+            }
           }
         }
-      }
 
-      // 2. 绘制 4 颗能量食物药丸卡片 (完全统一的白底胶囊与深灰字，杜绝剧透答案！)
-      const foods = snakeFoodsRef.current || [];
-      foods.forEach(food => {
-        const centerX = food.x * cellSize + cellSize / 2;
-        const centerY = food.y * cellSize + cellSize / 2;
-        const pillW = cellSize * 0.90;
-        const pillH = cellSize * 0.74;
-        const pillX = centerX - pillW / 2;
-        const pillY = centerY - pillH / 2;
-
-        ctx.save();
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetY = 1.5;
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 1.4;
-
-        ctx.beginPath();
-        ctx.roundRect(pillX, pillY, pillW, pillH, 7);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.save();
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = `800 ${food.value.length >= 5 ? 11 : 12.5}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.fillStyle = '#0f172a';
-        ctx.fillText(food.value, centerX, centerY + 0.5);
-        ctx.restore();
-      });
-
-      // 3. 绘制 60FPS 平滑插值蛇身 (Smooth Lerp)
-      const progress = isSnakePaused || isSnakeGameOver ? 1 : Math.min(1, Math.max(0, accumulator / TICK_STEP));
-      const body = snakeBodyRef.current || [];
-      const dir = snakeDirRef.current || { x: 1, y: 0 };
-
-      if (body.length > 0) {
-        body.forEach((seg, idx) => {
-          let curX = seg.x;
-          let curY = seg.y;
-          let pX = seg.prevX !== undefined ? seg.prevX : curX;
-          let pY = seg.prevY !== undefined ? seg.prevY : curY;
-
-          // 穿墙平滑保护 (跨边缘不插值)
-          if (Math.abs(curX - pX) > 1) pX = curX;
-          if (Math.abs(curY - pY) > 1) pY = curY;
-
-          const interpX = pX + (curX - pX) * progress;
-          const interpY = pY + (curY - pY) * progress;
-
-          const x = interpX * cellSize + 2;
-          const y = interpY * cellSize + 2;
-          const size = cellSize - 4;
-          const radius = idx === 0 ? size / 2.2 : size / 3.2;
+        // 2. 绘制 4 颗能量食物药丸卡片 (完全统一的白底胶囊与深灰字，杜绝剧透答案！)
+        const foods = snakeFoodsRef.current || [];
+        foods.forEach(food => {
+          const centerX = food.x * cellSize + cellSize / 2;
+          const centerY = food.y * cellSize + cellSize / 2;
+          const pillW = cellSize * 0.90;
+          const pillH = cellSize * 0.74;
+          const pillX = centerX - pillW / 2;
+          const pillY = centerY - pillH / 2;
 
           ctx.save();
-          if (idx === 0) {
-            ctx.fillStyle = '#2563eb';
-            ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
-            ctx.shadowBlur = 6;
-          } else {
-            const ratio = idx / body.length;
-            ctx.fillStyle = `rgb(${Math.floor(59 + ratio * 30)}, ${Math.floor(130 + ratio * 35)}, ${Math.floor(246 - ratio * 20)})`;
-          }
+          ctx.shadowColor = 'rgba(15, 23, 42, 0.08)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetY = 1.5;
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 1.4;
 
-          ctx.beginPath();
-          ctx.roundRect(x, y, size, size, radius);
+          drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 7);
           ctx.fill();
+          ctx.stroke();
           ctx.restore();
 
-          // 蛇头眼睛
-          if (idx === 0) {
-            const eyeOffset = size * 0.22;
-            const eyeRadius = size * 0.13;
-            const pupilRadius = size * 0.065;
-            const centerX = interpX * cellSize + cellSize / 2;
-            const centerY = interpY * cellSize + cellSize / 2;
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = `800 ${food.value.length >= 5 ? 11 : 12.5}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.fillStyle = '#0f172a';
+          ctx.fillText(food.value, centerX, centerY + 0.5);
+          ctx.restore();
+        });
 
-            let eye1X = centerX, eye1Y = centerY, eye2X = centerX, eye2Y = centerY;
-            if (dir.x === 1) {
-              eye1X = centerX + eyeOffset; eye1Y = centerY - eyeOffset;
-              eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
-            } else if (dir.x === -1) {
-              eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
-              eye2X = centerX - eyeOffset; eye2Y = centerY + eyeOffset;
-            } else if (dir.y === 1) {
-              eye1X = centerX - eyeOffset; eye1Y = centerY + eyeOffset;
-              eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
-            } else if (dir.y === -1) {
-              eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
-              eye2X = centerX + eyeOffset; eye2Y = centerY - eyeOffset;
+        // 3. 绘制 60FPS 平滑插值蛇身 (Smooth Lerp)
+        const progress = isSnakePaused || isSnakeGameOver ? 1 : Math.min(1, Math.max(0, accumulator / (TICK_STEP || 210)));
+        const body = snakeBodyRef.current || [];
+        const dir = snakeDirRef.current || { x: 1, y: 0 };
+
+        if (body.length > 0) {
+          body.forEach((seg, idx) => {
+            let curX = seg.x;
+            let curY = seg.y;
+            let pX = seg.prevX !== undefined ? seg.prevX : curX;
+            let pY = seg.prevY !== undefined ? seg.prevY : curY;
+
+            // 穿墙平滑保护 (跨边缘不插值)
+            if (Math.abs(curX - pX) > 1) pX = curX;
+            if (Math.abs(curY - pY) > 1) pY = curY;
+
+            const interpX = pX + (curX - pX) * progress;
+            const interpY = pY + (curY - pY) * progress;
+
+            const x = interpX * cellSize + 2;
+            const y = interpY * cellSize + 2;
+            const size = cellSize - 4;
+            const radius = idx === 0 ? size / 2.2 : size / 3.2;
+
+            ctx.save();
+            if (idx === 0) {
+              ctx.fillStyle = '#2563eb';
+              ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
+              ctx.shadowBlur = 6;
+            } else {
+              const ratio = idx / body.length;
+              ctx.fillStyle = `rgb(${Math.floor(59 + ratio * 30)}, ${Math.floor(130 + ratio * 35)}, ${Math.floor(246 - ratio * 20)})`;
             }
 
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(eye1X, eye1Y, eyeRadius, 0, Math.PI * 2);
-            ctx.arc(eye2X, eye2Y, eyeRadius, 0, Math.PI * 2);
+            drawRoundedRect(ctx, x, y, size, size, radius);
             ctx.fill();
+            ctx.restore();
 
-            ctx.fillStyle = '#0f172a';
-            ctx.beginPath();
-            ctx.arc(eye1X + dir.x * 1.5, eye1Y + dir.y * 1.5, pupilRadius, 0, Math.PI * 2);
-            ctx.arc(eye2X + dir.x * 1.5, eye2Y + dir.y * 1.5, pupilRadius, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        });
+            // 蛇头眼睛
+            if (idx === 0) {
+              const eyeOffset = size * 0.22;
+              const eyeRadius = size * 0.13;
+              const pupilRadius = size * 0.065;
+              const centerX = interpX * cellSize + cellSize / 2;
+              const centerY = interpY * cellSize + cellSize / 2;
+
+              let eye1X = centerX, eye1Y = centerY, eye2X = centerX, eye2Y = centerY;
+              if (dir.x === 1) {
+                eye1X = centerX + eyeOffset; eye1Y = centerY - eyeOffset;
+                eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
+              } else if (dir.x === -1) {
+                eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
+                eye2X = centerX - eyeOffset; eye2Y = centerY + eyeOffset;
+              } else if (dir.y === 1) {
+                eye1X = centerX - eyeOffset; eye1Y = centerY + eyeOffset;
+                eye2X = centerX + eyeOffset; eye2Y = centerY + eyeOffset;
+              } else if (dir.y === -1) {
+                eye1X = centerX - eyeOffset; eye1Y = centerY - eyeOffset;
+                eye2X = centerX + eyeOffset; eye2Y = centerY - eyeOffset;
+              }
+
+              ctx.fillStyle = '#ffffff';
+              ctx.beginPath();
+              ctx.arc(eye1X, eye1Y, eyeRadius, 0, Math.PI * 2);
+              ctx.arc(eye2X, eye2Y, eyeRadius, 0, Math.PI * 2);
+              ctx.fill();
+
+              ctx.fillStyle = '#0f172a';
+              ctx.beginPath();
+              ctx.arc(eye1X + dir.x * 1.5, eye1Y + dir.y * 1.5, pupilRadius, 0, Math.PI * 2);
+              ctx.arc(eye2X + dir.x * 1.5, eye2Y + dir.y * 1.5, pupilRadius, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Snake render error:', err);
       }
 
       animId = requestAnimationFrame(renderLoop);
