@@ -341,21 +341,15 @@ function App() {
               return col.filter(t => t.id !== firstTile.id && t.id !== secondTile.id);
             });
 
-            // 如果储备池还有牌，执行「静默随机深度下沉融入」机制：
-            // 1. 全盘随机挑选 2 个远端不同列的深处坐标 (loc1, loc2)，将新的一对卡片 (frac, pct) 分别空投植入
-            // 2. 将 loc1 和 loc2 原本的 2 张旧卡片随机插入到有空位的列中（深度完全随机，打破顶部规律）
-            // 3. 彻底去除新牌专有动效，静默无感融入，肉眼完全无法通过视觉捷径作弊
+            // 如果储备池还有牌，执行「8卡 3D 翻转置换打散」机制：
+            // 1. 全盘随机挑选 6 个分布在不同列和深度的坐标 (locs)
+            // 2. 将这 6 个坐标原本的旧卡片 + 储备池新的一对卡片 (共 8 张卡片) 放到一起全局深度打乱
+            // 3. 将打乱后的前 6 张放回这 6 个坐标，后 2 张补入有空位的列顶部（全部带上 isFlipping: true 动效）
+            // 4. 8 张卡片同时在 4 根立柱中触发丝滑 3D 翻转，全盘 1/3 的卡片都在动，眼睛完全分不清谁是新牌！
             if (hasReserve && pair) {
               const swap = Math.random() > 0.5;
               const card1 = swap ? pair.pct : pair.frac;
               const card2 = swap ? pair.frac : pair.pct;
-
-              const insertRandomDepth = (col, card) => {
-                const insertIdx = Math.floor(Math.random() * (col.length + 1));
-                const nextCol = [...col];
-                nextCol.splice(insertIdx, 0, card);
-                return nextCol;
-              };
 
               // 收集场上所有现存的有效卡片坐标
               const activeLocs = [];
@@ -365,56 +359,52 @@ function App() {
                 });
               });
 
-              if (activeLocs.length >= 2) {
-                // 深度打乱抽取 2 个来自不同列的坐标
-                for (let i = activeLocs.length - 1; i > 0; i--) {
-                  const j = Math.floor(Math.random() * (i + 1));
-                  [activeLocs[i], activeLocs[j]] = [activeLocs[j], activeLocs[i]];
-                }
-                const loc1 = activeLocs[0];
-                const loc2 = activeLocs.find(l => l.cIdx !== loc1.cIdx) || activeLocs[1];
+              // 深度打乱抽取至多 6 个坐标
+              for (let i = activeLocs.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [activeLocs[i], activeLocs[j]] = [activeLocs[j], activeLocs[i]];
+              }
+              const numToPick = Math.min(6, activeLocs.length);
+              const chosenLocs = activeLocs.slice(0, numToPick);
+              const oldTiles = chosenLocs.map(l => l.tile);
 
-                const oldTile1 = newCols[loc1.cIdx][loc1.rIdx];
-                const oldTile2 = newCols[loc2.cIdx][loc2.rIdx];
+              // 组成 8 张卡片的动态打散池 (2 张新牌 + 6 张旧牌)
+              const poolToShuffle = [card1, card2, ...oldTiles];
+              for (let i = poolToShuffle.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [poolToShuffle[i], poolToShuffle[j]] = [poolToShuffle[j], poolToShuffle[i]];
+              }
 
-                // 1. 将全新的一对卡片植入深处随机坐标 loc1 和 loc2
-                newCols[loc1.cIdx][loc1.rIdx] = card1;
-                newCols[loc2.cIdx][loc2.rIdx] = card2;
+              // 1. 将打乱后的前 numToPick 张卡片置入选中的 chosenLocs
+              for (let i = 0; i < chosenLocs.length; i++) {
+                const loc = chosenLocs[i];
+                newCols[loc.cIdx][loc.rIdx] = { ...poolToShuffle[i], isFlipping: true };
+              }
 
-                // 2. 收集所有可用的空槽位（一列有几个空位就记录几次）
-                const freeSlots = [];
-                for (let c = 0; c < 4; c++) {
-                  const needed = 6 - newCols[c].length;
-                  for (let k = 0; k < needed; k++) {
-                    freeSlots.push(c);
-                  }
-                }
-
-                // 3. 将被置换出来的 2 张旧卡片随机下沉插入到有空位的列中
-                if (freeSlots.length >= 2) {
-                  const t1 = freeSlots[0];
-                  const t2 = freeSlots[1];
-                  newCols[t1] = insertRandomDepth(newCols[t1], oldTile1);
-                  newCols[t2] = insertRandomDepth(newCols[t2], oldTile2);
-                } else if (freeSlots.length === 1) {
-                  const t1 = freeSlots[0];
-                  newCols[t1] = insertRandomDepth(newCols[t1], oldTile1);
-                }
-              } else {
-                // 兜底（局末剩余极少卡片时直接补入）
-                const freeSlots = [];
-                for (let c = 0; c < 4; c++) {
-                  const needed = 6 - newCols[c].length;
-                  for (let k = 0; k < needed; k++) {
-                    freeSlots.push(c);
-                  }
-                }
-
-                if (freeSlots.length >= 2) {
-                  newCols[freeSlots[0]] = insertRandomDepth(newCols[freeSlots[0]], card1);
-                  newCols[freeSlots[1]] = insertRandomDepth(newCols[freeSlots[1]], card2);
+              // 2. 收集所有可用的空槽位
+              const freeSlots = [];
+              for (let c = 0; c < 4; c++) {
+                const needed = 6 - newCols[c].length;
+                for (let k = 0; k < needed; k++) {
+                  freeSlots.push(c);
                 }
               }
+
+              // 3. 将打散池剩余的 2 张卡片补入空槽
+              const remainingTiles = poolToShuffle.slice(numToPick);
+              if (freeSlots.length >= 2 && remainingTiles.length >= 2) {
+                newCols[freeSlots[0]] = [{ ...remainingTiles[0], isFlipping: true }, ...newCols[freeSlots[0]]];
+                newCols[freeSlots[1]] = [{ ...remainingTiles[1], isFlipping: true }, ...newCols[freeSlots[1]]];
+              } else if (freeSlots.length >= 1 && remainingTiles.length >= 1) {
+                newCols[freeSlots[0]] = [{ ...remainingTiles[0], isFlipping: true }, ...newCols[freeSlots[0]]];
+              }
+
+              // 380ms 后清除 isFlipping 动效标记
+              setTimeout(() => {
+                setGameColumns(curCols => {
+                  return curCols.map(col => col.map(t => ({ ...t, isFlipping: false })));
+                });
+              }, 380);
             }
 
             return newCols;
@@ -935,14 +925,14 @@ function App() {
                     const isSelected = selectedTile?.tileId === tile.id;
                     const isMismatch = tile.isMismatching;
                     const isMatched = tile.isMatched;
-                    const isDropping = tile.isDropping;
+                    const isFlipping = tile.isFlipping;
                     const isHinted = hintedTileIds.includes(tile.id);
 
                     let tileClass = `game-tile tile-${tile.type}`;
                     if (isSelected) tileClass += ' tile-selected';
                     if (isMismatch) tileClass += ' tile-mismatch';
                     if (isMatched) tileClass += ' tile-matched';
-                    if (isDropping) tileClass += ' tile-dropping';
+                    if (isFlipping) tileClass += ' tile-flipping';
                     if (isHinted) tileClass += ' tile-hint-pulse';
 
                     return (
