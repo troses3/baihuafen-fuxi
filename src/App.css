@@ -1011,17 +1011,17 @@ body {
   align-items: center;
   justify-content: center;
   background: #f8fafc;
-  padding: 0.25rem 0.95rem;
+  padding: 0.22rem 0.85rem;
   border-radius: 100px;
   border: 1px solid #e2e8f0;
   box-shadow: none;
 }
 
 .game-timer-display {
-  font-size: 1.55rem;
+  font-size: 1.32rem;
   font-weight: 850;
   color: #0f172a;
-  letter-spacing: 0.05rem;
+  letter-spacing: 0.04rem;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
@@ -1502,7 +1502,7 @@ body {
     font-size: 1.12rem;
   }
   .game-timer-display {
-    font-size: 1.55rem;
+    font-size: 1.22rem;
   }
 }
 
