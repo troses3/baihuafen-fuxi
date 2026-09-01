@@ -1857,11 +1857,11 @@ function App() {
 
         const currentSpeedConfig = RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevelRef.current) || RHYTHM_SPEEDS[1];
         
-        // 🚀 30 题平滑递进加速（用户设定的移速即为终局第 30 题所能达到的最高峰值 100%）：
-        // 前期从稳健的 65% 起步 -> 随题量递进加速 -> 第 30 题冲刺达到用户所选的 100% 极速
+        // 🚀 30 题鲜明递进加速（线性提升，题题有感，第 30 题达到设定的 100% 极限峰值）：
+        // 第 1 题从 50% 稳健起步 -> 第 15 题达到 75% -> 第 30 题达到 100% 峰值极速 (整局速度翻倍 2x)
         const qIdx = rhythmQuestionIndexRef.current || 0;
         const progressRatio = Math.min(1.0, qIdx / 29);
-        const dynamicSpeedMultiplier = 0.65 + 0.35 * Math.pow(progressRatio, 1.15);
+        const dynamicSpeedMultiplier = 0.50 + 0.50 * progressRatio;
 
         const effectiveSpeed = currentSpeedConfig.speed * dynamicSpeedMultiplier;
         const speedProgress = (effectiveSpeed * 0.0001) * dt;
