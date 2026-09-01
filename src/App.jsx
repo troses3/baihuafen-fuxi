@@ -1700,61 +1700,6 @@ function App() {
         return nextCombo;
       });
 
-      // 1. Ethereal Ascension Light Pillar on hit lane
-      rhythmParticlesRef.current.push({
-        type: 'pillar',
-        lane: laneIndex,
-        color: judgeColor,
-        alpha: 0.75,
-        decay: 0.045,
-      });
-
-      // 2. High-End Double Expanding Perspective Shockwaves
-      // Inner crisp high-luminosity ring
-      rhythmParticlesRef.current.push({
-        type: 'ripple',
-        x: padCenterX,
-        y: padCenterY,
-        radius: 12,
-        color: '#ffffff',
-        alpha: 1.0,
-        decay: 0.038,
-        speed: 3.2,
-      });
-      // Outer chromatic bloom halo
-      rhythmParticlesRef.current.push({
-        type: 'ripple',
-        x: padCenterX,
-        y: padCenterY,
-        radius: 6,
-        color: judgeColor,
-        alpha: 0.85,
-        decay: 0.032,
-        speed: 2.4,
-      });
-
-      // 3. Rotating Diamond Starbursts & Stardust Sparks (璀璨星芒与飞旋晶粒)
-      for (let i = 0; i < 24; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const spd = 2.0 + Math.random() * 6.5;
-        const isDiamondStar = i % 3 === 0;
-
-        rhythmParticlesRef.current.push({
-          type: isDiamondStar ? 'diamondStar' : 'spark',
-          x: padCenterX,
-          y: padCenterY,
-          vx: Math.cos(angle) * spd,
-          vy: Math.sin(angle) * spd - (isDiamondStar ? 2.0 : 1.2),
-          gravity: 0.08,
-          rot: Math.random() * Math.PI,
-          rotSpeed: (Math.random() - 0.5) * 0.25,
-          size: isDiamondStar ? (4.5 + Math.random() * 4.5) : (2.0 + Math.random() * 3.0),
-          color: [judgeColor, '#ffffff', '#60a5fa', '#fef08a'][i % 4],
-          alpha: 1,
-          decay: 0.026 + Math.random() * 0.018,
-        });
-      }
-
       rhythmJudgementRef.current = {
         text: judgeText,
         color: judgeColor,
@@ -1787,38 +1732,6 @@ function App() {
         }
         return nextLives;
       });
-
-      // Red Miss Impact Ripple
-      rhythmParticlesRef.current.push({
-        type: 'ripple',
-        x: padCenterX,
-        y: padCenterY,
-        radius: 10,
-        color: '#dc2626',
-        alpha: 0.9,
-        decay: 0.045,
-        speed: 2.8,
-      });
-
-      // Shattered Crystal Shards
-      for (let i = 0; i < 20; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const spd = 2.5 + Math.random() * 5.5;
-        rhythmParticlesRef.current.push({
-          type: 'shard',
-          x: padCenterX,
-          y: padCenterY,
-          vx: Math.cos(angle) * spd,
-          vy: Math.sin(angle) * spd - 1.5,
-          gravity: 0.12,
-          rot: Math.random() * Math.PI,
-          rotSpeed: (Math.random() - 0.5) * 0.3,
-          size: 3 + Math.random() * 4,
-          color: i % 2 === 0 ? '#ef4444' : '#64748b',
-          alpha: 1,
-          decay: 0.035,
-        });
-      }
 
       rhythmJudgementRef.current = {
         text: 'MISS',
@@ -2071,68 +1984,6 @@ function App() {
           }
         }
 
-        // 🌌 Ambient 3D Track Stardust Stream (赛道空间流光浮尘)
-        let amb = rhythmAmbientParticlesRef.current;
-        if (!amb || amb.length === 0) {
-          amb = [];
-          for (let k = 0; k < 18; k++) {
-            amb.push({
-              laneK: Math.random() * 4,
-              t: Math.random(),
-              speed: 0.00015 + Math.random() * 0.0002,
-              size: 1.2 + Math.random() * 2.0,
-              alpha: 0.25 + Math.random() * 0.45,
-              hue: Math.random() > 0.5 ? '#60a5fa' : '#c084fc',
-            });
-          }
-          rhythmAmbientParticlesRef.current = amb;
-        }
-        amb.forEach(p => {
-          p.t += p.speed * dt * (currentSpeedConfig.speed / 18);
-          if (p.t > 1.05) {
-            p.t = -0.02;
-            p.laneK = Math.random() * 4;
-          }
-          const px = xAt(p.laneK, p.t);
-          const py = yAt(p.t);
-          const pAlpha = p.alpha * Math.sin(Math.max(0, Math.min(1, p.t)) * Math.PI);
-          ctx.fillStyle = p.hue;
-          ctx.globalAlpha = pAlpha;
-          ctx.beginPath();
-          ctx.arc(px, py, p.size * (0.6 + 0.8 * p.t), 0, Math.PI * 2);
-          ctx.fill();
-        });
-        ctx.globalAlpha = 1.0;
-
-        // Side Neon Glowing Border Rails (Vibrant Royal Blue with Traveling Pulse)
-        ctx.save();
-        ctx.strokeStyle = '#2563eb';
-        ctx.lineWidth = 2.8;
-        ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.moveTo(xTop(0), Y_SPAWN);
-        ctx.lineTo(xEnd(0), Y_END);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(xTop(4), Y_SPAWN);
-        ctx.lineTo(xEnd(4), Y_END);
-        ctx.stroke();
-
-        // Traveling Light Pulses on Rails
-        const railPulseT = (time * 0.0005) % 1.0;
-        const pulseY = yAt(railPulseT);
-        const pulseLX = xAt(0, railPulseT);
-        const pulseRX = xAt(4, railPulseT);
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = '#60a5fa';
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(pulseLX, pulseY, 3.2, 0, Math.PI * 2);
-        ctx.arc(pulseRX, pulseY, 3.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
         // 📐 Helper: Perfect 3D Perspective Rounded Slab Path (透视圆角多边形绘制引擎)
         const tracePerspectiveRoundedSlab = (xTL, yTL, xTR, yTR, xBR, yBR, xBL, yBL, radius) => {
           const r = Math.max(2, Math.min(radius, (yBL - yTL) * 0.45, (xTR - xTL) * 0.35));
@@ -2143,26 +1994,6 @@ function App() {
           ctx.arcTo(xBL, yBL, xTL, yTL, r);
           ctx.arcTo(xTL, yTL, xTR, yTR, r);
           ctx.closePath();
-        };
-
-        // 🌟 Helper: Draw 4-Point Radiant Diamond Star (璀璨四角星芒)
-        const drawDiamondStar = (cx, cy, size, angle, color, alpha) => {
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.rotate(angle);
-          ctx.fillStyle = color;
-          ctx.globalAlpha = alpha;
-          ctx.shadowColor = color;
-          ctx.shadowBlur = 6;
-          ctx.beginPath();
-          ctx.moveTo(0, -size);
-          ctx.quadraticCurveTo(0, 0, size * 0.85, 0);
-          ctx.quadraticCurveTo(0, 0, 0, size);
-          ctx.quadraticCurveTo(0, 0, -size * 0.85, 0);
-          ctx.quadraticCurveTo(0, 0, 0, -size);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
         };
 
         // 3D Perspective Hit Receptor Pads (4 块浅色典雅圆角立体打击靶位)
@@ -2185,8 +2016,6 @@ function App() {
 
           if (isPressed) {
             ctx.fillStyle = '#2563eb';
-            ctx.shadowColor = 'rgba(37, 99, 235, 0.6)';
-            ctx.shadowBlur = 18;
             ctx.fill();
             ctx.strokeStyle = '#1d4ed8';
             ctx.lineWidth = 2.5;
@@ -2218,7 +2047,7 @@ function App() {
         ctx.lineTo(xAt(4, 1.0), Y_HIT);
         ctx.stroke();
 
-        // 💎 Draw Falling Waves as Exquisite Perspective Rounded Slabs (每个数字的精美圆角容器 + 流光尾影)
+        // 💎 Draw Falling Waves as Exquisite Perspective Rounded Slabs (每个数字的精美圆角容器)
         const waves = rhythmNotesRef.current;
         const NOTE_LENGTH_T = 0.075;
 
@@ -2239,24 +2068,6 @@ function App() {
             const pBR = { x: xAt(n.lane + 1, tFront) - margin, y: yFront };
             const pBL = { x: xAt(n.lane, tFront) + margin, y: yFront };
             const slabRadius = Math.max(3, 10 * tFront);
-
-            // 0. High-Speed Luminous Comet Trail (流光彗星尾迹)
-            const tTailBack = Math.max(0.0, tBack - 0.045 * tFront);
-            const yTailBack = yAt(tTailBack);
-            const trailMargin = margin * 1.15;
-            const pTailTL = { x: xAt(n.lane, tTailBack) + trailMargin, y: yTailBack };
-            const pTailTR = { x: xAt(n.lane + 1, tTailBack) - trailMargin, y: yTailBack };
-            const trailGrad = ctx.createLinearGradient(0, yTailBack, 0, yBack);
-            trailGrad.addColorStop(0, 'rgba(59, 130, 246, 0)');
-            trailGrad.addColorStop(1, 'rgba(59, 130, 246, 0.22)');
-            ctx.fillStyle = trailGrad;
-            ctx.beginPath();
-            ctx.moveTo(pTailTL.x, pTailTL.y);
-            ctx.lineTo(pTailTR.x, pTailTR.y);
-            ctx.lineTo(pTR.x, yBack);
-            ctx.lineTo(pTL.x, yBack);
-            ctx.closePath();
-            ctx.fill();
 
             // 1. Soft Floor Shadow Under the Note Slab
             const shadowOffset = 2 + 5 * tFront;
@@ -2319,108 +2130,6 @@ function App() {
             ctx.restore();
           });
         });
-
-        // 💥 Render High-End Particles (Pillars, Ripples, Diamond Stars, Shards)
-        const particles = rhythmParticlesRef.current;
-        for (let i = particles.length - 1; i >= 0; i--) {
-          const p = particles[i];
-
-          if (p.type === 'pillar') {
-            // Ethereal Ascension Laser Beam Pillar
-            p.alpha -= p.decay;
-            if (p.alpha <= 0) {
-              particles.splice(i, 1);
-              continue;
-            }
-            const l = p.lane;
-            const pGrad = ctx.createLinearGradient(0, Y_HIT, 0, Y_SPAWN);
-            pGrad.addColorStop(0, `rgba(59, 130, 246, ${p.alpha * 0.8})`);
-            pGrad.addColorStop(0.3, `rgba(99, 102, 241, ${p.alpha * 0.5})`);
-            pGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-            ctx.fillStyle = pGrad;
-            ctx.beginPath();
-            ctx.moveTo(xTop(l), Y_SPAWN);
-            ctx.lineTo(xTop(l + 1), Y_SPAWN);
-            ctx.lineTo(xBot(l + 1), Y_HIT);
-            ctx.lineTo(xBot(l), Y_HIT);
-            ctx.closePath();
-            ctx.fill();
-          } else if (p.type === 'ripple') {
-            // 3D Perspective Elliptical Shockwave Ring
-            p.radius += (p.speed || 3.0);
-            p.alpha -= p.decay;
-            if (p.alpha <= 0) {
-              particles.splice(i, 1);
-              continue;
-            }
-
-            ctx.save();
-            ctx.strokeStyle = p.color;
-            ctx.lineWidth = Math.max(1, 3.2 * p.alpha);
-            ctx.globalAlpha = p.alpha;
-            ctx.shadowColor = p.color;
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.ellipse(p.x, p.y, p.radius * 1.35, p.radius * 0.42, 0, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-          } else if (p.type === 'diamondStar') {
-            // Rotating Diamond Starburst
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += (p.gravity || 0.08);
-            p.rot += (p.rotSpeed || 0.1);
-            p.alpha -= p.decay;
-            if (p.alpha <= 0) {
-              particles.splice(i, 1);
-              continue;
-            }
-            drawDiamondStar(p.x, p.y, p.size, p.rot, p.color, p.alpha);
-          } else if (p.type === 'shard') {
-            // Shattered Glass Shard
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += (p.gravity || 0.12);
-            p.rot += (p.rotSpeed || 0.15);
-            p.alpha -= p.decay;
-            if (p.alpha <= 0) {
-              particles.splice(i, 1);
-              continue;
-            }
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate(p.rot);
-            ctx.fillStyle = p.color;
-            ctx.globalAlpha = p.alpha;
-            ctx.beginPath();
-            ctx.moveTo(0, -p.size);
-            ctx.lineTo(p.size * 0.7, p.size * 0.7);
-            ctx.lineTo(-p.size * 0.7, p.size * 0.4);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-          } else {
-            // Circular Sparkle
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += (p.gravity || 0.05);
-            p.alpha -= p.decay;
-            if (p.alpha <= 0) {
-              particles.splice(i, 1);
-              continue;
-            }
-
-            ctx.save();
-            ctx.fillStyle = p.color;
-            ctx.globalAlpha = p.alpha;
-            ctx.shadowColor = p.color;
-            ctx.shadowBlur = 4;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-          }
-        }
 
         // Center Floating Judgement Feedback (S-PERFECT / PERFECT / GREAT + Combo)
         const judge = rhythmJudgementRef.current;
