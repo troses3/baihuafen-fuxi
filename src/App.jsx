@@ -2109,7 +2109,9 @@ function App() {
             ctx.shadowColor = 'rgba(15, 23, 42, 0.6)';
             ctx.shadowBlur = 4;
             ctx.fillText(n.value, 0, 0);
-            ctx.restore();
+            ctx.restore(); // restore text transform
+
+            ctx.restore(); // restore note body
           });
         });
 
