@@ -42,9 +42,12 @@ function getHapticElements() {
 // iOS Taptic click via simulated switch toggle
 function iosClick() {
   try {
-    const { hapticLabel } = getHapticElements();
+    const { hapticSwitch, hapticLabel } = getHapticElements();
     if (hapticLabel) {
       hapticLabel.click();
+    }
+    if (hapticSwitch) {
+      hapticSwitch.click();
     }
   } catch (e) {}
 }

@@ -31,10 +31,10 @@ body {
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
-  padding: 0.45rem 1rem calc(4.5rem + env(safe-area-inset-bottom)) 1rem;
+  padding: 0.15rem 0.85rem calc(4.2rem + env(safe-area-inset-bottom)) 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.4rem;
   box-sizing: border-box;
   min-height: 100dvh;
 }
@@ -1853,6 +1853,7 @@ body {
   align-items: center;
   width: 100%;
   box-sizing: border-box;
+  margin-top: -0.15rem;
 }
 
 .snake-stage-header {
@@ -1860,7 +1861,7 @@ body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.32rem;
   padding: 0 0.15rem;
   box-sizing: border-box;
 }
@@ -1886,29 +1887,29 @@ body {
   flex: 1;
 }
 
-/* 🎯 独立一行的本轮捕食目标 Banner (超大字突出核心有效数字) */
+/* 🎯 独立一行的本轮捕食目标 Banner (紧凑上移设计) */
 .snake-target-banner {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
   width: 100%;
-  padding: 0.5rem 1rem;
+  padding: 0.32rem 0.85rem;
   background: #ffffff;
   border: 1.5px solid #dbeafe;
-  border-radius: 16px;
-  margin-bottom: 0.55rem;
+  border-radius: 14px;
+  margin-bottom: 0.35rem;
   box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.08);
+  box-shadow: 0 3px 12px rgba(59, 130, 246, 0.07);
 }
 
 .target-banner-badge {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 800;
   color: #1d4ed8;
   background: #eff6ff;
-  padding: 0.22rem 0.6rem;
-  border-radius: 8px;
+  padding: 0.18rem 0.5rem;
+  border-radius: 6px;
   border: 1px solid #bfdbfe;
   letter-spacing: 0.02rem;
 }
@@ -1921,14 +1922,14 @@ body {
 
 .target-banner-val .num-prefix,
 .target-banner-val .num-suffix {
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: #94a3b8;
   margin: 0 0.05rem;
 }
 
 .target-banner-val .num-main {
-  font-size: 1.65rem;
+  font-size: 1.5rem;
   font-weight: 900;
   color: #1e3a8a;
   letter-spacing: 0.02rem;
@@ -1961,10 +1962,10 @@ body {
   width: 100%;
   aspect-ratio: 1 / 1;
   background: #ffffff;
-  border-radius: 24px;
+  border-radius: 22px;
   border: 1.5px solid #e2e8f0;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
   margin: 0;
   touch-action: none; /* 禁用默认触摸滚动，启用滑动手势 */
   box-sizing: border-box;
@@ -2006,42 +2007,19 @@ body {
   display: block;
 }
 
-/* 底部滑动/轻触手势提示条 */
-.snake-hint-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 0.45rem;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.hint-pill {
-  font-size: 0.74rem;
-  font-weight: 750;
-  color: #64748b;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  padding: 0.28rem 0.85rem;
-  border-radius: 100px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-}
-
 /* ⚡ 贪吃蛇移速调节滑块条 */
 .snake-speed-slider-bar {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.3rem;
   background: #ffffff;
   border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 0.5rem 0.85rem;
-  margin-top: 0.55rem;
+  border-radius: 14px;
+  padding: 0.38rem 0.8rem;
+  margin-top: 0.35rem;
   box-sizing: border-box;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
 }
 
 .speed-slider-label {
