@@ -1592,13 +1592,13 @@ function App() {
     }
     const distractorVals = pool.slice(0, 3).map(p => isPromptFrac ? p.percent : p.fraction);
 
-    // 随机鲜明的 3D 纵向阶梯错落（大幅提升错落感与街机律动瀑布感，错落跨度约 ±0.08 ~ 30-40px）
-    const baseShifts = [-0.075, -0.025, 0.025, 0.075];
+    // 随机鲜明的 3D 纵向阶梯错落（大幅提升错落感与街机律动瀑布感，错落跨度扩展至 ±0.16 ~ 80-120px）
+    const baseShifts = [-0.16, -0.05, 0.05, 0.16];
     for (let i = baseShifts.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [baseShifts[i], baseShifts[j]] = [baseShifts[j], baseShifts[i]];
     }
-    const rawOffsets = baseShifts.map(s => s + (Math.random() - 0.5) * 0.015);
+    const rawOffsets = baseShifts.map(s => s + (Math.random() - 0.5) * 0.025);
 
     const correctLane = Math.floor(Math.random() * 4);
     const notes = [];
@@ -2179,7 +2179,7 @@ function App() {
         const waves = rhythmNotesRef.current;
 
         waves.forEach(w => {
-          if (w.resolved || w.t < -0.15 || w.t > progressToEnd + 0.15) return;
+          if (w.resolved || w.t < -0.35 || w.t > progressToEnd + 0.35) return;
 
           const currentScale = 0.35 + 0.65 * Math.max(0, Math.min(1.0, w.t));
           w.notes.forEach(n => {
@@ -2187,7 +2187,7 @@ function App() {
 
             // 各音符独立微错落 3D 纵向位移（随 3D 透视等比缩放，地面物理间距绝对恒定）
             const tn = w.t + (n.tOffset || 0) * currentScale;
-            if (tn < -0.15 || tn > progressToEnd + 0.15) return;
+            if (tn < -0.35 || tn > progressToEnd + 0.35) return;
 
             const tCenter = Math.max(0, Math.min(1.2, tn));
             // 纵向透视收缩因子：保持轻薄扁平横向胶囊（0.04 基准），远端绝不变方形/立柱
