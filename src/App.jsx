@@ -1612,9 +1612,9 @@ function App() {
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const W = rect.width || 360;
-    const H = rect.height || 520;
-    const Y_HIT = H * 0.86;
-    const W_BOT = W * 0.94;
+    const H = rect.height || 420;
+    const Y_HIT = H * 0.80;
+    const W_BOT = W * 0.92;
 
     const xBotL = (W / 2) - (W_BOT / 2) + laneIndex * (W_BOT / 4);
     const xBotR = (W / 2) - (W_BOT / 2) + (laneIndex + 1) * (W_BOT / 4);
@@ -1627,8 +1627,8 @@ function App() {
     if (!wave || wave.resolved) return;
 
     const dt = Math.abs(wave.t - 1.0);
-    // If tapped way too early or way too late: empty tap
-    if (dt > 0.38) {
+    // 判定区域与视觉打击框严密吻合 (靶位跨度 ±0.07，有效判定窗口 ±0.14)
+    if (dt > 0.14) {
       rhythmParticlesRef.current.push({
         type: 'ripple',
         x: padCenterX,
@@ -1651,14 +1651,14 @@ function App() {
 
       let pts = 100;
       let judgeText = 'GREAT!';
-      let judgeColor = '#2563eb';
+      let judgeColor = '#7c3aed';
 
-      if (dt <= 0.09) {
+      if (dt <= 0.045) {
         pts = 300;
         judgeText = 'S-PERFECT!!';
         judgeColor = '#d97706';
         setRhythmHitCounts(h => ({ ...h, perfect: h.perfect + 1 }));
-      } else if (dt <= 0.22) {
+      } else if (dt <= 0.085) {
         pts = 180;
         judgeText = 'PERFECT';
         judgeColor = '#2563eb';
@@ -1753,12 +1753,12 @@ function App() {
     const tapX = e.clientX - rect.left;
     const tapY = e.clientY - rect.top;
     const W = rect.width || 360;
-    const H = rect.height || 520;
+    const H = rect.height || 420;
 
     const Y_SPAWN = H * 0.06;
-    const Y_HIT = H * 0.86;
+    const Y_HIT = H * 0.80;
     const W_TOP = W * 0.32;
-    const W_BOT = W * 0.94;
+    const W_BOT = W * 0.92;
 
     // Progress at tapY
     const t = Math.max(0.0, Math.min(1.2, (tapY - Y_SPAWN) / (Y_HIT - Y_SPAWN)));
