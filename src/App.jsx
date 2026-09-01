@@ -10,6 +10,7 @@ const MATCH_SUBMODE_KEY = 'baihuafen-match-submode';
 const SNAKE_SPEED_KEY = 'baihuafen-snake-speed-level';
 const RHYTHM_SPEED_KEY = 'baihuafen-rhythm-speed-level';
 const RHYTHM_BEST_SCORE_KEY = 'baihuafen-rhythm-highscore';
+const RHYTHM_BGM_MUTED_KEY = 'baihuafen-rhythm-bgm-muted';
 
 const SNAKE_SPEEDS = [
   { level: 1, label: '🐢 悠闲 (450ms)', shortLabel: '悠闲', tick: 450 },
@@ -239,6 +240,54 @@ function App() {
   useEffect(() => {
     rhythmSpeedLevelRef.current = rhythmSpeedLevel;
   }, [rhythmSpeedLevel]);
+
+  const [isRhythmBgmMuted, setIsRhythmBgmMuted] = useState(() => {
+    try {
+      const saved = localStorage.getItem(RHYTHM_BGM_MUTED_KEY);
+      return saved === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+  const rhythmBgmRef = useRef(null);
+
+  useEffect(() => {
+    const audio = new Audio('/audio/rhythm_bgm.mp3');
+    audio.loop = true;
+    audio.volume = 0.55;
+    audio.preload = 'auto';
+    rhythmBgmRef.current = audio;
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+    };
+  }, []);
+
+  useEffect(() => {
+    const audio = rhythmBgmRef.current;
+    if (!audio) return;
+
+    if (
+      quizMode === 'rhythmGame' &&
+      !isRhythmBgmMuted &&
+      !isRhythmPaused &&
+      !isRhythmGameOver &&
+      !isRhythmVictory
+    ) {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // Autoplay was blocked; will resume on first user touch/tap
+        });
+      }
+    } else {
+      audio.pause();
+      if (quizMode !== 'rhythmGame' || isRhythmGameOver || isRhythmVictory) {
+        audio.currentTime = 0;
+      }
+    }
+  }, [quizMode, isRhythmBgmMuted, isRhythmPaused, isRhythmGameOver, isRhythmVictory]);
 
   const rhythmCanvasRef = useRef(null);
   const rhythmNotesRef = useRef([]);
@@ -1631,7 +1680,12 @@ function App() {
     setIsRhythmGameOver(false);
     setIsRhythmVictory(false);
     setIsRhythmNewRecord(false);
-  }, [generateRhythmTargetAndWave]);
+
+    if (!isRhythmBgmMuted && rhythmBgmRef.current) {
+      rhythmBgmRef.current.currentTime = 0;
+      rhythmBgmRef.current.play().catch(() => {});
+    }
+  }, [generateRhythmTargetAndWave, isRhythmBgmMuted]);
 
   const spawnNextRhythmQuestion = useCallback(() => {
     if (!isRhythmRunningRef.current) return;
@@ -1660,6 +1714,10 @@ function App() {
     if (isRhythmPaused || isRhythmGameOver || isRhythmVictory || !isRhythmRunningRef.current) return;
     triggerHaptic('tap');
     
+    if (!isRhythmBgmMuted && rhythmBgmRef.current && rhythmBgmRef.current.paused) {
+      rhythmBgmRef.current.play().catch(() => {});
+    }
+
     // Light up lane in 3D
     rhythmActiveLanesRef.current[laneIndex] = performance.now();
 
@@ -3169,6 +3227,33 @@ function App() {
                   ) : (
                     <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
                       <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                  )}
+                </button>
+
+                <button 
+                  className={`game-ctrl-btn ${isRhythmBgmMuted ? 'bgm-muted' : ''}`}
+                  onClick={() => {
+                    triggerHaptic('tap');
+                    setIsRhythmBgmMuted(prev => {
+                      const next = !prev;
+                      try { localStorage.setItem(RHYTHM_BGM_MUTED_KEY, String(next)); } catch (e) {}
+                      return next;
+                    });
+                  }}
+                  title={isRhythmBgmMuted ? "开启背景音乐" : "关闭背景音乐"}
+                >
+                  {isRhythmBgmMuted ? (
+                    <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                      <line x1="23" y1="9" x2="17" y2="15" />
+                      <line x1="17" y1="9" x2="23" y2="15" />
+                    </svg>
+                  ) : (
+                    <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                     </svg>
                   )}
                 </button>

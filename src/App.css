@@ -1006,6 +1006,12 @@ body {
   transform: scale(0.92);
 }
 
+.game-ctrl-btn.bgm-muted {
+  color: #94a3b8;
+  background: rgba(241, 245, 249, 0.7);
+  opacity: 0.78;
+}
+
 .ctrl-svg-icon {
   display: block;
   transition: transform 0.15s ease;
