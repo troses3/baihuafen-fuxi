@@ -31,10 +31,10 @@ body {
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
-  padding: 0.15rem 0.85rem calc(4.2rem + env(safe-area-inset-bottom)) 0.85rem;
+  padding: 0.05rem 0.85rem calc(4.2rem + env(safe-area-inset-bottom)) 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.25rem;
   box-sizing: border-box;
   min-height: 100dvh;
 }
@@ -49,7 +49,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.12rem;
   padding: 0 0.15rem;
   position: relative;
 }
@@ -1853,7 +1853,7 @@ body {
   align-items: center;
   width: 100%;
   box-sizing: border-box;
-  margin-top: -0.15rem;
+  margin-top: -0.28rem;
 }
 
 .snake-stage-header {
@@ -1861,7 +1861,7 @@ body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-bottom: 0.32rem;
+  margin-bottom: 0.22rem;
   padding: 0 0.15rem;
   box-sizing: border-box;
 }
@@ -1892,23 +1892,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
   width: 100%;
-  padding: 0.32rem 0.85rem;
+  padding: 0.25rem 0.75rem;
   background: #ffffff;
   border: 1.5px solid #dbeafe;
-  border-radius: 14px;
-  margin-bottom: 0.35rem;
+  border-radius: 12px;
+  margin-bottom: 0.25rem;
   box-sizing: border-box;
-  box-shadow: 0 3px 12px rgba(59, 130, 246, 0.07);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.06);
 }
 
 .target-banner-badge {
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 800;
   color: #1d4ed8;
   background: #eff6ff;
-  padding: 0.18rem 0.5rem;
+  padding: 0.16rem 0.45rem;
   border-radius: 6px;
   border: 1px solid #bfdbfe;
   letter-spacing: 0.02rem;
@@ -1922,14 +1922,14 @@ body {
 
 .target-banner-val .num-prefix,
 .target-banner-val .num-suffix {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #94a3b8;
   margin: 0 0.05rem;
 }
 
 .target-banner-val .num-main {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   font-weight: 900;
   color: #1e3a8a;
   letter-spacing: 0.02rem;
@@ -1962,7 +1962,7 @@ body {
   width: 100%;
   aspect-ratio: 1 / 1;
   background: #ffffff;
-  border-radius: 22px;
+  border-radius: 20px;
   border: 1.5px solid #e2e8f0;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
@@ -2012,14 +2012,14 @@ body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.22rem;
   background: #ffffff;
   border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 0.38rem 0.8rem;
-  margin-top: 0.35rem;
+  border-radius: 12px;
+  padding: 0.32rem 0.75rem;
+  margin-top: 0.25rem;
   box-sizing: border-box;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
 .speed-slider-label {
