@@ -1979,17 +1979,22 @@ function App() {
           ctx.closePath();
         };
 
+        // 📐 固定卡片像素高度（高度不随透视变形，宽度随透视自然拓宽）
+        const FIXED_NOTE_HEIGHT = 36;
+
         // 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位)
         const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
-        const tPadBack = 0.93;
-        const tPadFront = 1.07;
+        const yPadTop = Y_HIT - FIXED_NOTE_HEIGHT / 2;
+        const yPadBottom = Y_HIT + FIXED_NOTE_HEIGHT / 2;
+        const tPadTop = (yPadTop - Y_SPAWN) / (Y_HIT - Y_SPAWN);
+        const tPadBottom = (yPadBottom - Y_SPAWN) / (Y_HIT - Y_SPAWN);
 
         for (let l = 0; l < 4; l++) {
           const margin = 2.5;
-          const pTL = { x: xAt(l, tPadBack) + margin, y: yAt(tPadBack) };
-          const pTR = { x: xAt(l + 1, tPadBack) - margin, y: yAt(tPadBack) };
-          const pBR = { x: xAt(l + 1, tPadFront) - margin, y: yAt(tPadFront) };
-          const pBL = { x: xAt(l, tPadFront) + margin, y: yAt(tPadFront) };
+          const pTL = { x: xAt(l, tPadTop) + margin, y: yPadTop };
+          const pTR = { x: xAt(l + 1, tPadTop) - margin, y: yPadTop };
+          const pBR = { x: xAt(l + 1, tPadBottom) - margin, y: yPadBottom };
+          const pBL = { x: xAt(l, tPadBottom) + margin, y: yPadBottom };
 
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
           const isPressed = (time - lastPress) < 160;
@@ -2030,28 +2035,29 @@ function App() {
         ctx.lineTo(xAt(4, 1.0), Y_HIT);
         ctx.stroke();
 
-        // 💎 Draw Falling Waves as Exquisite Perspective Rounded Slabs (每个数字的高清立体圆角卡片，全程保持近端饱满高度)
+        // 💎 Draw Falling Waves (卡片高度严格恒定，宽度随轨道透视拓宽)
         const waves = rhythmNotesRef.current;
-        const NOTE_HALF_T = 0.07; // 全程保持近端判定靶位的饱满高度 (0.14T 跨度)
 
         waves.forEach(w => {
           if (w.resolved || w.t < -0.1 || w.t > progressToEnd + 0.1) return;
 
-          const tFront = w.t + NOTE_HALF_T;
-          const tBack = Math.max(-0.02, w.t - NOTE_HALF_T);
-          const yFront = yAt(tFront);
-          const yBack = yAt(tBack);
+          const centerY = yAt(w.t);
+          const yTop = centerY - FIXED_NOTE_HEIGHT / 2;
+          const yBottom = centerY + FIXED_NOTE_HEIGHT / 2;
+          const tTop = (yTop - Y_SPAWN) / (Y_HIT - Y_SPAWN);
+          const tBottom = (yBottom - Y_SPAWN) / (Y_HIT - Y_SPAWN);
           const tCenter = Math.max(0, Math.min(1.2, w.t));
 
           w.notes.forEach(n => {
             if (n.hit) return;
 
-            const margin = Math.max(2.0, 2.5 + 1.0 * tCenter);
-            const pTL = { x: xAt(n.lane, tBack) + margin, y: yBack };
-            const pTR = { x: xAt(n.lane + 1, tBack) - margin, y: yBack };
-            const pBR = { x: xAt(n.lane + 1, tFront) - margin, y: yFront };
-            const pBL = { x: xAt(n.lane, tFront) + margin, y: yFront };
-            const slabRadius = 8; // 与近端打击靶位保持一致的饱满圆角
+            const margin = Math.max(1.5, 2.5 * tCenter);
+            const pTL = { x: xAt(n.lane, tTop) + margin, y: yTop };
+            const pTR = { x: xAt(n.lane + 1, tTop) - margin, y: yTop };
+            const pBR = { x: xAt(n.lane + 1, tBottom) - margin, y: yBottom };
+            const pBL = { x: xAt(n.lane, tBottom) + margin, y: yBottom };
+            const cardW = pTR.x - pTL.x;
+            const slabRadius = Math.max(4, Math.min(8, cardW * 0.22, FIXED_NOTE_HEIGHT * 0.25));
 
             // 1. Soft Floor Shadow Under the Note Slab
             const shadowOffset = 3 + 4 * tCenter;
@@ -2071,7 +2077,7 @@ function App() {
             ctx.save();
             tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, slabRadius);
 
-            const noteGrad = ctx.createLinearGradient(0, yBack, 0, yFront);
+            const noteGrad = ctx.createLinearGradient(0, yTop, 0, yBottom);
             noteGrad.addColorStop(0, '#3b82f6');
             noteGrad.addColorStop(0.35, '#2563eb');
             noteGrad.addColorStop(0.85, '#1d4ed8');
@@ -2096,14 +2102,14 @@ function App() {
 
             // 4. Centered Continuous Vector Scaled Text (Zero-Jitter Smooth GPU Scaling)
             const noteCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
-            const noteCenterY = (yBack + yFront) / 2;
-            const textScale = 0.75 + 0.25 * tCenter;
+            const noteCenterY = centerY;
+            const textScale = Math.min(1.0, Math.max(0.68, cardW / 52));
 
             ctx.save();
             ctx.translate(noteCenterX, noteCenterY);
             ctx.scale(textScale, textScale);
             ctx.fillStyle = '#ffffff';
-            ctx.font = '900 16px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = '900 15px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.shadowColor = 'rgba(15, 23, 42, 0.6)';
