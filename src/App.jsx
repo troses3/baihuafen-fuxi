@@ -2030,30 +2030,31 @@ function App() {
         ctx.lineTo(xAt(4, 1.0), Y_HIT);
         ctx.stroke();
 
-        // 💎 Draw Falling Waves as Exquisite Perspective Rounded Slabs (每个数字的高清立体圆角卡片)
+        // 💎 Draw Falling Waves as Exquisite Perspective Rounded Slabs (每个数字的高清立体圆角卡片，全程保持近端饱满高度)
         const waves = rhythmNotesRef.current;
-        const NOTE_LENGTH_T = 0.075;
+        const NOTE_HALF_T = 0.07; // 全程保持近端判定靶位的饱满高度 (0.14T 跨度)
 
         waves.forEach(w => {
-          if (w.resolved || w.t < -0.05 || w.t > progressToEnd + 0.05) return;
+          if (w.resolved || w.t < -0.1 || w.t > progressToEnd + 0.1) return;
 
-          const tFront = w.t;
-          const tBack = Math.max(0.0, w.t - NOTE_LENGTH_T);
+          const tFront = w.t + NOTE_HALF_T;
+          const tBack = Math.max(-0.02, w.t - NOTE_HALF_T);
           const yFront = yAt(tFront);
           const yBack = yAt(tBack);
+          const tCenter = Math.max(0, Math.min(1.2, w.t));
 
           w.notes.forEach(n => {
             if (n.hit) return;
 
-            const margin = Math.max(1.5, 3.5 * tFront);
+            const margin = Math.max(2.0, 2.5 + 1.0 * tCenter);
             const pTL = { x: xAt(n.lane, tBack) + margin, y: yBack };
             const pTR = { x: xAt(n.lane + 1, tBack) - margin, y: yBack };
             const pBR = { x: xAt(n.lane + 1, tFront) - margin, y: yFront };
             const pBL = { x: xAt(n.lane, tFront) + margin, y: yFront };
-            const slabRadius = Math.max(3, 10 * tFront);
+            const slabRadius = 8; // 与近端打击靶位保持一致的饱满圆角
 
             // 1. Soft Floor Shadow Under the Note Slab
-            const shadowOffset = 2 + 5 * tFront;
+            const shadowOffset = 3 + 4 * tCenter;
             ctx.save();
             tracePerspectiveRoundedSlab(
               pTL.x, pTL.y + shadowOffset,
@@ -2062,7 +2063,7 @@ function App() {
               pBL.x, pBL.y + shadowOffset,
               slabRadius
             );
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.1)';
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.12)';
             ctx.fill();
             ctx.restore();
 
@@ -2080,7 +2081,7 @@ function App() {
 
             // Outer smooth glowing rim
             ctx.strokeStyle = 'rgba(147, 197, 253, 0.95)';
-            ctx.lineWidth = Math.max(1, 1.8 * tFront);
+            ctx.lineWidth = Math.max(1.2, 1.8 * tCenter);
             ctx.stroke();
 
             // 3. Top Shiny Specular Highlight Bar
@@ -2089,14 +2090,14 @@ function App() {
             ctx.moveTo(pTL.x + slabRadius, pTL.y + 1);
             ctx.lineTo(pTR.x - slabRadius, pTR.y + 1);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.lineWidth = Math.max(1, 1.6 * tFront);
+            ctx.lineWidth = Math.max(1.2, 1.6 * tCenter);
             ctx.stroke();
             ctx.restore();
 
             // 4. Centered Continuous Vector Scaled Text (Zero-Jitter Smooth GPU Scaling)
             const noteCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
             const noteCenterY = (yBack + yFront) / 2;
-            const textScale = 0.55 + 0.45 * tFront;
+            const textScale = 0.75 + 0.25 * tCenter;
 
             ctx.save();
             ctx.translate(noteCenterX, noteCenterY);
@@ -2108,8 +2109,6 @@ function App() {
             ctx.shadowColor = 'rgba(15, 23, 42, 0.6)';
             ctx.shadowBlur = 4;
             ctx.fillText(n.value, 0, 0);
-            ctx.restore();
-
             ctx.restore();
           });
         });
