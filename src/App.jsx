@@ -1599,13 +1599,13 @@ function App() {
     }
     const distractorVals = pool.slice(0, 3).map(p => isPromptFrac ? p.percent : p.fraction);
 
-    // 随机鲜明的 3D 纵向阶梯错落（再扩大 5 倍，错落跨度扩展至 ±1.65，呈现极具连贯感与单音瀑布律动）
-    const baseShifts = [-1.65, -0.55, 0.55, 1.65];
+    // 🎯 极具视觉冲击力的全跑道阶梯级错落（4 个音块均匀纵贯整条跑道，每个音块间距高达 ~100px，彻底拉开）
+    const baseShifts = [-0.45, -0.15, 0.15, 0.45];
     for (let i = baseShifts.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [baseShifts[i], baseShifts[j]] = [baseShifts[j], baseShifts[i]];
     }
-    const rawOffsets = baseShifts.map(s => s + (Math.random() - 0.5) * 0.12);
+    const rawOffsets = baseShifts.map(s => s + (Math.random() - 0.5) * 0.04);
 
     const correctLane = Math.floor(Math.random() * 4);
     const notes = [];
@@ -2180,7 +2180,7 @@ function App() {
         const waves = rhythmNotesRef.current;
 
         waves.forEach(w => {
-          if (w.resolved || w.t < -2.8 || w.t > progressToEnd + 2.8) return;
+          if (w.resolved || w.t < -1.2 || w.t > progressToEnd + 1.2) return;
 
           w.notes.forEach(n => {
             if (n.hit) return;
