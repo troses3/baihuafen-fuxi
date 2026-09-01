@@ -1601,11 +1601,15 @@ function App() {
     const canvas = rhythmCanvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const H = rect.height || 460;
+    const H = rect.height || 520;
     const W = rect.width || 360;
-    const hitLineY = H * 0.82;
-    const laneWidth = W / 4;
-    const noteCenterX = laneIndex * laneWidth + laneWidth / 2;
+    const hitLineY = H * 0.88;
+    const bottomTrackW = W * 0.96;
+    const centerX = W / 2;
+
+    const botLeftX = centerX - bottomTrackW / 2;
+    const botLaneW = bottomTrackW / 4;
+    const padCenterX = botLeftX + laneIndex * botLaneW + botLaneW / 2;
 
     // Find nearest active wave to hitLine
     const waves = rhythmNotesRef.current;
@@ -1617,14 +1621,23 @@ function App() {
     waves.forEach((w, idx) => {
       if (w.resolved) return;
       const dist = Math.abs(w.y - hitLineY);
-      if (dist < minDistance && dist < 75) {
+      if (dist < minDistance && dist < 85) {
         minDistance = dist;
         targetWaveIndex = idx;
       }
     });
 
     if (targetWaveIndex === -1) {
-      // Empty tap
+      // Empty tap: subtle ripple
+      rhythmParticlesRef.current.push({
+        type: 'ripple',
+        x: padCenterX,
+        y: hitLineY,
+        radius: 10,
+        color: '#38bdf8',
+        alpha: 0.5,
+        decay: 0.05,
+      });
       return;
     }
 
@@ -1639,22 +1652,22 @@ function App() {
 
       let pts = 100;
       let judgeText = 'GREAT!';
-      let judgeColor = '#3b82f6';
+      let judgeColor = '#38bdf8';
 
-      if (minDistance <= 20) {
+      if (minDistance <= 22) {
         pts = 300;
-        judgeText = 'PERFECT!!';
-        judgeColor = '#f59e0b';
+        judgeText = 'S-PERFECT!!';
+        judgeColor = '#fbbf24';
         setRhythmHitCounts(h => ({ ...h, perfect: h.perfect + 1 }));
-      } else if (minDistance <= 48) {
+      } else if (minDistance <= 52) {
         pts = 180;
-        judgeText = 'GREAT!';
-        judgeColor = '#3b82f6';
-        setRhythmHitCounts(h => ({ ...h, great: h.great + 1 }));
+        judgeText = 'PERFECT';
+        judgeColor = '#38bdf8';
+        setRhythmHitCounts(h => ({ ...h, perfect: h.perfect + 1 }));
       } else {
         pts = 100;
-        judgeText = 'GOOD!';
-        judgeColor = '#10b981';
+        judgeText = 'GREAT!';
+        judgeColor = '#c084fc';
         setRhythmHitCounts(h => ({ ...h, great: h.great + 1 }));
       }
 
@@ -1688,19 +1701,40 @@ function App() {
         return nextCombo;
       });
 
-      // Spawn burst particles
-      for (let i = 0; i < 16; i++) {
+      // Expanding purple / cyan ripple shockwaves (matching image 2)
+      rhythmParticlesRef.current.push({
+        type: 'ripple',
+        x: padCenterX,
+        y: hitLineY,
+        radius: 12,
+        color: '#c084fc',
+        alpha: 0.95,
+        decay: 0.038,
+      });
+      rhythmParticlesRef.current.push({
+        type: 'ripple',
+        x: padCenterX,
+        y: hitLineY,
+        radius: 6,
+        color: '#38bdf8',
+        alpha: 0.9,
+        decay: 0.045,
+      });
+
+      // Spawn burst sparkly particles
+      for (let i = 0; i < 20; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const spd = 2 + Math.random() * 5;
+        const spd = 2.5 + Math.random() * 6;
         rhythmParticlesRef.current.push({
-          x: noteCenterX,
+          type: 'spark',
+          x: padCenterX,
           y: hitLineY,
           vx: Math.cos(angle) * spd,
-          vy: Math.sin(angle) * spd - 1,
-          size: 3 + Math.random() * 4,
-          color: judgeColor,
+          vy: Math.sin(angle) * spd - 1.2,
+          size: 2.5 + Math.random() * 4,
+          color: i % 2 === 0 ? judgeColor : '#ffffff',
           alpha: 1,
-          decay: 0.035 + Math.random() * 0.02,
+          decay: 0.032 + Math.random() * 0.02,
         });
       }
 
@@ -1738,11 +1772,22 @@ function App() {
         return nextLives;
       });
 
-      for (let i = 0; i < 14; i++) {
+      rhythmParticlesRef.current.push({
+        type: 'ripple',
+        x: padCenterX,
+        y: hitLineY,
+        radius: 12,
+        color: '#ef4444',
+        alpha: 0.9,
+        decay: 0.045,
+      });
+
+      for (let i = 0; i < 16; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const spd = 2 + Math.random() * 4;
+        const spd = 2 + Math.random() * 5;
         rhythmParticlesRef.current.push({
-          x: noteCenterX,
+          type: 'spark',
+          x: padCenterX,
           y: hitLineY,
           vx: Math.cos(angle) * spd,
           vy: Math.sin(angle) * spd,
@@ -1777,22 +1822,22 @@ function App() {
     const tapX = e.clientX - rect.left;
     const tapY = e.clientY - rect.top;
     const W = rect.width || 360;
-    const H = rect.height || 460;
-    const horizonY = H * 0.05;
-    const hitLineY = H * 0.82;
-    const topTrackW = W * 0.38;
+    const H = rect.height || 520;
+    const horizonY = H * 0.02;
+    const hitLineY = H * 0.88;
+    const topTrackW = W * 0.28;
     const bottomTrackW = W * 0.96;
     const centerX = W / 2;
 
-    const pCurve = Math.pow(Math.max(0, Math.min(1.2, (tapY - horizonY) / (hitLineY - horizonY))), 1.6);
-    const trackW = topTrackW + (bottomTrackW - topTrackW) * Math.max(0.6, pCurve);
+    const pCurve = Math.pow(Math.max(0, Math.min(1.2, (tapY - horizonY) / (hitLineY - horizonY))), 1.65);
+    const trackW = topTrackW + (bottomTrackW - topTrackW) * Math.max(0.65, pCurve);
     const leftX = centerX - trackW / 2;
     const laneW = trackW / 4;
     const laneIndex = Math.min(3, Math.max(0, Math.floor((tapX - leftX) / laneW)));
     handleRhythmHitLane(laneIndex);
   };
 
-  // 60FPS 3D Perspective Canvas Engine for Rhythm Game (音游纵深透视跑道)
+  // 60FPS 3D Perspective Canvas Engine for Rhythm Game (音游纵深透视超长跑道)
   useEffect(() => {
     if (quizMode !== 'rhythmGame') return;
     const canvas = rhythmCanvasRef.current;
@@ -1811,7 +1856,7 @@ function App() {
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
         const W = rect.width || 360;
-        const H = rect.height || 460;
+        const H = rect.height || 520;
 
         if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
           canvas.width = Math.round(W * dpr);
@@ -1821,9 +1866,9 @@ function App() {
         ctx.save();
         ctx.scale(dpr, dpr);
 
-        const horizonY = H * 0.05;
-        const hitLineY = H * 0.82;
-        const topTrackW = W * 0.38;
+        const horizonY = H * 0.02;
+        const hitLineY = H * 0.88;
+        const topTrackW = W * 0.28;
         const bottomTrackW = W * 0.96;
         const centerX = W / 2;
 
@@ -1834,17 +1879,17 @@ function App() {
           const trackW = topTrackW + (bottomTrackW - topTrackW) * pCurve;
           const leftX = centerX - trackW / 2;
           const laneW = trackW / 4;
-          return { y, trackW, leftX, laneW, scale: Math.max(0.32, Math.min(1.15, pCurve)) };
+          return { y, trackW, leftX, laneW, scale: Math.max(0.3, Math.min(1.15, pCurve)) };
         };
 
         const currentSpeedConfig = RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevelRef.current) || RHYTHM_SPEEDS[3];
-        const fallSpeed = currentSpeedConfig.speed * (H / 460);
+        const fallSpeed = currentSpeedConfig.speed * (H / 480);
 
         // 1. Logic Update
         if (!isRhythmPaused && !isRhythmGameOver && isRhythmRunningRef.current) {
           const waves = rhythmNotesRef.current;
 
-          if (waves.length === 0 || (time - lastSpawnTimeRef.current >= currentSpeedConfig.spawnInterval && waves[waves.length - 1].y > H * 0.35)) {
+          if (waves.length === 0 || (time - lastSpawnTimeRef.current >= currentSpeedConfig.spawnInterval && waves[waves.length - 1].y > H * 0.32)) {
             const nextTargetAndWave = generateRhythmTargetAndWave(-50);
             rhythmTargetRef.current = nextTargetAndWave.target;
             setRhythmTarget(nextTargetAndWave.target);
@@ -1886,11 +1931,12 @@ function App() {
         }
 
         // 2. 3D Perspective Rendering
-        // Background Cyber Gradient
+        // Background Deep Space Cyber Gradient
         const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
         bgGrad.addColorStop(0, '#030712');
-        bgGrad.addColorStop(0.5, '#0b1120');
-        bgGrad.addColorStop(1, '#030712');
+        bgGrad.addColorStop(0.3, '#0b1120');
+        bgGrad.addColorStop(0.7, '#15102a');
+        bgGrad.addColorStop(1, '#050714');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
@@ -1899,11 +1945,11 @@ function App() {
         const botL = centerX - bottomTrackW / 2;
         const botR = centerX + bottomTrackW / 2;
 
-        // Side Perspective Walls
+        // Side Perspective Glowing 3D Walls
         // Left wall
         const leftWallGrad = ctx.createLinearGradient(0, 0, botL, 0);
-        leftWallGrad.addColorStop(0, 'rgba(30, 27, 75, 0.7)');
-        leftWallGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+        leftWallGrad.addColorStop(0, 'rgba(49, 46, 129, 0.7)');
+        leftWallGrad.addColorStop(0.8, 'rgba(15, 23, 42, 0.95)');
         ctx.fillStyle = leftWallGrad;
         ctx.beginPath();
         ctx.moveTo(0, 0);
@@ -1915,8 +1961,8 @@ function App() {
 
         // Right wall
         const rightWallGrad = ctx.createLinearGradient(W, 0, botR, 0);
-        rightWallGrad.addColorStop(0, 'rgba(30, 27, 75, 0.7)');
-        rightWallGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+        rightWallGrad.addColorStop(0, 'rgba(49, 46, 129, 0.7)');
+        rightWallGrad.addColorStop(0.8, 'rgba(15, 23, 42, 0.95)');
         ctx.fillStyle = rightWallGrad;
         ctx.beginPath();
         ctx.moveTo(W, 0);
@@ -1928,8 +1974,9 @@ function App() {
 
         // 3D Runway Track Floor
         const runwayGrad = ctx.createLinearGradient(0, horizonY, 0, H);
-        runwayGrad.addColorStop(0, '#0f172a');
-        runwayGrad.addColorStop(0.65, '#1e293b');
+        runwayGrad.addColorStop(0, '#090d16');
+        runwayGrad.addColorStop(0.5, '#111827');
+        runwayGrad.addColorStop(0.85, '#1e293b');
         runwayGrad.addColorStop(1, '#090d16');
         ctx.fillStyle = runwayGrad;
         ctx.beginPath();
@@ -1940,6 +1987,19 @@ function App() {
         ctx.closePath();
         ctx.fill();
 
+        // Transverse Speed Lines / Grid Rungs (Moving toward the player for 3D speed feel)
+        const speedOffset = (time * 0.0006 * currentSpeedConfig.speed) % 1;
+        for (let rung = 0; rung < 10; rung++) {
+          const rungP = (rung / 10 + speedOffset) % 1;
+          const rungPos = getPerspectiveAt(rungP);
+          ctx.strokeStyle = `rgba(56, 189, 248, ${0.12 * Math.pow(rungP, 1.6)})`;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(rungPos.leftX, rungPos.y);
+          ctx.lineTo(rungPos.leftX + rungPos.trackW, rungPos.y);
+          ctx.stroke();
+        }
+
         // 4 Lanes & Dividers & Active Press Light Beams
         for (let l = 0; l < 4; l++) {
           const lTopX1 = topL + l * (topTrackW / 4);
@@ -1949,7 +2009,7 @@ function App() {
 
           // Lane column shade
           if (l % 2 === 1) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
             ctx.beginPath();
             ctx.moveTo(lTopX1, horizonY);
             ctx.lineTo(lTopX2, horizonY);
@@ -1962,11 +2022,11 @@ function App() {
           // Active Press Light Beam (3D beam shooting up towards vanishing point)
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
           const pressAge = time - lastPress;
-          if (pressAge < 180) {
-            const beamAlpha = (1 - pressAge / 180) * 0.55;
+          if (pressAge < 200) {
+            const beamAlpha = (1 - pressAge / 200) * 0.6;
             const beamGrad = ctx.createLinearGradient(0, hitLineY, 0, horizonY);
             beamGrad.addColorStop(0, `rgba(56, 189, 248, ${beamAlpha})`);
-            beamGrad.addColorStop(0.5, `rgba(168, 85, 247, ${beamAlpha * 0.6})`);
+            beamGrad.addColorStop(0.45, `rgba(192, 132, 252, ${beamAlpha * 0.7})`);
             beamGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
             ctx.fillStyle = beamGrad;
             ctx.beginPath();
@@ -1980,7 +2040,7 @@ function App() {
 
           // Lane divider lines
           if (l > 0) {
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(lTopX1, horizonY);
@@ -1989,12 +2049,12 @@ function App() {
           }
         }
 
-        // Side Rails (Glowing Neon Border)
+        // Side Rails (Dual Cyan & Magenta Glowing Border)
         ctx.save();
         ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 2.5;
-        ctx.shadowColor = '#38bdf8';
-        ctx.shadowBlur = 10;
+        ctx.lineWidth = 2.8;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 12;
         ctx.beginPath();
         ctx.moveTo(topL, horizonY);
         ctx.lineTo(botL, H);
@@ -2005,17 +2065,20 @@ function App() {
         ctx.stroke();
         ctx.restore();
 
-        // 3D Perspective Hit Receptor Pads (底部 4 个发光 3D 击打靶位)
+        // 3D Perspective Hit Receptor Pads (底部 4 个发光 3D 击打靶位，带按键标识)
+        const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
         for (let l = 0; l < 4; l++) {
           const padTop = getPerspectiveAt(0.92);
-          const padBot = getPerspectiveAt(1.05);
+          const padBot = getPerspectiveAt(1.06);
           const padTopX1 = padTop.leftX + l * padTop.laneW + 3;
           const padTopX2 = padTopX1 + padTop.laneW - 6;
           const padBotX1 = padBot.leftX + l * padBot.laneW + 3;
           const padBotX2 = padBotX1 + padBot.laneW - 6;
+          const padCenterX = (padBotX1 + padBotX2) / 2;
+          const padCenterY = (padTop.y + padBot.y) / 2;
 
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
-          const isPressed = (time - lastPress) < 140;
+          const isPressed = (time - lastPress) < 150;
 
           ctx.save();
           ctx.beginPath();
@@ -2026,32 +2089,40 @@ function App() {
           ctx.closePath();
 
           if (isPressed) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
             ctx.shadowColor = '#38bdf8';
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 24;
             ctx.fill();
             ctx.strokeStyle = '#67e8f9';
             ctx.lineWidth = 2.5;
             ctx.stroke();
           } else {
-            ctx.fillStyle = 'rgba(30, 41, 59, 0.65)';
+            ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
             ctx.fill();
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
             ctx.lineWidth = 1.5;
             ctx.stroke();
           }
+
+          // Render Sleek Cyber Lane Indicator inside pad
+          ctx.fillStyle = isPressed ? '#0369a1' : 'rgba(148, 163, 184, 0.85)';
+          ctx.font = '800 11px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(padLabels[l], padCenterX, padCenterY);
+
           ctx.restore();
         }
 
         // Draw Hit Line laser glow
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(botL, hitLineY);
         ctx.lineTo(botR, hitLineY);
         ctx.stroke();
 
-        // Draw 3D Falling Waves & Perspective Notes (近大远小 + 纵深立体)
+        // Draw 3D Falling Waves & Perspective Notes (近大远小 + 纵深水晶质感)
         const waves = rhythmNotesRef.current;
         waves.forEach(w => {
           const p = (w.y - (-40)) / (hitLineY - (-40));
@@ -2070,7 +2141,7 @@ function App() {
             ctx.save();
             drawRoundedRect(ctx, noteX, noteY, noteW, noteH, Math.max(3, 8 * pos.scale));
 
-            // Cyan / Neon gradient for notes (matching image 2)
+            // Neon cyan / ocean gradient for notes
             const noteGrad = ctx.createLinearGradient(0, noteY, 0, noteY + noteH);
             noteGrad.addColorStop(0, '#38bdf8');
             noteGrad.addColorStop(0.35, '#0284c7');
@@ -2078,7 +2149,7 @@ function App() {
             ctx.fillStyle = noteGrad;
             ctx.fill();
 
-            // Note glossy top border
+            // Note glossy top beveled specular highlight
             ctx.strokeStyle = '#e0f2fe';
             ctx.lineWidth = Math.max(1, 1.6 * pos.scale);
             ctx.stroke();
@@ -2095,26 +2166,44 @@ function App() {
           });
         });
 
-        // Draw Burst Particles
+        // Draw Burst Particles & Shockwave Ripples (Rings)
         const particles = rhythmParticlesRef.current;
         for (let i = particles.length - 1; i >= 0; i--) {
           const p = particles[i];
-          p.x += p.vx;
-          p.y += p.vy;
-          p.alpha -= p.decay;
-          if (p.alpha <= 0) {
-            particles.splice(i, 1);
-            continue;
+
+          if (p.type === 'ripple') {
+            p.radius += 2.8;
+            p.alpha -= p.decay;
+            if (p.alpha <= 0) {
+              particles.splice(i, 1);
+              continue;
+            }
+            ctx.save();
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = Math.max(1, 3 * p.alpha);
+            ctx.globalAlpha = p.alpha;
+            ctx.beginPath();
+            ctx.ellipse(p.x, p.y, p.radius * 1.35, p.radius * 0.5, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          } else {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.alpha -= p.decay;
+            if (p.alpha <= 0) {
+              particles.splice(i, 1);
+              continue;
+            }
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.alpha;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
           }
-          ctx.fillStyle = p.color;
-          ctx.globalAlpha = p.alpha;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = 1;
         }
 
-        // Draw Center Judgement Text (matching image 2: S-PERFECT + Combo)
+        // Draw Center Judgement Text (S-PERFECT / PERFECT / GREAT + Combo)
         const judge = rhythmJudgementRef.current;
         if (judge) {
           const age = time - judge.time;
@@ -2122,7 +2211,7 @@ function App() {
             const scale = 1 + Math.max(0, (1 - age / 160) * 0.35);
             const alpha = Math.min(1, (1 - age / 550) * 1.5);
             ctx.save();
-            ctx.translate(W / 2, H * 0.48);
+            ctx.translate(W / 2, H * 0.46);
             ctx.scale(scale, scale);
             ctx.globalAlpha = alpha;
             ctx.textAlign = 'center';
@@ -3163,7 +3252,7 @@ function App() {
               </div>
             )}
 
-            {/* 60FPS 4 轨道 Canvas 渲染主舞台 */}
+            {/* 60FPS 4 轨道 Canvas 渲染主舞台 (全沉浸无界 3D 跑道) */}
             <div 
               className={`rhythm-arena-wrapper ${rhythmStageShake ? `shake-${rhythmStageShake}` : ''}`}
               onClick={handleRhythmCanvasClick}
@@ -3171,32 +3260,10 @@ function App() {
               <canvas ref={rhythmCanvasRef} className="rhythm-canvas" />
             </div>
 
-            {/* 底部 4 个触控大按键 */}
-            <div className="rhythm-lane-buttons-bar">
-              {[
-                { lane: 0, keyLabel: 'D / 1' },
-                { lane: 1, keyLabel: 'F / 2' },
-                { lane: 2, keyLabel: 'J / 3' },
-                { lane: 3, keyLabel: 'K / 4' },
-              ].map(btn => (
-                <button
-                  key={btn.lane}
-                  className="rhythm-lane-hit-btn"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    handleRhythmHitLane(btn.lane);
-                  }}
-                >
-                  <span className="lane-btn-num">{btn.lane + 1}</span>
-                  <span className="lane-btn-key">{btn.keyLabel}</span>
-                </button>
-              ))}
-            </div>
-
             {/* ⚡ 移速滑块控制调节条 */}
-            <div className="snake-speed-slider-bar">
+            <div className="rhythm-speed-slider-bar">
               <div className="speed-slider-label">
-                <span className="speed-slider-title">⚡ 下落速度</span>
+                <span className="speed-slider-title">⚡ 移速设定</span>
                 <span className="speed-level-badge">
                   {RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevel)?.label || '🏃 舒缓 (3.0x)'}
                 </span>
