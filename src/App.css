@@ -2132,28 +2132,28 @@ body {
   box-sizing: border-box;
 }
 
-/* 🎯 赛博深空目标卡片 */
+/* 🎯 浅色高雅音游目标卡片 */
 .rhythm-target-banner {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.65rem;
   width: 100%;
-  padding: 0.35rem 0.85rem;
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1.5px solid rgba(56, 189, 248, 0.35);
+  padding: 0.4rem 0.95rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid rgba(226, 232, 240, 0.9);
   border-radius: 14px;
-  margin-bottom: 0.32rem;
+  margin-bottom: 0.35rem;
   box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), 0 0 12px rgba(56, 189, 248, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .rhythm-target-banner .target-banner-badge {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(168, 85, 247, 0.2));
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.25);
   font-size: 0.76rem;
   font-weight: 800;
   padding: 0.18rem 0.65rem;
@@ -2162,30 +2162,29 @@ body {
 }
 
 .rhythm-target-banner .target-banner-val {
-  font-size: 1.28rem;
+  font-size: 1.32rem;
   font-weight: 900;
-  color: #ffffff;
-  text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+  color: #0f172a;
   letter-spacing: 0.03rem;
 }
 
 .rhythm-target-banner .num-prefix,
 .rhythm-target-banner .num-suffix {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 1.05rem;
   font-weight: 800;
 }
 
-/* 4 轨道 Canvas 竞技场容器 (超长纵深 3D 跑道) */
+/* 4 轨道 Canvas 竞技场容器 (浅色典雅超长纵深 3D 跑道) */
 .rhythm-arena-wrapper {
   position: relative;
   width: 100%;
   height: clamp(480px, 66vh, 580px);
-  background: #030712;
+  background: #f8fafc;
   border-radius: 20px;
-  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  border: 1.5px solid rgba(203, 213, 225, 0.85);
   overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(56, 189, 248, 0.15);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(0, 0, 0, 0.02);
   margin: 0;
   touch-action: manipulation;
   box-sizing: border-box;
@@ -2204,62 +2203,62 @@ body {
 /* 💥 判定打击物理震颤与高光 */
 @keyframes rhythmHitCorrect {
   0% { transform: scale(1); }
-  35% { transform: scale(1.02) translateY(-2px); }
-  70% { transform: scale(0.99) translateY(1px); }
+  35% { transform: scale(1.015) translateY(-2px); }
+  70% { transform: scale(0.995) translateY(1px); }
   100% { transform: scale(1) translateY(0); }
 }
 
 @keyframes rhythmHitError {
   0% { transform: translate3d(0, 0, 0); }
-  25% { transform: translate3d(-5px, 2px, 0); }
-  50% { transform: translate3d(5px, -2px, 0); }
-  75% { transform: translate3d(-3px, 1px, 0); }
+  25% { transform: translate3d(-4px, 2px, 0); }
+  50% { transform: translate3d(4px, -2px, 0); }
+  75% { transform: translate3d(-2px, 1px, 0); }
   100% { transform: translate3d(0, 0, 0); }
 }
 
 .rhythm-arena-wrapper.shake-hit-correct {
   animation: rhythmHitCorrect 0.18s cubic-bezier(0.25, 1, 0.5, 1) both;
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.4), 0 16px 40px rgba(56, 189, 248, 0.3);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), 0 12px 32px rgba(37, 99, 235, 0.15);
 }
 
 .rhythm-arena-wrapper.shake-hit-error {
   animation: rhythmHitError 0.22s cubic-bezier(0.25, 1, 0.5, 1) both;
-  border-color: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.4), 0 16px 40px rgba(239, 68, 68, 0.3);
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25), 0 12px 32px rgba(220, 38, 38, 0.15);
 }
 
-/* ⚡ 节奏音游专用移速调节滑块条 (深色玻璃质感) */
+/* ⚡ 节奏音游专用移速调节滑块条 (浅色玻璃质感) */
 .rhythm-speed-slider-bar {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.22rem;
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1.5px solid rgba(56, 189, 248, 0.25);
+  gap: 0.24rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid rgba(226, 232, 240, 0.9);
   border-radius: 12px;
-  padding: 0.32rem 0.75rem;
+  padding: 0.35rem 0.85rem;
   margin-top: 0.35rem;
   box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .rhythm-speed-slider-bar .speed-slider-title {
   font-size: 0.74rem;
   font-weight: 750;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .rhythm-speed-slider-bar .speed-level-badge {
   font-size: 0.72rem;
   font-weight: 800;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  padding: 0.1rem 0.55rem;
-  border-radius: 100px;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  padding: 0.12rem 0.5rem;
+  border-radius: 6px;
 }
 
 

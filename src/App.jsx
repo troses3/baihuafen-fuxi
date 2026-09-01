@@ -23,14 +23,14 @@ const SNAKE_SPEEDS = [
 ];
 
 const RHYTHM_SPEEDS = [
-  { level: 1, label: '🐢 悠闲 (1.6x)', shortLabel: '悠闲', speed: 1.8, spawnInterval: 2600 },
-  { level: 2, label: '☕ 沉思 (2.0x)', shortLabel: '沉思', speed: 2.4, spawnInterval: 2200 },
-  { level: 3, label: '🚶 漫步 (2.5x)', shortLabel: '漫步', speed: 3.0, spawnInterval: 1900 },
-  { level: 4, label: '🏃 舒缓 (3.0x)', shortLabel: '舒缓', speed: 3.6, spawnInterval: 1600 },
-  { level: 5, label: '🎯 标准 (3.6x)', shortLabel: '标准', speed: 4.4, spawnInterval: 1350 },
-  { level: 6, label: '⚡ 敏捷 (4.2x)', shortLabel: '敏捷', speed: 5.4, spawnInterval: 1150 },
-  { level: 7, label: '🔥 快速 (5.0x)', shortLabel: '快速', speed: 6.6, spawnInterval: 950 },
-  { level: 8, label: '🚀 极速 (6.0x)', shortLabel: '极速', speed: 8.0, spawnInterval: 800 },
+  { level: 1, label: '🐢 悠闲慢速 (~7.5s)', shortLabel: '悠闲', speed: 1.2, spawnInterval: 5200 },
+  { level: 2, label: '☕ 沉思节奏 (~5.6s)', shortLabel: '沉思', speed: 1.6, spawnInterval: 4200 },
+  { level: 3, label: '🚶 入门练习 (~4.3s)', shortLabel: '入门', speed: 2.1, spawnInterval: 3400 },
+  { level: 4, label: '🏃 标准节拍 (~3.2s)', shortLabel: '标准', speed: 2.8, spawnInterval: 2600 },
+  { level: 5, label: '🎯 熟练速算 (~2.5s)', shortLabel: '熟练', speed: 3.6, spawnInterval: 2100 },
+  { level: 6, label: '⚡ 敏捷进阶 (~1.9s)', shortLabel: '敏捷', speed: 4.8, spawnInterval: 1700 },
+  { level: 7, label: '🔥 极速挑战 (~1.5s)', shortLabel: '极速', speed: 6.2, spawnInterval: 1350 },
+  { level: 8, label: '🚀 狂暴极限 (~1.1s)', shortLabel: '狂暴', speed: 8.2, spawnInterval: 1000 },
 ];
 
 const getRhythmRankTier = (score) => {
@@ -229,7 +229,7 @@ function App() {
   const [rhythmStageShake, setRhythmStageShake] = useState('');
   const [rhythmSpeedLevel, setRhythmSpeedLevel] = useState(() => {
     const saved = localStorage.getItem(RHYTHM_SPEED_KEY);
-    return saved ? Number(saved) : 4;
+    return saved ? Number(saved) : 2;
   });
   const rhythmSpeedLevelRef = useRef(rhythmSpeedLevel);
   useEffect(() => {
@@ -1888,9 +1888,9 @@ function App() {
         const xAt = (k, t) => xTop(k) + (xBot(k) - xTop(k)) * t;
         const yAt = (t) => Y_SPAWN + (Y_HIT - Y_SPAWN) * t;
 
-        const currentSpeedConfig = RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevelRef.current) || RHYTHM_SPEEDS[3];
-        // Linear progress movement per millisecond
-        const speedProgress = (currentSpeedConfig.speed * 0.00038) * dt;
+        const currentSpeedConfig = RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevelRef.current) || RHYTHM_SPEEDS[1];
+        // Slower calibrated speed progress per millisecond
+        const speedProgress = (currentSpeedConfig.speed * 0.0001) * dt;
 
         // 1. Logic Update
         if (!isRhythmPaused && !isRhythmGameOver && isRhythmRunningRef.current) {
@@ -1924,7 +1924,7 @@ function App() {
 
               rhythmJudgementRef.current = {
                 text: 'MISS',
-                color: '#ef4444',
+                color: '#dc2626',
                 time: performance.now(),
               };
 
@@ -1938,29 +1938,29 @@ function App() {
           }
         }
 
-        // 2. Rendering
-        // 🌌 Deep Cosmic Sky Background
+        // 2. Rendering - ☀️ Elegant Light Theme (典雅高光浅色视界)
+        // 🕊️ Clean Porcelain Studio Gradient Background
         const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-        bgGrad.addColorStop(0, '#020617');
-        bgGrad.addColorStop(0.35, '#0b1120');
-        bgGrad.addColorStop(0.75, '#190e2e');
-        bgGrad.addColorStop(1, '#050714');
+        bgGrad.addColorStop(0, '#e2e8f0');
+        bgGrad.addColorStop(0.3, '#f1f5f9');
+        bgGrad.addColorStop(0.7, '#f8fafc');
+        bgGrad.addColorStop(1, '#ffffff');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // 🌟 Horizon Vanishing Flare Glow
+        // 🌅 Horizon Vanishing Point Soft Sunlight Flare
         const flareGrad = ctx.createRadialGradient(W / 2, Y_SPAWN, 0, W / 2, Y_SPAWN, W * 0.7);
-        flareGrad.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
-        flareGrad.addColorStop(0.2, 'rgba(168, 85, 247, 0.3)');
-        flareGrad.addColorStop(0.55, 'rgba(30, 27, 75, 0.15)');
-        flareGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        flareGrad.addColorStop(0, 'rgba(59, 130, 246, 0.22)');
+        flareGrad.addColorStop(0.3, 'rgba(99, 102, 241, 0.12)');
+        flareGrad.addColorStop(0.65, 'rgba(241, 245, 249, 0.05)');
+        flareGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = flareGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // 3D Left Tunnel Wall
+        // 3D Left Architectural Tunnel Wall
         const leftWallGrad = ctx.createLinearGradient(0, 0, xEnd(0), 0);
-        leftWallGrad.addColorStop(0, 'rgba(30, 27, 75, 0.7)');
-        leftWallGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+        leftWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.7)');
+        leftWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.95)');
         ctx.fillStyle = leftWallGrad;
         ctx.beginPath();
         ctx.moveTo(0, 0);
@@ -1970,10 +1970,10 @@ function App() {
         ctx.closePath();
         ctx.fill();
 
-        // 3D Right Tunnel Wall
+        // 3D Right Architectural Tunnel Wall
         const rightWallGrad = ctx.createLinearGradient(W, 0, xEnd(4), 0);
-        rightWallGrad.addColorStop(0, 'rgba(30, 27, 75, 0.7)');
-        rightWallGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+        rightWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.7)');
+        rightWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.95)');
         ctx.fillStyle = rightWallGrad;
         ctx.beginPath();
         ctx.moveTo(W, 0);
@@ -1983,12 +1983,12 @@ function App() {
         ctx.closePath();
         ctx.fill();
 
-        // 3D Runway Track Floor (Trapezoid from Top to End)
+        // 3D Runway Track Floor (Trapezoid Pure Light Porcelain Finish)
         const runwayGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, H);
-        runwayGrad.addColorStop(0, '#090d16');
-        runwayGrad.addColorStop(0.45, '#0f172a');
-        runwayGrad.addColorStop(0.85, '#1e293b');
-        runwayGrad.addColorStop(1, '#090d16');
+        runwayGrad.addColorStop(0, '#e2e8f0');
+        runwayGrad.addColorStop(0.35, '#f1f5f9');
+        runwayGrad.addColorStop(0.85, '#ffffff');
+        runwayGrad.addColorStop(1, '#f8fafc');
         ctx.fillStyle = runwayGrad;
         ctx.beginPath();
         ctx.moveTo(xTop(0), Y_SPAWN);
@@ -1998,16 +1998,16 @@ function App() {
         ctx.closePath();
         ctx.fill();
 
-        // 3D Transverse Speed Grid Lines (Perspective Acceleration)
-        const speedPhase = (time * 0.00045 * currentSpeedConfig.speed) % 0.12;
+        // 3D Transverse Speed Grid Lines (Soft Indigo Flow)
+        const speedPhase = (time * 0.00015 * currentSpeedConfig.speed) % 0.12;
         for (let tLine = 0.05; tLine < progressToEnd; tLine += 0.12) {
           const curT = tLine + speedPhase;
           if (curT >= progressToEnd) continue;
           const yL = yAt(curT);
           const xL = xAt(0, curT);
           const xR = xAt(4, curT);
-          const alpha = Math.min(0.25, Math.max(0.03, curT * 0.28));
-          ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+          const alpha = Math.min(0.3, Math.max(0.04, curT * 0.32));
+          ctx.strokeStyle = `rgba(59, 130, 246, ${alpha})`;
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.moveTo(xL, yL);
@@ -2017,9 +2017,9 @@ function App() {
 
         // 4 Lanes & 5 True Perspective Ray Dividers
         for (let l = 0; l < 4; l++) {
-          // Lane column alternating shade
+          // Lane column alternating subtle shade
           if (l % 2 === 1) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.022)';
+            ctx.fillStyle = 'rgba(226, 232, 240, 0.45)';
             ctx.beginPath();
             ctx.moveTo(xTop(l), Y_SPAWN);
             ctx.lineTo(xTop(l + 1), Y_SPAWN);
@@ -2029,15 +2029,15 @@ function App() {
             ctx.fill();
           }
 
-          // Active Press 3D Light Column (Perspective Laser Beam)
+          // Active Press 3D Light Column (Vibrant Blue Beam)
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
           const pressAge = time - lastPress;
           if (pressAge < 220) {
-            const beamAlpha = (1 - pressAge / 220) * 0.65;
+            const beamAlpha = (1 - pressAge / 220) * 0.45;
             const beamGrad = ctx.createLinearGradient(0, Y_HIT, 0, Y_SPAWN);
-            beamGrad.addColorStop(0, `rgba(56, 189, 248, ${beamAlpha})`);
-            beamGrad.addColorStop(0.35, `rgba(192, 132, 252, ${beamAlpha * 0.7})`);
-            beamGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+            beamGrad.addColorStop(0, `rgba(37, 99, 235, ${beamAlpha})`);
+            beamGrad.addColorStop(0.4, `rgba(99, 102, 241, ${beamAlpha * 0.6})`);
+            beamGrad.addColorStop(1, 'rgba(59, 130, 246, 0)');
             ctx.fillStyle = beamGrad;
             ctx.beginPath();
             ctx.moveTo(xTop(l), Y_SPAWN);
@@ -2050,8 +2050,8 @@ function App() {
 
           // Ray divider lines
           if (l > 0) {
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+            ctx.lineWidth = 1.2;
             ctx.beginPath();
             ctx.moveTo(xTop(l), Y_SPAWN);
             ctx.lineTo(xEnd(l), Y_END);
@@ -2059,12 +2059,12 @@ function App() {
           }
         }
 
-        // Side Neon Glowing Border Rails
+        // Side Neon Glowing Border Rails (Vibrant Royal Blue)
         ctx.save();
-        ctx.strokeStyle = '#38bdf8';
+        ctx.strokeStyle = '#2563eb';
         ctx.lineWidth = 2.8;
-        ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = 14;
+        ctx.shadowColor = 'rgba(37, 99, 235, 0.4)';
+        ctx.shadowBlur = 10;
         ctx.beginPath();
         ctx.moveTo(xTop(0), Y_SPAWN);
         ctx.lineTo(xEnd(0), Y_END);
@@ -2075,7 +2075,7 @@ function App() {
         ctx.stroke();
         ctx.restore();
 
-        // 3D Perspective Hit Receptor Pads (4 块底部超能立体打击板)
+        // 3D Perspective Hit Receptor Pads (4 块浅色典雅立体打击靶位)
         const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
         const tPadBack = 0.94;
         const tPadFront = 1.06;
@@ -2099,25 +2099,25 @@ function App() {
           ctx.closePath();
 
           if (isPressed) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
-            ctx.shadowColor = '#38bdf8';
-            ctx.shadowBlur = 28;
+            ctx.fillStyle = '#2563eb';
+            ctx.shadowColor = 'rgba(37, 99, 235, 0.6)';
+            ctx.shadowBlur = 20;
             ctx.fill();
-            ctx.strokeStyle = '#67e8f9';
+            ctx.strokeStyle = '#1d4ed8';
             ctx.lineWidth = 2.5;
             ctx.stroke();
           } else {
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+            ctx.fillStyle = 'rgba(248, 250, 252, 0.92)';
             ctx.fill();
-            ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
-            ctx.lineWidth = 1.6;
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.65)';
+            ctx.lineWidth = 1.8;
             ctx.stroke();
           }
 
-          // Sci-Fi Key Indicator inside pad
+          // Key indicator inside pad (Zero jitter centered)
           const pCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
           const pCenterY = (pTL.y + pBR.y) / 2;
-          ctx.fillStyle = isPressed ? '#0369a1' : 'rgba(148, 163, 184, 0.85)';
+          ctx.fillStyle = isPressed ? '#ffffff' : '#1e293b';
           ctx.font = '800 11px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -2126,14 +2126,14 @@ function App() {
         }
 
         // Draw Hit Line Laser Beam
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2.4;
         ctx.beginPath();
         ctx.moveTo(xAt(0, 1.0), Y_HIT);
         ctx.lineTo(xAt(4, 1.0), Y_HIT);
         ctx.stroke();
 
-        // 💎 Draw Falling Waves as True Perspective Trapezoid Slabs (节奏大师标准透视音块)
+        // 💎 Draw Falling Waves as True Perspective Trapezoid Slabs (绝美防抖高清晰透视音块)
         const waves = rhythmNotesRef.current;
         const NOTE_LENGTH_T = 0.075;
 
@@ -2156,12 +2156,12 @@ function App() {
 
             ctx.save();
 
-            // 1. Draw Note Perspective Trapezoid Body
+            // 1. Draw Note Perspective Trapezoid Body (Vivid Royal Blue & Cyan Gradient)
             const noteGrad = ctx.createLinearGradient(0, yBack, 0, yFront);
-            noteGrad.addColorStop(0, '#38bdf8');
-            noteGrad.addColorStop(0.35, '#0284c7');
-            noteGrad.addColorStop(0.85, '#0369a1');
-            noteGrad.addColorStop(1, '#075985');
+            noteGrad.addColorStop(0, '#3b82f6');
+            noteGrad.addColorStop(0.35, '#2563eb');
+            noteGrad.addColorStop(0.85, '#1d4ed8');
+            noteGrad.addColorStop(1, '#1e40af');
             ctx.fillStyle = noteGrad;
 
             ctx.beginPath();
@@ -2172,8 +2172,8 @@ function App() {
             ctx.closePath();
             ctx.fill();
 
-            // 2. Note Outer Glowing Neon Rim
-            ctx.strokeStyle = '#38bdf8';
+            // 2. Note Outer Glowing Rim
+            ctx.strokeStyle = '#60a5fa';
             ctx.lineWidth = Math.max(1, 2.0 * tFront);
             ctx.stroke();
 
@@ -2185,18 +2185,22 @@ function App() {
             ctx.lineTo(pTR.x - 1, pTR.y + 0.5);
             ctx.stroke();
 
-            // 4. Centered Scaled Text
+            // 4. Centered Continuous Vector Scaled Text (Zero-Jitter Smooth GPU Scaling)
             const noteCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
             const noteCenterY = (yBack + yFront) / 2;
-            const fontSize = Math.max(9, Math.round(8 + 8 * tFront));
+            const textScale = 0.55 + 0.45 * tFront;
 
+            ctx.save();
+            ctx.translate(noteCenterX, noteCenterY);
+            ctx.scale(textScale, textScale);
             ctx.fillStyle = '#ffffff';
-            ctx.font = `900 ${fontSize}px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.font = '900 16px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+            ctx.shadowColor = 'rgba(15, 23, 42, 0.6)';
             ctx.shadowBlur = 4;
-            ctx.fillText(n.value, noteCenterX, noteCenterY);
+            ctx.fillText(n.value, 0, 0);
+            ctx.restore();
 
             ctx.restore();
           });
@@ -2257,16 +2261,16 @@ function App() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = judge.color;
-            ctx.font = '900 23px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = '900 24px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.shadowColor = judge.color;
-            ctx.shadowBlur = 16;
+            ctx.shadowBlur = 12;
             ctx.fillText(judge.text, 0, -10);
 
             if (rhythmCombo >= 2) {
-              ctx.fillStyle = '#ffffff';
+              ctx.fillStyle = '#1e293b';
               ctx.font = '900 28px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-              ctx.shadowColor = 'rgba(255, 255, 255, 0.6)';
-              ctx.shadowBlur = 10;
+              ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+              ctx.shadowBlur = 8;
               ctx.fillText(String(rhythmCombo), 0, 18);
             }
             ctx.restore();
