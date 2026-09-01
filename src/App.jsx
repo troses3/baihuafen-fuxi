@@ -1543,10 +1543,20 @@ function App() {
     }
     const distractorVals = pool.slice(0, 3).map(p => isPromptFrac ? p.percent : p.fraction);
 
+    // 随机微错落纵向位移（打破四音符生硬横线，产生灵动的街机律动瀑布感）
+    // 错落范围约为 ±0.035 (~±15px)，参差有致
+    const rawOffsets = [
+      (Math.random() - 0.5) * 0.07,
+      (Math.random() - 0.5) * 0.07,
+      (Math.random() - 0.5) * 0.07,
+      (Math.random() - 0.5) * 0.07,
+    ];
+
     const correctLane = Math.floor(Math.random() * 4);
     const notes = [];
     let distractorIdx = 0;
     for (let lane = 0; lane < 4; lane++) {
+      const tOffset = rawOffsets[lane];
       if (lane === correctLane) {
         notes.push({
           id: `rn_cor_${Date.now()}_${lane}_${Math.random()}`,
@@ -1554,6 +1564,7 @@ function App() {
           value: correctValue,
           isCorrect: true,
           hit: false,
+          tOffset,
         });
       } else {
         notes.push({
@@ -1562,6 +1573,7 @@ function App() {
           value: distractorVals[distractorIdx++],
           isCorrect: false,
           hit: false,
+          tOffset,
         });
       }
     }
@@ -1669,8 +1681,12 @@ function App() {
     const wave = waves[0];
     if (!wave || wave.resolved) return;
 
-    const dt = Math.abs(wave.t - 1.0);
-    // 严格限制在物理判定框范围内响应 (框体跨度 0.93-1.07，未进框前 dt > 0.09 绝不提前触发 GREAT)
+    const targetNote = wave.notes.find(n => n.lane === laneIndex);
+    if (!targetNote) return;
+
+    const tn = wave.t + (targetNote.tOffset || 0);
+    const dt = Math.abs(tn - 1.0);
+    // 严格限制在该音符的物理判定框范围内响应 (框体跨度 0.93-1.07，未进框前 dt > 0.09 绝不提前触发 GREAT)
     if (dt > 0.090) {
       rhythmParticlesRef.current.push({
         type: 'ripple',
@@ -1683,9 +1699,6 @@ function App() {
       });
       return;
     }
-
-    const targetNote = wave.notes.find(n => n.lane === laneIndex);
-    if (!targetNote) return;
 
     if (targetNote.isCorrect) {
       // 🎯 HIT CORRECT!
@@ -1876,8 +1889,10 @@ function App() {
             const w = waves[0];
             w.t += speedProgress;
 
-            // Missed note passed hit line (完全脱离 1.07 判定框底部)
-            if (!w.resolved && w.t > 1.09) {
+            // Missed note passed hit line (当正确答案音符完全脱离 1.07 判定框底部时判定 Miss)
+            const corNote = w.notes.find(n => n.isCorrect);
+            const tCor = w.t + (corNote?.tOffset || 0);
+            if (!w.resolved && tCor > 1.09) {
               w.resolved = true;
               setRhythmCombo(0);
               setRhythmHitCounts(h => ({ ...h, miss: h.miss + 1 }));
@@ -2105,19 +2120,23 @@ function App() {
         const waves = rhythmNotesRef.current;
 
         waves.forEach(w => {
-          if (w.resolved || w.t < -0.1 || w.t > progressToEnd + 0.1) return;
-
-          const tCenter = Math.max(0, Math.min(1.2, w.t));
-          // 纵向透视收缩因子：保持轻薄扁平横向胶囊（0.04 基准），远端绝不变方形/立柱
-          const halfDt = 0.04 * (0.35 + 0.65 * tCenter);
-          const tBack = w.t - halfDt;
-          const tFront = w.t + halfDt;
-          const yBack = yAt(tBack);
-          const yFront = yAt(tFront);
-          const slabH = yFront - yBack;
+          if (w.resolved || w.t < -0.15 || w.t > progressToEnd + 0.15) return;
 
           w.notes.forEach(n => {
             if (n.hit) return;
+
+            // 各音符独立微错落 3D 纵向位移
+            const tn = w.t + (n.tOffset || 0);
+            if (tn < -0.15 || tn > progressToEnd + 0.15) return;
+
+            const tCenter = Math.max(0, Math.min(1.2, tn));
+            // 纵向透视收缩因子：保持轻薄扁平横向胶囊（0.04 基准），远端绝不变方形/立柱
+            const halfDt = 0.04 * (0.35 + 0.65 * tCenter);
+            const tBack = tn - halfDt;
+            const tFront = tn + halfDt;
+            const yBack = yAt(tBack);
+            const yFront = yAt(tFront);
+            const slabH = yFront - yBack;
 
             const margin = Math.max(1.5, 2.5 * tCenter);
             const pTL = { x: xAt(n.lane, tBack) + margin, y: yBack };
