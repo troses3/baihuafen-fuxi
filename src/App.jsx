@@ -1979,20 +1979,12 @@ function App() {
           ctx.closePath();
         };
 
-        // 📐 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位，恢复饱满判定框高度)
+        // 📐 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位)
         const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
         const tPadBack = 0.93;
         const tPadFront = 1.07;
 
-        // 1. 顶部判定镭射光线（位于靶位上方入口，不切割文字）
-        ctx.strokeStyle = '#2563eb';
-        ctx.lineWidth = 2.0;
-        ctx.beginPath();
-        ctx.moveTo(xAt(0, tPadBack) - 2, yAt(tPadBack));
-        ctx.lineTo(xAt(4, tPadBack) + 2, yAt(tPadBack));
-        ctx.stroke();
-
-        // 2. 4 个打击靶位底座（饱满 3D 透视圆角底座）
+        // 1. 4 个打击靶位底座（饱满 3D 透视圆角底座）
         for (let l = 0; l < 4; l++) {
           const margin = 2.5;
           const pTL = { x: xAt(l, tPadBack) + margin, y: yAt(tPadBack) };
@@ -2030,6 +2022,14 @@ function App() {
           ctx.fillText(padLabels[l], pCenterX, pCenterY);
           ctx.restore();
         }
+
+        // 2. 终点判定线（精准横贯判定框正中点 Y_HIT, t = 1.0）
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.moveTo(xAt(0, 1.0) - 2, Y_HIT);
+        ctx.lineTo(xAt(4, 1.0) + 2, Y_HIT);
+        ctx.stroke();
 
         // 💎 Draw Falling Waves (真实 3D 跑道地面透视轻薄圆角卡片，长宽比始终保持 2.6:1 扁平感)
         const waves = rhythmNotesRef.current;
