@@ -1651,12 +1651,12 @@ function App() {
 
       let pts = 100;
       let judgeText = 'GREAT!';
-      let judgeColor = '#7c3aed';
+      let judgeColor = '#8b5cf6';
 
       if (dt <= 0.035) {
         pts = 300;
         judgeText = 'S-PERFECT!!';
-        judgeColor = '#d97706';
+        judgeColor = '#f59e0b';
         setRhythmHitCounts(h => ({ ...h, perfect: h.perfect + 1 }));
       } else if (dt <= 0.065) {
         pts = 180;
@@ -1666,7 +1666,7 @@ function App() {
       } else {
         pts = 100;
         judgeText = 'GREAT!';
-        judgeColor = '#7c3aed';
+        judgeColor = '#8b5cf6';
         setRhythmHitCounts(h => ({ ...h, great: h.great + 1 }));
       }
 
@@ -1686,26 +1686,16 @@ function App() {
           return nextScore;
         });
 
-        // Floating score popup
-        const floatId = Date.now() + Math.random();
-        setRhythmFloatingScores(f => [...f.slice(-4), {
-          id: floatId,
-          text: `+${finalPts} ${judgeText}`,
-          type: judgeText.includes('PERFECT') ? 'perfect' : 'great',
-        }]);
-        setTimeout(() => {
-          setRhythmFloatingScores(f => f.filter(x => x.id !== floatId));
-        }, 750);
+        rhythmJudgementRef.current = {
+          text: judgeText,
+          scoreText: `+${finalPts}`,
+          color: judgeColor,
+          time: performance.now(),
+          lane: laneIndex
+        };
 
         return nextCombo;
       });
-
-      rhythmJudgementRef.current = {
-        text: judgeText,
-        color: judgeColor,
-        time: performance.now(),
-        lane: laneIndex
-      };
 
       setRhythmStageShake('hit-correct');
       setTimeout(() => setRhythmStageShake(''), 180);
@@ -1736,7 +1726,8 @@ function App() {
 
       rhythmJudgementRef.current = {
         text: 'MISS',
-        color: '#dc2626',
+        scoreText: '',
+        color: '#ef4444',
         time: performance.now(),
         lane: laneIndex
       };
@@ -2148,33 +2139,39 @@ function App() {
           });
         });
 
-        // Center Floating Judgement Feedback (S-PERFECT / PERFECT / GREAT + Combo)
+        // 🌟 Center Floating Judgement & Score Feedback (屏幕正中心展示 + 专属加分颜色动效)
         const judge = rhythmJudgementRef.current;
         if (judge) {
           const age = time - judge.time;
-          if (age < 550) {
-            const scale = 1 + Math.max(0, (1 - age / 160) * 0.35);
-            const alpha = Math.min(1, (1 - age / 550) * 1.5);
+          if (age < 650) {
+            const progress = age / 650;
+            const floatY = (H * 0.44) - (progress * 26);
+            const scale = 1.0 + Math.sin(Math.min(1, age / 130) * Math.PI / 2) * 0.25 * (1 - progress);
+            const alpha = progress < 0.65 ? 1.0 : (1.0 - (progress - 0.65) / 0.35);
 
             ctx.save();
-            ctx.translate(W / 2, Y_HIT - 80);
+            ctx.translate(W / 2, floatY);
             ctx.scale(scale, scale);
             ctx.globalAlpha = alpha;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+
+            // 1. 判定文案（S-PERFECT / PERFECT / GREAT / MISS）
             ctx.fillStyle = judge.color;
             ctx.font = '900 24px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.shadowColor = judge.color;
-            ctx.shadowBlur = 12;
-            ctx.fillText(judge.text, 0, -10);
+            ctx.shadowBlur = 14;
+            ctx.fillText(judge.text, 0, judge.scoreText ? -10 : 0);
 
-            if (rhythmCombo >= 2) {
-              ctx.fillStyle = '#0f172a';
-              ctx.font = '900 28px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-              ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-              ctx.shadowBlur = 8;
-              ctx.fillText(String(rhythmCombo), 0, 18);
+            // 2. 加分数值（+300 / +180 / +100）使用对应专属色
+            if (judge.scoreText) {
+              ctx.fillStyle = judge.color;
+              ctx.font = '900 17px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+              ctx.shadowBlur = 6;
+              ctx.fillText(judge.scoreText, 0, 14);
             }
+
             ctx.restore();
           }
         }
@@ -2708,29 +2705,13 @@ function App() {
               {matchSubMode === 'ranked' ? (
                 <>
                   <div className="topbar-left-col">
-                    <div className="ranked-score-wrapper">
-                      <div className="game-score-badge">
-                        <span className="score-icon">⚡</span>
-                        <span className="score-num">{rankedScore.toLocaleString()}</span>
-                      </div>
-
-                      {comboCount >= 2 && (
-                        <div className="game-combo-badge">
-                          🔥x{comboCount}
-                        </div>
-                      )}
-
-                      {/* 飘字积分浮动动效 */}
-                      <div className="floating-score-container">
-                        {floatingScores.map(f => (
-                          <div key={f.id} className={`floating-score-item float-${f.type}`}>
-                            {f.text}
-                          </div>
-                        ))}
-                      </div>
+                    <div className="game-score-badge">
+                      <span className="score-icon">⚡</span>
+                      <span className="score-num">{rankedScore.toLocaleString()}</span>
                     </div>
                   </div>
 
+                  {/* ⏱️ 时间严格居中 */}
                   <div className="topbar-center-col">
                     <div className="game-timer-badge">
                       <span className="game-timer-display">{formatTime(timerSeconds)}</span>
@@ -2738,6 +2719,11 @@ function App() {
                   </div>
 
                   <div className="topbar-right-col">
+                    {comboCount >= 2 && (
+                      <div className="game-combo-badge">
+                        🔥x{comboCount}
+                      </div>
+                    )}
                     <button 
                       className="game-ctrl-btn" 
                       onClick={() => {
@@ -2986,29 +2972,13 @@ function App() {
                   )}
                 </button>
 
-                <div className="ranked-score-wrapper">
-                  <div className="game-score-badge">
-                    <span className="score-icon">⚡</span>
-                    <span className="score-num">{snakeScore.toLocaleString()}</span>
-                  </div>
-
-                  {snakeCombo >= 2 && (
-                    <div className="game-combo-badge">
-                      🔥x{snakeCombo}
-                    </div>
-                  )}
-
-                  <div className="floating-score-container">
-                    {snakeFloatingScores.map(f => (
-                      <div key={f.id} className={`floating-score-item float-${f.type}`}>
-                        {f.text}
-                      </div>
-                    ))}
-                  </div>
+                <div className="game-score-badge">
+                  <span className="score-icon">⚡</span>
+                  <span className="score-num">{snakeScore.toLocaleString()}</span>
                 </div>
               </div>
 
-              {/* ❤️ 生命值居中 */}
+              {/* ❤️ 生命值严格居中 */}
               <div className="topbar-center-col">
                 <div className="snake-lives-pill">
                   {Array.from({ length: 3 }).map((_, idx) => (
@@ -3020,6 +2990,11 @@ function App() {
               </div>
 
               <div className="topbar-right-col">
+                {snakeCombo >= 2 && (
+                  <div className="game-combo-badge">
+                    🔥x{snakeCombo}
+                  </div>
+                )}
                 <button 
                   className="game-ctrl-btn" 
                   onClick={() => {
@@ -3126,29 +3101,13 @@ function App() {
                   )}
                 </button>
 
-                <div className="ranked-score-wrapper">
-                  <div className="game-score-badge">
-                    <span className="score-icon">⚡</span>
-                    <span className="score-num">{rhythmScore.toLocaleString()}</span>
-                  </div>
-
-                  {rhythmCombo >= 2 && (
-                    <div className="game-combo-badge">
-                      🔥x{rhythmCombo}
-                    </div>
-                  )}
-
-                  <div className="floating-score-container">
-                    {rhythmFloatingScores.map(f => (
-                      <div key={f.id} className={`floating-score-item float-${f.type}`}>
-                        {f.text}
-                      </div>
-                    ))}
-                  </div>
+                <div className="game-score-badge">
+                  <span className="score-icon">⚡</span>
+                  <span className="score-num">{rhythmScore.toLocaleString()}</span>
                 </div>
               </div>
 
-              {/* ❤️ 生命值居中 */}
+              {/* ❤️ 生命值严格居中 */}
               <div className="topbar-center-col">
                 <div className="snake-lives-pill">
                   {Array.from({ length: 3 }).map((_, idx) => (
@@ -3160,6 +3119,11 @@ function App() {
               </div>
 
               <div className="topbar-right-col">
+                {rhythmCombo >= 2 && (
+                  <div className="game-combo-badge">
+                    🔥x{rhythmCombo}
+                  </div>
+                )}
                 <button 
                   className="game-ctrl-btn" 
                   onClick={() => {
