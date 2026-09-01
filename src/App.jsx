@@ -1979,60 +1979,87 @@ function App() {
           ctx.closePath();
         };
 
-        // 📐 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位)
-        const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
+        // 📐 3D Perspective Hit Receptor Pads (4 块高质感白瓷立体圆角打击靶位)
         const tPadBack = 0.93;
         const tPadFront = 1.07;
 
-        // 1. 4 个打击靶位底座（饱满 3D 透视圆角底座）
+        // 1. 终点判定线（先画在地面层：位于按钮下方，穿过中点 Y_HIT, t = 1.0）
+        ctx.save();
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(xAt(0, 1.0) - 4, Y_HIT);
+        ctx.lineTo(xAt(4, 1.0) + 4, Y_HIT);
+        ctx.stroke();
+        ctx.restore();
+
+        // 2. 4 个打击靶位底座（叠放在虚线上方，无标号纯粹极简，高质感白瓷/透光亚克力）
         for (let l = 0; l < 4; l++) {
           const margin = 2.5;
           const pTL = { x: xAt(l, tPadBack) + margin, y: yAt(tPadBack) };
           const pTR = { x: xAt(l + 1, tPadBack) - margin, y: yAt(tPadBack) };
           const pBR = { x: xAt(l + 1, tPadFront) - margin, y: yAt(tPadFront) };
           const pBL = { x: xAt(l, tPadFront) + margin, y: yAt(tPadFront) };
+          const pCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
+          const pCenterY = (pTL.y + pBR.y) / 2;
 
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
           const isPressed = (time - lastPress) < 160;
 
+          // A. 靶位地面立体柔和投影
+          ctx.save();
+          tracePerspectiveRoundedSlab(pTL.x, pTL.y + 3, pTR.x, pTR.y + 3, pBR.x, pBR.y + 3, pBL.x, pBL.y + 3, 8);
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+          ctx.fill();
+          ctx.restore();
+
+          // B. 靶位主体渲染（高透白瓷质感 / 按下时高亮通透皇家蓝）
           ctx.save();
           tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, 8);
 
           if (isPressed) {
-            ctx.fillStyle = '#2563eb';
+            const pressGrad = ctx.createLinearGradient(0, pTL.y, 0, pBL.y);
+            pressGrad.addColorStop(0, '#3b82f6');
+            pressGrad.addColorStop(0.5, '#2563eb');
+            pressGrad.addColorStop(1, '#1d4ed8');
+            ctx.fillStyle = pressGrad;
             ctx.fill();
-            ctx.strokeStyle = '#1d4ed8';
-            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#93c5fd';
+            ctx.lineWidth = 2.2;
             ctx.stroke();
           } else {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            const idleGrad = ctx.createLinearGradient(0, pTL.y, 0, pBL.y);
+            idleGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+            idleGrad.addColorStop(0.6, 'rgba(248, 250, 252, 0.95)');
+            idleGrad.addColorStop(1, 'rgba(241, 245, 249, 0.92)');
+            ctx.fillStyle = idleGrad;
             ctx.fill();
-            ctx.strokeStyle = 'rgba(59, 130, 246, 0.65)';
+            ctx.strokeStyle = 'rgba(147, 197, 253, 0.85)';
             ctx.lineWidth = 1.8;
             ctx.stroke();
           }
 
-          // Key indicator inside pad (Crisp clear typography)
-          const pCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
-          const pCenterY = (pTL.y + pBR.y) / 2;
-          ctx.fillStyle = isPressed ? '#ffffff' : '#0f172a';
-          ctx.font = '800 12px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(padLabels[l], pCenterX, pCenterY);
+          // C. 顶沿微光高光切边（提升物理实体悬浮质感）
+          ctx.beginPath();
+          ctx.moveTo(pTL.x + 8, pTL.y + 1);
+          ctx.lineTo(pTR.x - 8, pTR.y + 1);
+          ctx.strokeStyle = isPressed ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+
+          // D. 中心轻奢极简打击凹槽瞄准指示（代替繁杂数字）
+          const slotW = (pTR.x - pTL.x) * 0.32;
+          ctx.beginPath();
+          ctx.moveTo(pCenterX - slotW / 2, pCenterY);
+          ctx.lineTo(pCenterX + slotW / 2, pCenterY);
+          ctx.strokeStyle = isPressed ? 'rgba(255, 255, 255, 0.85)' : 'rgba(148, 163, 184, 0.6)';
+          ctx.lineWidth = 2.5;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+
           ctx.restore();
         }
-
-        // 2. 终点判定线（典雅灰色虚线，精准横贯判定框正中点 Y_HIT, t = 1.0）
-        ctx.save();
-        ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth = 1.8;
-        ctx.setLineDash([6, 4]);
-        ctx.beginPath();
-        ctx.moveTo(xAt(0, 1.0) - 2, Y_HIT);
-        ctx.lineTo(xAt(4, 1.0) + 2, Y_HIT);
-        ctx.stroke();
-        ctx.restore();
 
         // 💎 Draw Falling Waves (真实 3D 跑道地面透视轻薄圆角卡片，长宽比始终保持 2.6:1 扁平感)
         const waves = rhythmNotesRef.current;
