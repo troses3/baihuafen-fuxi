@@ -1704,6 +1704,7 @@ function App() {
         text: judgeText,
         color: judgeColor,
         time: performance.now(),
+        lane: laneIndex
       };
 
       setRhythmStageShake('hit-correct');
@@ -1737,6 +1738,7 @@ function App() {
         text: 'MISS',
         color: '#dc2626',
         time: performance.now(),
+        lane: laneIndex
       };
 
       setRhythmStageShake('hit-error');
@@ -1863,128 +1865,66 @@ function App() {
           }
         }
 
-        // 2. Rendering - 🕊️ Modern High-End Architectural Light Theme (高阶极简纯净赛道)
-        // 🕊️ Clean Porcelain Studio Gradient Background
+        // 2. 🕊️ 建筑级白玉瓷面与漫反射光影渲染 (Architectural Porcelain & Diffuse Lighting)
+        // 背景天际线 (Alabaster to Soft Mist)
         const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-        bgGrad.addColorStop(0, '#e2e8f0');
-        bgGrad.addColorStop(0.35, '#f1f5f9');
-        bgGrad.addColorStop(0.75, '#f8fafc');
-        bgGrad.addColorStop(1, '#ffffff');
+        bgGrad.addColorStop(0, '#fbfbfc');
+        bgGrad.addColorStop(0.25, '#f1f5f9');
+        bgGrad.addColorStop(0.7, '#e2e8f0');
+        bgGrad.addColorStop(1, '#cbd5e1');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // 🌅 Horizon Vanishing Point Soft Sunlight Bloom (柔和大气天际光晕)
-        const flareGrad = ctx.createRadialGradient(W / 2, Y_SPAWN, 0, W / 2, Y_SPAWN, W * 0.6);
-        flareGrad.addColorStop(0, 'rgba(59, 130, 246, 0.18)');
-        flareGrad.addColorStop(0.3, 'rgba(99, 102, 241, 0.08)');
-        flareGrad.addColorStop(0.65, 'rgba(241, 245, 249, 0.03)');
-        flareGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = flareGrad;
-        ctx.fillRect(0, 0, W, H);
-
-        // 3D Left Architectural Tunnel Wall (极简透视建筑侧壁)
+        // 两侧漫反射环境光幕 (Soft Ambient Occlusion)
         const leftWallGrad = ctx.createLinearGradient(0, 0, xEnd(0), 0);
-        leftWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.6)');
-        leftWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.95)');
+        leftWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.45)');
+        leftWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.85)');
         ctx.fillStyle = leftWallGrad;
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(xTop(0), Y_SPAWN);
-        ctx.lineTo(xEnd(0), Y_END);
-        ctx.lineTo(0, Y_END);
-        ctx.closePath();
+        ctx.moveTo(0, 0); ctx.lineTo(xTop(0), Y_SPAWN); ctx.lineTo(xEnd(0), Y_END); ctx.lineTo(0, Y_END);
         ctx.fill();
-
-        // 3D Right Architectural Tunnel Wall (极简透视建筑侧壁)
         const rightWallGrad = ctx.createLinearGradient(W, 0, xEnd(4), 0);
-        rightWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.6)');
-        rightWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.95)');
+        rightWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.45)');
+        rightWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.85)');
         ctx.fillStyle = rightWallGrad;
         ctx.beginPath();
-        ctx.moveTo(W, 0);
-        ctx.lineTo(xTop(4), Y_SPAWN);
-        ctx.lineTo(xEnd(4), Y_END);
-        ctx.lineTo(W, Y_END);
-        ctx.closePath();
+        ctx.moveTo(W, 0); ctx.lineTo(xTop(4), Y_SPAWN); ctx.lineTo(xEnd(4), Y_END); ctx.lineTo(W, Y_END);
         ctx.fill();
 
-        // 3D Runway Track Floor (Trapezoid Pure Light Porcelain Finish)
-        const runwayGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, H);
-        runwayGrad.addColorStop(0, '#e2e8f0');
-        runwayGrad.addColorStop(0.35, '#f1f5f9');
-        runwayGrad.addColorStop(0.85, '#ffffff');
-        runwayGrad.addColorStop(1, '#f8fafc');
-        ctx.fillStyle = runwayGrad;
+        // 3D 地面 (Matt Porcelain Floor)
+        const floorGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, H);
+        floorGrad.addColorStop(0, '#e2e8f0');
+        floorGrad.addColorStop(0.4, '#f1f5f9');
+        floorGrad.addColorStop(1, '#ffffff');
+        ctx.fillStyle = floorGrad;
         ctx.beginPath();
-        ctx.moveTo(xTop(0), Y_SPAWN);
-        ctx.lineTo(xTop(4), Y_SPAWN);
-        ctx.lineTo(xEnd(4), Y_END);
-        ctx.lineTo(xEnd(0), Y_END);
-        ctx.closePath();
+        ctx.moveTo(xTop(0), Y_SPAWN); ctx.lineTo(xTop(4), Y_SPAWN); ctx.lineTo(xEnd(4), Y_END); ctx.lineTo(xEnd(0), Y_END);
         ctx.fill();
 
-        // 3D Transverse Speed Grid Lines (克制优雅的透视速度线)
-        const speedPhase = (time * 0.00015 * currentSpeedConfig.speed) % 0.12;
-        for (let tLine = 0.05; tLine < progressToEnd; tLine += 0.12) {
-          const curT = tLine + speedPhase;
-          if (curT >= progressToEnd) continue;
-          const yL = yAt(curT);
-          const xL = xAt(0, curT);
-          const xR = xAt(4, curT);
-          const alpha = Math.min(0.25, Math.max(0.02, curT * 0.28));
-          ctx.strokeStyle = `rgba(59, 130, 246, ${alpha})`;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(xL, yL);
-          ctx.lineTo(xR, yL);
-          ctx.stroke();
-        }
-
-        // 4 Lanes & 5 True Perspective Ray Dividers
+        // 4 轨交错极简 2% 明度微差与亚像素透视细线
         for (let l = 0; l < 4; l++) {
-          // Lane column alternating subtle shade
           if (l % 2 === 1) {
-            ctx.fillStyle = 'rgba(226, 232, 240, 0.45)';
+            ctx.fillStyle = 'rgba(244, 244, 245, 0.6)';
             ctx.beginPath();
-            ctx.moveTo(xTop(l), Y_SPAWN);
-            ctx.lineTo(xTop(l + 1), Y_SPAWN);
-            ctx.lineTo(xEnd(l + 1), Y_END);
-            ctx.lineTo(xEnd(l), Y_END);
-            ctx.closePath();
+            ctx.moveTo(xTop(l), Y_SPAWN); ctx.lineTo(xTop(l + 1), Y_SPAWN);
+            ctx.lineTo(xEnd(l + 1), Y_END); ctx.lineTo(xEnd(l), Y_END);
             ctx.fill();
           }
 
-          // Active Press 3D Light Column (Vibrant Blue Beam)
-          const lastPress = rhythmActiveLanesRef.current[l] || 0;
-          const pressAge = time - lastPress;
-          if (pressAge < 220) {
-            const beamAlpha = (1 - pressAge / 220) * 0.4;
-            const beamGrad = ctx.createLinearGradient(0, Y_HIT, 0, Y_SPAWN);
-            beamGrad.addColorStop(0, `rgba(37, 99, 235, ${beamAlpha})`);
-            beamGrad.addColorStop(0.4, `rgba(99, 102, 241, ${beamAlpha * 0.6})`);
-            beamGrad.addColorStop(1, 'rgba(59, 130, 246, 0)');
-            ctx.fillStyle = beamGrad;
-            ctx.beginPath();
-            ctx.moveTo(xTop(l), Y_SPAWN);
-            ctx.lineTo(xTop(l + 1), Y_SPAWN);
-            ctx.lineTo(xBot(l + 1), Y_HIT);
-            ctx.lineTo(xBot(l), Y_HIT);
-            ctx.closePath();
-            ctx.fill();
-          }
-
-          // Ray divider lines
           if (l > 0) {
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
-            ctx.lineWidth = 1.2;
+            const lineGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, H);
+            lineGrad.addColorStop(0, 'rgba(15, 23, 42, 0)');
+            lineGrad.addColorStop(0.3, 'rgba(15, 23, 42, 0.03)');
+            lineGrad.addColorStop(1, 'rgba(15, 23, 42, 0.08)');
+            ctx.strokeStyle = lineGrad;
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(xTop(l), Y_SPAWN);
-            ctx.lineTo(xEnd(l), Y_END);
+            ctx.moveTo(xTop(l), Y_SPAWN); ctx.lineTo(xEnd(l), Y_END);
             ctx.stroke();
           }
         }
 
-        // 📐 Helper: Perfect 3D Perspective Rounded Slab Path (透视圆角多边形绘制引擎)
+        // 📐 Helper: Perfect 3D Perspective Rounded Slab Path (连续曲率透视超圆角绘制引擎)
         const tracePerspectiveRoundedSlab = (xTL, yTL, xTR, yTR, xBR, yBR, xBL, yBL, radius) => {
           const r = Math.max(2, Math.min(radius, (yBL - yTL) * 0.45, (xTR - xTL) * 0.35));
           ctx.beginPath();
@@ -1996,10 +1936,10 @@ function App() {
           ctx.closePath();
         };
 
-        // 3D Perspective Hit Receptor Pads (4 块浅色典雅圆角立体打击靶位)
+        // 🔍 跑道一体化内嵌磨砂透镜打击靶位 (Integrated Frosted Glass Receptors)
         const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
-        const tPadBack = 0.93;
-        const tPadFront = 1.07;
+        const tPadBack = 0.94;
+        const tPadFront = 1.06;
 
         for (let l = 0; l < 4; l++) {
           const margin = 2.5;
@@ -2007,52 +1947,76 @@ function App() {
           const pTR = { x: xAt(l + 1, tPadBack) - margin, y: yAt(tPadBack) };
           const pBR = { x: xAt(l + 1, tPadFront) - margin, y: yAt(tPadFront) };
           const pBL = { x: xAt(l, tPadFront) + margin, y: yAt(tPadFront) };
+          const padRadius = 6;
 
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
-          const isPressed = (time - lastPress) < 160;
-
+          const pressAge = time - lastPress;
+          const isPressed = pressAge < 180;
+          
           ctx.save();
-          tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, 8);
-
+          tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, padRadius);
+          
           if (isPressed) {
-            ctx.fillStyle = '#2563eb';
+            const pressProgress = pressAge / 180;
+            ctx.fillStyle = `rgba(59, 130, 246, ${0.15 * (1 - pressProgress)})`;
             ctx.fill();
-            ctx.strokeStyle = '#1d4ed8';
-            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = `rgba(96, 165, 250, ${0.8 * (1 - pressProgress)})`;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
           } else {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
             ctx.fill();
-            ctx.strokeStyle = 'rgba(59, 130, 246, 0.55)';
-            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = 'rgba(15, 23, 42, 0.05)';
+            ctx.lineWidth = 1;
             ctx.stroke();
           }
-
-          // Key indicator inside pad (Zero jitter centered)
+          
           const pCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
           const pCenterY = (pTL.y + pBR.y) / 2;
-          ctx.fillStyle = isPressed ? '#ffffff' : '#1e293b';
-          ctx.font = '800 11px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = isPressed ? '#1d4ed8' : '#64748b';
+          ctx.font = '600 11px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(padLabels[l], pCenterX, pCenterY);
+          ctx.fillText(padLabels[l], pCenterX, pCenterY + (isPressed ? 1 : 0));
           ctx.restore();
         }
 
-        // Draw Hit Line Laser Beam
-        ctx.strokeStyle = '#2563eb';
-        ctx.lineWidth = 2.2;
+        // 极细判定镭射光线 (Hairline Laser Beam)
+        ctx.strokeStyle = 'rgba(96, 165, 250, 0.5)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(xAt(0, 1.0), Y_HIT);
         ctx.lineTo(xAt(4, 1.0), Y_HIT);
         ctx.stroke();
 
-        // 💎 Draw Falling Waves as Exquisite Perspective Rounded Slabs (每个数字的精美圆角容器)
+        // 💎 绘制悬浮陶瓷琉璃晶片 (Floating Ceramic Glass Note Slabs)
         const waves = rhythmNotesRef.current;
         const NOTE_LENGTH_T = 0.075;
 
+        // Draw hit ripples (水滴微震波环)
+        const judge = rhythmJudgementRef.current;
+        if (judge && judge.lane !== undefined && judge.text !== 'MISS') {
+            const age = time - judge.time;
+            if (age < 350) {
+              const rT = age / 350;
+              const rRadius = 20 + 80 * (1 - Math.pow(1 - rT, 3));
+              const rAlpha = (1 - rT) * 0.4;
+              const cx = (xAt(judge.lane, 1.0) + xAt(judge.lane + 1, 1.0)) / 2;
+              
+              ctx.save();
+              ctx.translate(cx, Y_HIT);
+              ctx.scale(1, 0.35); // 强烈的透视扁平
+              ctx.beginPath();
+              ctx.arc(0, 0, rRadius, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(59, 130, 246, ${rAlpha})`;
+              ctx.lineWidth = 2 + 3 * (1 - rT);
+              ctx.stroke();
+              ctx.restore();
+            }
+        }
+
         waves.forEach(w => {
-          if (w.resolved || w.t < -0.05 || w.t > progressToEnd + 0.05) return;
+          if (w.t < -0.05 || w.t > progressToEnd + 0.05) return;
 
           const tFront = w.t;
           const tBack = Math.max(0.0, w.t - NOTE_LENGTH_T);
@@ -2060,70 +2024,89 @@ function App() {
           const yBack = yAt(tBack);
 
           w.notes.forEach(n => {
-            if (n.hit) return;
+            let drawTFront = tFront;
+            let drawTBack = tBack;
+            let drawYFront = yFront;
+            let drawYBack = yBack;
+            let alphaScale = 1.0;
+            let widthExpand = 0;
 
-            const margin = Math.max(1.5, 3.5 * tFront);
-            const pTL = { x: xAt(n.lane, tBack) + margin, y: yBack };
-            const pTR = { x: xAt(n.lane + 1, tBack) - margin, y: yBack };
-            const pBR = { x: xAt(n.lane + 1, tFront) - margin, y: yFront };
-            const pBL = { x: xAt(n.lane, tFront) + margin, y: yFront };
-            const slabRadius = Math.max(3, 10 * tFront);
+            if (n.hit) {
+              if (judge && judge.lane === n.lane) {
+                const hitAge = time - judge.time;
+                if (hitAge > 180) return;
+                const hitP = hitAge / 180;
+                alphaScale = 1 - hitP;
+                widthExpand = hitP * 12; // 光学膨胀消散
+              } else {
+                 return;
+              }
+            }
 
-            // 1. Soft Floor Shadow Under the Note Slab
-            const shadowOffset = 2 + 5 * tFront;
-            ctx.save();
-            tracePerspectiveRoundedSlab(
-              pTL.x, pTL.y + shadowOffset,
-              pTR.x, pTR.y + shadowOffset,
-              pBR.x, pBR.y + shadowOffset,
-              pBL.x, pBL.y + shadowOffset,
-              slabRadius
-            );
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
-            ctx.fill();
-            ctx.restore();
+            const margin = Math.max(1.5, 3.5 * drawTFront) - widthExpand;
+            const pTL = { x: xAt(n.lane, drawTBack) + margin, y: drawYBack };
+            const pTR = { x: xAt(n.lane + 1, drawTBack) - margin, y: drawYBack };
+            const pBR = { x: xAt(n.lane + 1, drawTFront) - margin, y: drawYFront };
+            const pBL = { x: xAt(n.lane, drawTFront) + margin, y: drawYFront };
+            const slabRadius = Math.max(3, 12 * drawTFront);
 
-            // 2. Note Perspective Rounded Body (Vivid Royal Blue & Cyan Gradient)
+            if (alphaScale > 0.1 && !n.hit) {
+              const ambientOffset = 5 + 15 * drawTFront;
+              ctx.save();
+              tracePerspectiveRoundedSlab(
+                pTL.x, pTL.y + ambientOffset, pTR.x, pTR.y + ambientOffset,
+                pBR.x, pBR.y + ambientOffset, pBL.x, pBL.y + ambientOffset, slabRadius
+              );
+              ctx.fillStyle = `rgba(15, 23, 42, ${0.04 * drawTFront})`;
+              ctx.fill();
+              ctx.restore();
+
+              const contactOffset = 1 + 3 * drawTFront;
+              ctx.save();
+              tracePerspectiveRoundedSlab(
+                pTL.x, pTL.y + contactOffset, pTR.x, pTR.y + contactOffset,
+                pBR.x, pBR.y + contactOffset, pBL.x, pBL.y + contactOffset, slabRadius
+              );
+              ctx.fillStyle = `rgba(15, 23, 42, ${0.08 * Math.min(1, drawTFront * 2)})`;
+              ctx.fill();
+              ctx.restore();
+            }
+
             ctx.save();
             tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, slabRadius);
+            
+            const noteGrad = ctx.createLinearGradient(0, drawYBack, 0, drawYFront);
+            noteGrad.addColorStop(0, `rgba(96, 165, 250, ${alphaScale})`);
+            noteGrad.addColorStop(0.3, `rgba(59, 130, 246, ${alphaScale})`);
+            noteGrad.addColorStop(1, `rgba(37, 99, 235, ${alphaScale})`);
 
-            const noteGrad = ctx.createLinearGradient(0, yBack, 0, yFront);
-            noteGrad.addColorStop(0, '#3b82f6');
-            noteGrad.addColorStop(0.35, '#2563eb');
-            noteGrad.addColorStop(0.85, '#1d4ed8');
-            noteGrad.addColorStop(1, '#1e40af');
             ctx.fillStyle = noteGrad;
             ctx.fill();
 
-            // Outer smooth glowing rim
-            ctx.strokeStyle = 'rgba(147, 197, 253, 0.95)';
-            ctx.lineWidth = Math.max(1, 1.8 * tFront);
-            ctx.stroke();
-
-            // 3. Top Shiny Specular Highlight Bar
-            ctx.save();
             ctx.beginPath();
             ctx.moveTo(pTL.x + slabRadius, pTL.y + 1);
             ctx.lineTo(pTR.x - slabRadius, pTR.y + 1);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.lineWidth = Math.max(1, 1.6 * tFront);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.85 * alphaScale})`;
+            ctx.lineWidth = Math.max(1, 1.2 * drawTFront);
             ctx.stroke();
-            ctx.restore();
 
-            // 4. Centered Continuous Vector Scaled Text (Zero-Jitter Smooth GPU Scaling)
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.2 * alphaScale})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
             const noteCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
-            const noteCenterY = (yBack + yFront) / 2;
-            const textScale = 0.55 + 0.45 * tFront;
+            const noteCenterY = (drawYBack + drawYFront) / 2;
+            const textScale = 0.55 + 0.45 * drawTFront;
 
             ctx.save();
             ctx.translate(noteCenterX, noteCenterY);
-            ctx.scale(textScale, textScale);
-            ctx.fillStyle = '#ffffff';
+            ctx.scale(textScale + (widthExpand * 0.05), textScale + (widthExpand * 0.05));
+            ctx.fillStyle = `rgba(255, 255, 255, ${alphaScale})`;
             ctx.font = '900 16px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(15, 23, 42, 0.5)';
-            ctx.shadowBlur = 3;
+            ctx.shadowColor = `rgba(15, 23, 42, ${0.3 * alphaScale})`;
+            ctx.shadowBlur = 4;
             ctx.fillText(n.value, 0, 0);
             ctx.restore();
 
@@ -2131,31 +2114,38 @@ function App() {
           });
         });
 
-        // Center Floating Judgement Feedback (S-PERFECT / PERFECT / GREAT + Combo)
-        const judge = rhythmJudgementRef.current;
+        // 评级艺术字与连击 (Editorial Judgement Typography)
         if (judge) {
           const age = time - judge.time;
           if (age < 550) {
-            const scale = 1 + Math.max(0, (1 - age / 160) * 0.35);
+            const liftT = 1 - Math.pow(1 - Math.min(1, age / 550), 3);
+            const liftY = -35 * liftT;
             const alpha = Math.min(1, (1 - age / 550) * 1.5);
+            
+            let scale = 1;
+            if (age < 120) {
+                scale = 0.8 + 0.2 * Math.pow(age / 120, 0.5);
+            }
 
             ctx.save();
-            ctx.translate(W / 2, Y_HIT - 80);
+            ctx.translate(W / 2, Y_HIT - 90 + liftY);
             ctx.scale(scale, scale);
             ctx.globalAlpha = alpha;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+            
             ctx.fillStyle = judge.color;
-            ctx.font = '900 24px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = '800 20px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.shadowColor = judge.color;
-            ctx.shadowBlur = 12;
-            ctx.fillText(judge.text, 0, -10);
+            ctx.shadowBlur = 8;
+            
+            ctx.fillText(judge.text.split('').join(String.fromCharCode(8202)), 0, -10);
 
             if (rhythmCombo >= 2) {
-              ctx.fillStyle = '#1e293b';
+              ctx.fillStyle = '#0f172a';
               ctx.font = '900 28px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-              ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-              ctx.shadowBlur = 8;
+              ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+              ctx.shadowBlur = 10;
               ctx.fillText(String(rhythmCombo), 0, 18);
             }
             ctx.restore();
