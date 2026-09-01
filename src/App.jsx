@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import initialItems from '../data.json';
 import './App.css';
-import { triggerHaptic, unlockAudioHaptics } from './utils/haptics';
+import { triggerHaptic, unlockAudioHaptics, setHapticsAudioMuted } from './utils/haptics';
 
 const STORAGE_KEY = 'baihuafen-tracker-data-v2';
 const BEST_TIME_KEY = 'baihuafen-match-best-time';
@@ -271,7 +271,14 @@ function App() {
 
   useEffect(() => {
     const audio = rhythmBgmRef.current;
+    if (quizMode === 'rhythmGame') {
+      setHapticsAudioMuted(isRhythmBgmMuted);
+    } else {
+      setHapticsAudioMuted(false);
+    }
+
     if (!audio) return;
+    audio.muted = isRhythmBgmMuted;
 
     if (
       quizMode === 'rhythmGame' &&
@@ -280,12 +287,7 @@ function App() {
       !isRhythmGameOver &&
       !isRhythmVictory
     ) {
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          // Autoplay was blocked; will resume on first user touch/tap
-        });
-      }
+      audio.play().catch(() => {});
     } else {
       audio.pause();
       if (quizMode !== 'rhythmGame' || isRhythmGameOver || isRhythmVictory) {
@@ -1717,10 +1719,6 @@ function App() {
   const handleRhythmHitLane = useCallback((laneIndex) => {
     if (isRhythmPaused || isRhythmGameOver || isRhythmVictory || !isRhythmRunningRef.current) return;
     triggerHaptic('tap');
-    
-    if (!isRhythmBgmMutedRef.current && rhythmBgmRef.current && rhythmBgmRef.current.paused) {
-      rhythmBgmRef.current.play().catch(() => {});
-    }
 
     // Light up lane in 3D
     rhythmActiveLanesRef.current[laneIndex] = performance.now();

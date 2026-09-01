@@ -82,7 +82,14 @@ if (typeof window !== 'undefined') {
   window.addEventListener('click', unlockAudioHaptics, { passive: true, once: false });
 }
 
+let isHapticsAudioMuted = false;
+
+export function setHapticsAudioMuted(muted) {
+  isHapticsAudioMuted = Boolean(muted);
+}
+
 function playTapticThump(type = 'success') {
+  if (isHapticsAudioMuted) return;
   try {
     if (typeof window === 'undefined') return;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
