@@ -1775,12 +1775,24 @@ function App() {
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const tapX = e.clientX - rect.left;
-    const laneWidth = rect.width / 4;
-    const laneIndex = Math.min(3, Math.max(0, Math.floor(tapX / laneWidth)));
+    const tapY = e.clientY - rect.top;
+    const W = rect.width || 360;
+    const H = rect.height || 460;
+    const horizonY = H * 0.05;
+    const hitLineY = H * 0.82;
+    const topTrackW = W * 0.38;
+    const bottomTrackW = W * 0.96;
+    const centerX = W / 2;
+
+    const pCurve = Math.pow(Math.max(0, Math.min(1.2, (tapY - horizonY) / (hitLineY - horizonY))), 1.6);
+    const trackW = topTrackW + (bottomTrackW - topTrackW) * Math.max(0.6, pCurve);
+    const leftX = centerX - trackW / 2;
+    const laneW = trackW / 4;
+    const laneIndex = Math.min(3, Math.max(0, Math.floor((tapX - leftX) / laneW)));
     handleRhythmHitLane(laneIndex);
   };
 
-  // 60FPS Unified Canvas RAF Engine for Rhythm Game
+  // 60FPS 3D Perspective Canvas Engine for Rhythm Game (音游纵深透视跑道)
   useEffect(() => {
     if (quizMode !== 'rhythmGame') return;
     const canvas = rhythmCanvasRef.current;
@@ -1809,8 +1821,22 @@ function App() {
         ctx.save();
         ctx.scale(dpr, dpr);
 
+        const horizonY = H * 0.05;
         const hitLineY = H * 0.82;
-        const laneWidth = W / 4;
+        const topTrackW = W * 0.38;
+        const bottomTrackW = W * 0.96;
+        const centerX = W / 2;
+
+        // 3D Perspective Projection Function
+        const getPerspectiveAt = (p) => {
+          const pCurve = Math.pow(Math.max(0, p), 1.65);
+          const y = horizonY + (hitLineY - horizonY) * pCurve;
+          const trackW = topTrackW + (bottomTrackW - topTrackW) * pCurve;
+          const leftX = centerX - trackW / 2;
+          const laneW = trackW / 4;
+          return { y, trackW, leftX, laneW, scale: Math.max(0.32, Math.min(1.15, pCurve)) };
+        };
+
         const currentSpeedConfig = RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevelRef.current) || RHYTHM_SPEEDS[3];
         const fallSpeed = currentSpeedConfig.speed * (H / 460);
 
@@ -1818,7 +1844,6 @@ function App() {
         if (!isRhythmPaused && !isRhythmGameOver && isRhythmRunningRef.current) {
           const waves = rhythmNotesRef.current;
 
-          // Spawn new wave if interval passed or empty
           if (waves.length === 0 || (time - lastSpawnTimeRef.current >= currentSpeedConfig.spawnInterval && waves[waves.length - 1].y > H * 0.35)) {
             const nextTargetAndWave = generateRhythmTargetAndWave(-50);
             rhythmTargetRef.current = nextTargetAndWave.target;
@@ -1827,15 +1852,12 @@ function App() {
             lastSpawnTimeRef.current = time;
           }
 
-          // Move waves
           for (let i = waves.length - 1; i >= 0; i--) {
             const w = waves[i];
             w.y += fallSpeed * (dt / 16.66);
 
-            // Check if correct note passed hitLine without hit
             if (!w.resolved && w.y > hitLineY + 45) {
               w.resolved = true;
-              // Missed correct note!
               setRhythmCombo(0);
               setRhythmHitCounts(h => ({ ...h, miss: h.miss + 1 }));
               setRhythmLives(lives => {
@@ -1857,109 +1879,216 @@ function App() {
               setTimeout(() => setRhythmStageShake(''), 220);
             }
 
-            // Remove waves that fell below screen
             if (w.y > H + 60) {
               waves.splice(i, 1);
             }
           }
         }
 
-        // 2. Rendering
-        // Clear background
-        ctx.fillStyle = '#0f172a'; // Deep slate dark background
+        // 2. 3D Perspective Rendering
+        // Background Cyber Gradient
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+        bgGrad.addColorStop(0, '#030712');
+        bgGrad.addColorStop(0.5, '#0b1120');
+        bgGrad.addColorStop(1, '#030712');
+        ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // Draw 4 Lanes
+        const topL = centerX - topTrackW / 2;
+        const topR = centerX + topTrackW / 2;
+        const botL = centerX - bottomTrackW / 2;
+        const botR = centerX + bottomTrackW / 2;
+
+        // Side Perspective Walls
+        // Left wall
+        const leftWallGrad = ctx.createLinearGradient(0, 0, botL, 0);
+        leftWallGrad.addColorStop(0, 'rgba(30, 27, 75, 0.7)');
+        leftWallGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+        ctx.fillStyle = leftWallGrad;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(topL, horizonY);
+        ctx.lineTo(botL, H);
+        ctx.lineTo(0, H);
+        ctx.closePath();
+        ctx.fill();
+
+        // Right wall
+        const rightWallGrad = ctx.createLinearGradient(W, 0, botR, 0);
+        rightWallGrad.addColorStop(0, 'rgba(30, 27, 75, 0.7)');
+        rightWallGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+        ctx.fillStyle = rightWallGrad;
+        ctx.beginPath();
+        ctx.moveTo(W, 0);
+        ctx.lineTo(topR, horizonY);
+        ctx.lineTo(botR, H);
+        ctx.lineTo(W, H);
+        ctx.closePath();
+        ctx.fill();
+
+        // 3D Runway Track Floor
+        const runwayGrad = ctx.createLinearGradient(0, horizonY, 0, H);
+        runwayGrad.addColorStop(0, '#0f172a');
+        runwayGrad.addColorStop(0.65, '#1e293b');
+        runwayGrad.addColorStop(1, '#090d16');
+        ctx.fillStyle = runwayGrad;
+        ctx.beginPath();
+        ctx.moveTo(topL, horizonY);
+        ctx.lineTo(topR, horizonY);
+        ctx.lineTo(botR, H);
+        ctx.lineTo(botL, H);
+        ctx.closePath();
+        ctx.fill();
+
+        // 4 Lanes & Dividers & Active Press Light Beams
         for (let l = 0; l < 4; l++) {
-          const laneX = l * laneWidth;
-          const isEven = l % 2 === 0;
+          const lTopX1 = topL + l * (topTrackW / 4);
+          const lTopX2 = topL + (l + 1) * (topTrackW / 4);
+          const lBotX1 = botL + l * (bottomTrackW / 4);
+          const lBotX2 = botL + (l + 1) * (bottomTrackW / 4);
 
-          // Lane background
-          ctx.fillStyle = isEven ? 'rgba(30, 41, 59, 0.45)' : 'rgba(15, 23, 42, 0.55)';
-          ctx.fillRect(laneX, 0, laneWidth, H);
+          // Lane column shade
+          if (l % 2 === 1) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+            ctx.beginPath();
+            ctx.moveTo(lTopX1, horizonY);
+            ctx.lineTo(lTopX2, horizonY);
+            ctx.lineTo(lBotX2, H);
+            ctx.lineTo(lBotX1, H);
+            ctx.closePath();
+            ctx.fill();
+          }
 
-          // Lane Divider
+          // Active Press Light Beam (3D beam shooting up towards vanishing point)
+          const lastPress = rhythmActiveLanesRef.current[l] || 0;
+          const pressAge = time - lastPress;
+          if (pressAge < 180) {
+            const beamAlpha = (1 - pressAge / 180) * 0.55;
+            const beamGrad = ctx.createLinearGradient(0, hitLineY, 0, horizonY);
+            beamGrad.addColorStop(0, `rgba(56, 189, 248, ${beamAlpha})`);
+            beamGrad.addColorStop(0.5, `rgba(168, 85, 247, ${beamAlpha * 0.6})`);
+            beamGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+            ctx.fillStyle = beamGrad;
+            ctx.beginPath();
+            ctx.moveTo(lTopX1, horizonY);
+            ctx.lineTo(lTopX2, horizonY);
+            ctx.lineTo(lBotX2, hitLineY);
+            ctx.lineTo(lBotX1, hitLineY);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          // Lane divider lines
           if (l > 0) {
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(laneX, 0);
-            ctx.lineTo(laneX, H);
+            ctx.moveTo(lTopX1, horizonY);
+            ctx.lineTo(lBotX1, H);
             ctx.stroke();
           }
-
-          // Lane Active Press Light Beam
-          const lastPressTime = rhythmActiveLanesRef.current[l] || 0;
-          const pressAge = time - lastPressTime;
-          if (pressAge < 150) {
-            const beamAlpha = (1 - pressAge / 150) * 0.35;
-            const grad = ctx.createLinearGradient(0, hitLineY, 0, 0);
-            grad.addColorStop(0, `rgba(59, 130, 246, ${beamAlpha})`);
-            grad.addColorStop(1, 'rgba(59, 130, 246, 0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(laneX, 0, laneWidth, hitLineY);
-          }
         }
 
-        // Draw Hit Line (Glowing neon laser)
-        const glowPulse = Math.sin(time / 200) * 0.2 + 0.8;
-        const hitGrad = ctx.createLinearGradient(0, hitLineY - 8, 0, hitLineY + 8);
-        hitGrad.addColorStop(0, 'rgba(59, 130, 246, 0)');
-        hitGrad.addColorStop(0.5, `rgba(96, 165, 250, ${0.85 * glowPulse})`);
-        hitGrad.addColorStop(1, 'rgba(59, 130, 246, 0)');
-        ctx.fillStyle = hitGrad;
-        ctx.fillRect(0, hitLineY - 8, W, 16);
-
-        ctx.strokeStyle = '#60a5fa';
+        // Side Rails (Glowing Neon Border)
+        ctx.save();
+        ctx.strokeStyle = '#38bdf8';
         ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 10;
         ctx.beginPath();
-        ctx.moveTo(0, hitLineY);
-        ctx.lineTo(W, hitLineY);
+        ctx.moveTo(topL, horizonY);
+        ctx.lineTo(botL, H);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(topR, horizonY);
+        ctx.lineTo(botR, H);
+        ctx.stroke();
+        ctx.restore();
+
+        // 3D Perspective Hit Receptor Pads (底部 4 个发光 3D 击打靶位)
+        for (let l = 0; l < 4; l++) {
+          const padTop = getPerspectiveAt(0.92);
+          const padBot = getPerspectiveAt(1.05);
+          const padTopX1 = padTop.leftX + l * padTop.laneW + 3;
+          const padTopX2 = padTopX1 + padTop.laneW - 6;
+          const padBotX1 = padBot.leftX + l * padBot.laneW + 3;
+          const padBotX2 = padBotX1 + padBot.laneW - 6;
+
+          const lastPress = rhythmActiveLanesRef.current[l] || 0;
+          const isPressed = (time - lastPress) < 140;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(padTopX1, padTop.y);
+          ctx.lineTo(padTopX2, padTop.y);
+          ctx.lineTo(padBotX2, padBot.y);
+          ctx.lineTo(padBotX1, padBot.y);
+          ctx.closePath();
+
+          if (isPressed) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.strokeStyle = '#67e8f9';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = 'rgba(30, 41, 59, 0.65)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Draw Hit Line laser glow
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(botL, hitLineY);
+        ctx.lineTo(botR, hitLineY);
         ctx.stroke();
 
-        // Draw Hit Target Rings on each lane at hitLine
-        for (let l = 0; l < 4; l++) {
-          const cx = l * laneWidth + laneWidth / 2;
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.arc(cx, hitLineY, 14, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        // Draw Falling Waves & Notes
+        // Draw 3D Falling Waves & Perspective Notes (近大远小 + 纵深立体)
         const waves = rhythmNotesRef.current;
         waves.forEach(w => {
-          const noteH = 38;
-          const noteY = w.y - noteH / 2;
+          const p = (w.y - (-40)) / (hitLineY - (-40));
+          if (p < 0) return;
+
+          const pos = getPerspectiveAt(p);
+          const noteH = Math.max(14, 38 * pos.scale);
+          const noteY = pos.y - noteH / 2;
 
           w.notes.forEach(n => {
-            if (n.hit) return; // don't draw if already exploded
+            if (n.hit) return;
 
-            const noteX = n.lane * laneWidth + 5;
-            const noteW = laneWidth - 10;
+            const noteW = pos.laneW - 8 * pos.scale;
+            const noteX = pos.leftX + n.lane * pos.laneW + (pos.laneW - noteW) / 2;
 
-            // Note background card
             ctx.save();
-            drawRoundedRect(ctx, noteX, noteY, noteW, noteH, 10);
-            
-            // Gradient fill
+            drawRoundedRect(ctx, noteX, noteY, noteW, noteH, Math.max(3, 8 * pos.scale));
+
+            // Cyan / Neon gradient for notes (matching image 2)
             const noteGrad = ctx.createLinearGradient(0, noteY, 0, noteY + noteH);
-            noteGrad.addColorStop(0, '#ffffff');
-            noteGrad.addColorStop(1, '#f1f5f9');
+            noteGrad.addColorStop(0, '#38bdf8');
+            noteGrad.addColorStop(0.35, '#0284c7');
+            noteGrad.addColorStop(1, '#0369a1');
             ctx.fillStyle = noteGrad;
             ctx.fill();
 
-            // Note Border & Shadow
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = 1.5;
+            // Note glossy top border
+            ctx.strokeStyle = '#e0f2fe';
+            ctx.lineWidth = Math.max(1, 1.6 * pos.scale);
             ctx.stroke();
 
-            // Note Text (Percentage / Fraction)
-            ctx.fillStyle = '#0f172a';
+            // Text with dynamic scale
+            const fontSize = Math.max(9, Math.round(14 * pos.scale));
+            ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.font = '900 13px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = `900 ${fontSize}px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
             ctx.fillText(n.value, noteX + noteW / 2, noteY + noteH / 2);
 
             ctx.restore();
@@ -1985,24 +2114,32 @@ function App() {
           ctx.globalAlpha = 1;
         }
 
-        // Draw Center Judgement Text
+        // Draw Center Judgement Text (matching image 2: S-PERFECT + Combo)
         const judge = rhythmJudgementRef.current;
         if (judge) {
           const age = time - judge.time;
-          if (age < 500) {
-            const scale = 1 + Math.max(0, (1 - age / 150) * 0.3);
-            const alpha = Math.min(1, (1 - age / 500) * 1.5);
+          if (age < 550) {
+            const scale = 1 + Math.max(0, (1 - age / 160) * 0.35);
+            const alpha = Math.min(1, (1 - age / 550) * 1.5);
             ctx.save();
-            ctx.translate(W / 2, H * 0.52);
+            ctx.translate(W / 2, H * 0.48);
             ctx.scale(scale, scale);
             ctx.globalAlpha = alpha;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = judge.color;
-            ctx.font = '900 24px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = '900 22px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.shadowColor = judge.color;
-            ctx.shadowBlur = 12;
-            ctx.fillText(judge.text, 0, 0);
+            ctx.shadowBlur = 14;
+            ctx.fillText(judge.text, 0, -10);
+
+            if (rhythmCombo >= 2) {
+              ctx.fillStyle = '#ffffff';
+              ctx.font = '900 28px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.shadowColor = 'rgba(255, 255, 255, 0.6)';
+              ctx.shadowBlur = 10;
+              ctx.fillText(String(rhythmCombo), 0, 18);
+            }
             ctx.restore();
           }
         }
@@ -2017,7 +2154,7 @@ function App() {
 
     animId = requestAnimationFrame(renderRhythmLoop);
     return () => cancelAnimationFrame(animId);
-  }, [quizMode, isRhythmPaused, isRhythmGameOver, generateRhythmTargetAndWave]);
+  }, [quizMode, isRhythmPaused, isRhythmGameOver, generateRhythmTargetAndWave, rhythmCombo]);
 
   // Rhythm Keyboard Shortcuts (D, F, J, K or 1, 2, 3, 4)
   useEffect(() => {
@@ -3188,7 +3325,7 @@ function App() {
       </main>
 
       {/* 🐍 贪吃蛇 暂停遮罩 (Root Fixed Modal) */}
-      {isSnakePaused && (
+      {quizMode === 'snakeGame' && isSnakePaused && (
         <div className="game-modal-overlay" onClick={() => setIsSnakePaused(false)}>
           <div className="game-modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-icon svg-modal-icon">
@@ -3218,8 +3355,39 @@ function App() {
         </div>
       )}
 
+      {/* 🎵 节奏音块 暂停遮罩 (Root Fixed Modal) */}
+      {quizMode === 'rhythmGame' && isRhythmPaused && (
+        <div className="game-modal-overlay" onClick={() => setIsRhythmPaused(false)}>
+          <div className="game-modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon svg-modal-icon">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#64748b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="10" y1="15" x2="10" y2="9" />
+                <line x1="14" y1="15" x2="14" y2="9" />
+              </svg>
+            </div>
+            <h3 className="modal-title">游戏已暂停</h3>
+            <p className="modal-subtitle">当前得分：{rhythmScore.toLocaleString()}</p>
+            <div className="modal-actions">
+              <button className="m-btn-primary" onClick={() => {
+                triggerHaptic('menuToggle');
+                setIsRhythmPaused(false);
+              }}>
+                继续游戏
+              </button>
+              <button className="m-btn-secondary" onClick={() => {
+                triggerHaptic('dangerReset');
+                startNewRhythmGame();
+              }}>
+                重新开始
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 🐍 贪吃蛇 Game Over 结算弹窗 (Root Fixed Modal) */}
-      {isSnakeGameOver && (
+      {quizMode === 'snakeGame' && isSnakeGameOver && (
         <div className="game-modal-overlay">
           <div className="game-modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-icon">🐍</div>
@@ -3254,7 +3422,10 @@ function App() {
               </button>
               <button 
                 className="m-btn-secondary" 
-                onClick={() => setQuizMode('percentToFraction')}
+                onClick={() => {
+                  setIsSnakeGameOver(false);
+                  setQuizMode('percentToFraction');
+                }}
               >
                 返回速记
               </button>
@@ -3264,7 +3435,7 @@ function App() {
       )}
 
       {/* 🎵 节奏音块 Game Over 结算弹窗 (Root Fixed Modal) */}
-      {isRhythmGameOver && (
+      {quizMode === 'rhythmGame' && isRhythmGameOver && (
         <div className="game-modal-overlay">
           <div className="game-modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-icon">🎵</div>
@@ -3316,7 +3487,10 @@ function App() {
               </button>
               <button 
                 className="m-btn-secondary" 
-                onClick={() => setQuizMode('percentToFraction')}
+                onClick={() => {
+                  setIsRhythmGameOver(false);
+                  setQuizMode('percentToFraction');
+                }}
               >
                 返回速记
               </button>
