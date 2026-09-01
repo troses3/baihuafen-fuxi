@@ -2027,12 +2027,12 @@ function App() {
             ctx.stroke();
           } else {
             const idleGrad = ctx.createLinearGradient(0, pTL.y, 0, pBL.y);
-            idleGrad.addColorStop(0, 'rgba(255, 255, 255, 0.78)');
-            idleGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
-            idleGrad.addColorStop(1, 'rgba(241, 245, 249, 0.65)');
+            idleGrad.addColorStop(0, 'rgba(255, 255, 255, 0.90)');
+            idleGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.75)');
+            idleGrad.addColorStop(1, 'rgba(241, 245, 249, 0.85)');
             ctx.fillStyle = idleGrad;
             ctx.fill();
-            ctx.strokeStyle = 'rgba(147, 197, 253, 0.80)';
+            ctx.strokeStyle = 'rgba(147, 197, 253, 0.85)';
             ctx.lineWidth = 1.6;
             ctx.stroke();
           }
