@@ -1599,13 +1599,13 @@ function App() {
     }
     const distractorVals = pool.slice(0, 3).map(p => isPromptFrac ? p.percent : p.fraction);
 
-    // 随机鲜明的 3D 纵向阶梯错落（大幅提升错落感与街机律动瀑布感，错落跨度约 ±0.22 ~ 120-160px）
-    const baseShifts = [-0.22, -0.07, 0.07, 0.22];
+    // 随机鲜明的 3D 纵向阶梯错落（偏差再加大 50%，错落跨度扩展至 ±0.33 ~ 180-240px）
+    const baseShifts = [-0.33, -0.11, 0.11, 0.33];
     for (let i = baseShifts.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [baseShifts[i], baseShifts[j]] = [baseShifts[j], baseShifts[i]];
     }
-    const rawOffsets = baseShifts.map(s => s + (Math.random() - 0.5) * 0.03);
+    const rawOffsets = baseShifts.map(s => s + (Math.random() - 0.5) * 0.04);
 
     const correctLane = Math.floor(Math.random() * 4);
     const notes = [];
@@ -2180,14 +2180,14 @@ function App() {
         const waves = rhythmNotesRef.current;
 
         waves.forEach(w => {
-          if (w.resolved || w.t < -0.65 || w.t > progressToEnd + 0.65) return;
+          if (w.resolved || w.t < -0.80 || w.t > progressToEnd + 0.80) return;
 
           w.notes.forEach(n => {
             if (n.hit) return;
 
             // 恒定线速均匀滑落，零速度衰减与变形
             const tn = w.t + (n.tOffset || 0);
-            if (tn < -0.55 || tn > progressToEnd + 0.55) return;
+            if (tn < -0.80 || tn > progressToEnd + 0.80) return;
 
             const tCenter = Math.max(0, Math.min(1.2, tn));
             // 纵向透视收缩因子：保持轻薄扁平横向胶囊（0.04 基准），远端绝不变方形/立柱
