@@ -1979,12 +1979,11 @@ function App() {
           ctx.closePath();
         };
 
-        // 📐 固定卡片像素高度（高度恒定为 34px，宽度随轨道自然拓宽）
-        const FIXED_NOTE_HEIGHT = 34;
-
-        // 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位，整齐无歪斜)
+        // 📐 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位)
         const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
-        const padY = Y_HIT - FIXED_NOTE_HEIGHT / 2;
+        const sampleLaneW = xAt(1, 1.0) - xAt(0, 1.0);
+        const PAD_HEIGHT = Math.round((sampleLaneW - 5) * 0.38); // 底部靶位标准高度 (~32px)
+        const padY = Y_HIT - PAD_HEIGHT / 2;
 
         // 1. 顶部判定镭射光线（位于靶位上方入口，不切割文字）
         ctx.strokeStyle = '#2563eb';
@@ -1998,15 +1997,16 @@ function App() {
         for (let l = 0; l < 4; l++) {
           const laneW = xAt(l + 1, 1.0) - xAt(l, 1.0);
           const padW = laneW - 5;
+          const padH = Math.round(padW * 0.38);
           const padCenterX = (xAt(l, 1.0) + xAt(l + 1, 1.0)) / 2;
           const padX = padCenterX - padW / 2;
-          const padRadius = Math.min(8, padW * 0.22, FIXED_NOTE_HEIGHT * 0.25);
+          const padRadius = Math.min(8, padW * 0.22, padH * 0.25);
 
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
           const isPressed = (time - lastPress) < 160;
 
           ctx.save();
-          drawRoundedRect(ctx, padX, padY, padW, FIXED_NOTE_HEIGHT, padRadius);
+          drawRoundedRect(ctx, padX, padY, padW, padH, padRadius);
 
           if (isPressed) {
             ctx.fillStyle = '#2563eb';
@@ -2031,7 +2031,7 @@ function App() {
           ctx.restore();
         }
 
-        // 💎 Draw Falling Waves (卡片高度严格恒定 34px，水平对称无歪斜，宽度随轨道自然拓宽)
+        // 💎 Draw Falling Waves (卡片始终保持统一扁平横向胶囊比例 2.6:1，近大远小自然缩放)
         const waves = rhythmNotesRef.current;
 
         waves.forEach(w => {
@@ -2039,7 +2039,6 @@ function App() {
 
           const centerY = yAt(w.t);
           const tCenter = Math.max(0, Math.min(1.2, w.t));
-          const cardY = centerY - FIXED_NOTE_HEIGHT / 2;
 
           w.notes.forEach(n => {
             if (n.hit) return;
@@ -2048,23 +2047,26 @@ function App() {
             const laneRightX = xAt(n.lane + 1, w.t);
             const laneW = laneRightX - laneLeftX;
             const cardW = Math.max(22, laneW - 5);
+            // 高度按宽度等比例计算（长宽比永远保持约 2.6:1 扁平胶囊，远端绝不变方形/立柱）
+            const cardH = Math.max(10, Math.round(cardW * 0.38));
             const cardCenterX = (laneLeftX + laneRightX) / 2;
             const cardX = cardCenterX - cardW / 2;
-            const slabRadius = Math.min(8, cardW * 0.22, FIXED_NOTE_HEIGHT * 0.25);
+            const cardY = centerY - cardH / 2;
+            const slabRadius = Math.min(8, cardW * 0.22, cardH * 0.25);
 
             // 1. Soft Floor Shadow Under the Note Slab
-            const shadowOffset = 2 + 4 * tCenter;
+            const shadowOffset = Math.max(1.5, 3 * tCenter);
             ctx.save();
-            drawRoundedRect(ctx, cardX, cardY + shadowOffset, cardW, FIXED_NOTE_HEIGHT, slabRadius);
+            drawRoundedRect(ctx, cardX, cardY + shadowOffset, cardW, cardH, slabRadius);
             ctx.fillStyle = 'rgba(15, 23, 42, 0.12)';
             ctx.fill();
             ctx.restore();
 
-            // 2. Note Rounded Body (Vivid Royal Blue & Cyan Gradient, 水平对称无变形)
+            // 2. Note Rounded Body (Vivid Royal Blue & Cyan Gradient, 纯正横向扁平胶囊)
             ctx.save();
-            drawRoundedRect(ctx, cardX, cardY, cardW, FIXED_NOTE_HEIGHT, slabRadius);
+            drawRoundedRect(ctx, cardX, cardY, cardW, cardH, slabRadius);
 
-            const noteGrad = ctx.createLinearGradient(0, cardY, 0, cardY + FIXED_NOTE_HEIGHT);
+            const noteGrad = ctx.createLinearGradient(0, cardY, 0, cardY + cardH);
             noteGrad.addColorStop(0, '#3b82f6');
             noteGrad.addColorStop(0.35, '#2563eb');
             noteGrad.addColorStop(0.85, '#1d4ed8');
@@ -2074,21 +2076,21 @@ function App() {
 
             // Outer smooth glowing rim
             ctx.strokeStyle = 'rgba(147, 197, 253, 0.95)';
-            ctx.lineWidth = Math.max(1.2, 1.8 * tCenter);
+            ctx.lineWidth = Math.max(1.0, 1.6 * tCenter);
             ctx.stroke();
 
             // 3. Top Shiny Specular Highlight Bar
             ctx.save();
             ctx.beginPath();
-            ctx.moveTo(cardX + slabRadius, cardY + 1.2);
-            ctx.lineTo(cardX + cardW - slabRadius, cardY + 1.2);
+            ctx.moveTo(cardX + slabRadius, cardY + 1.0);
+            ctx.lineTo(cardX + cardW - slabRadius, cardY + 1.0);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.lineWidth = Math.max(1.2, 1.6 * tCenter);
+            ctx.lineWidth = Math.max(0.8, 1.4 * tCenter);
             ctx.stroke();
             ctx.restore();
 
             // 4. Centered Continuous Vector Scaled Text (Zero-Jitter Smooth GPU Scaling)
-            const textScale = Math.min(1.0, Math.max(0.68, cardW / 52));
+            const textScale = Math.min(1.0, Math.max(0.55, cardW / 75));
 
             ctx.save();
             ctx.translate(cardCenterX, centerY);
