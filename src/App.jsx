@@ -8,6 +8,8 @@ const BEST_TIME_KEY = 'baihuafen-match-best-time';
 const RANKED_LEADERBOARD_KEY = 'baihuafen-ranked-leaderboard';
 const MATCH_SUBMODE_KEY = 'baihuafen-match-submode';
 const SNAKE_SPEED_KEY = 'baihuafen-snake-speed-level';
+const RHYTHM_SPEED_KEY = 'baihuafen-rhythm-speed-level';
+const RHYTHM_BEST_SCORE_KEY = 'baihuafen-rhythm-highscore';
 
 const SNAKE_SPEEDS = [
   { level: 1, label: '🐢 悠闲 (450ms)', shortLabel: '悠闲', tick: 450 },
@@ -19,6 +21,26 @@ const SNAKE_SPEEDS = [
   { level: 7, label: '🔥 快速 (115ms)', shortLabel: '快速', tick: 115 },
   { level: 8, label: '🚀 极速 (80ms)', shortLabel: '极速', tick: 80 },
 ];
+
+const RHYTHM_SPEEDS = [
+  { level: 1, label: '🐢 悠闲 (1.6x)', shortLabel: '悠闲', speed: 1.8, spawnInterval: 2600 },
+  { level: 2, label: '☕ 沉思 (2.0x)', shortLabel: '沉思', speed: 2.4, spawnInterval: 2200 },
+  { level: 3, label: '🚶 漫步 (2.5x)', shortLabel: '漫步', speed: 3.0, spawnInterval: 1900 },
+  { level: 4, label: '🏃 舒缓 (3.0x)', shortLabel: '舒缓', speed: 3.6, spawnInterval: 1600 },
+  { level: 5, label: '🎯 标准 (3.6x)', shortLabel: '标准', speed: 4.4, spawnInterval: 1350 },
+  { level: 6, label: '⚡ 敏捷 (4.2x)', shortLabel: '敏捷', speed: 5.4, spawnInterval: 1150 },
+  { level: 7, label: '🔥 快速 (5.0x)', shortLabel: '快速', speed: 6.6, spawnInterval: 950 },
+  { level: 8, label: '🚀 极速 (6.0x)', shortLabel: '极速', speed: 8.0, spawnInterval: 800 },
+];
+
+const getRhythmRankTier = (score) => {
+  if (score >= 12000) return { name: '神级曲师 SSS', icon: '🌟', color: '#db2777', badgeClass: 'tier-apex' };
+  if (score >= 9000) return { name: '节奏宗师 SS', icon: '👑', color: '#7e22ce', badgeClass: 'tier-grandmaster' };
+  if (score >= 6500) return { name: '极速打击 S', icon: '💎', color: '#0e7490', badgeClass: 'tier-diamond' };
+  if (score >= 4000) return { name: '熟练节拍 A', icon: '🥇', color: '#b45309', badgeClass: 'tier-gold' };
+  if (score >= 2000) return { name: '律动进阶 B', icon: '🥈', color: '#475569', badgeClass: 'tier-silver' };
+  return { name: '初试音阶 C', icon: '🥉', color: '#991b1b', badgeClass: 'tier-bronze' };
+};
 
 const getRankTier = (score) => {
   if (score >= 9500) return { name: '最强王者', icon: '🌌', color: '#db2777', badgeClass: 'tier-apex' };
@@ -188,6 +210,40 @@ function App() {
   useEffect(() => {
     snakeSpeedLevelRef.current = snakeSpeedLevel;
   }, [snakeSpeedLevel]);
+
+  // 🎵 节奏音块 (Rhythm Beat Master) States
+  const [rhythmScore, setRhythmScore] = useState(0);
+  const [rhythmHighScore, setRhythmHighScore] = useState(() => {
+    const saved = localStorage.getItem(RHYTHM_BEST_SCORE_KEY);
+    return saved ? Number(saved) : 0;
+  });
+  const [rhythmLives, setRhythmLives] = useState(3);
+  const [rhythmCombo, setRhythmCombo] = useState(0);
+  const [rhythmMaxCombo, setRhythmMaxCombo] = useState(0);
+  const [rhythmHitCounts, setRhythmHitCounts] = useState({ perfect: 0, great: 0, miss: 0 });
+  const [rhythmTarget, setRhythmTarget] = useState(null);
+  const [isRhythmPaused, setIsRhythmPaused] = useState(false);
+  const [isRhythmGameOver, setIsRhythmGameOver] = useState(false);
+  const [isRhythmNewRecord, setIsRhythmNewRecord] = useState(false);
+  const [rhythmFloatingScores, setRhythmFloatingScores] = useState([]);
+  const [rhythmStageShake, setRhythmStageShake] = useState('');
+  const [rhythmSpeedLevel, setRhythmSpeedLevel] = useState(() => {
+    const saved = localStorage.getItem(RHYTHM_SPEED_KEY);
+    return saved ? Number(saved) : 4;
+  });
+  const rhythmSpeedLevelRef = useRef(rhythmSpeedLevel);
+  useEffect(() => {
+    rhythmSpeedLevelRef.current = rhythmSpeedLevel;
+  }, [rhythmSpeedLevel]);
+
+  const rhythmCanvasRef = useRef(null);
+  const rhythmNotesRef = useRef([]);
+  const rhythmTargetRef = useRef(null);
+  const rhythmActiveLanesRef = useRef([0, 0, 0, 0]);
+  const rhythmParticlesRef = useRef([]);
+  const rhythmJudgementRef = useRef(null);
+  const isRhythmRunningRef = useRef(false);
+  const lastSpawnTimeRef = useRef(0);
 
   const [bestRecord, setBestRecord] = useState(() => {
     const saved = localStorage.getItem(BEST_TIME_KEY);
@@ -1452,6 +1508,549 @@ function App() {
     }
   }, [quizMode, snakeTarget, snakeFoods.length, startNewSnakeGame]);
 
+  // =========================================================
+  // 🎵 节奏音块模式 (Rhythm Beat Master) Core Logic (4-Lane Track 60FPS)
+  // =========================================================
+  const generateRhythmTargetAndWave = useCallback((yPos = -50) => {
+    const targetItem = initialItems[Math.floor(Math.random() * initialItems.length)];
+    const isPromptFrac = Math.random() > 0.5;
+    const promptText = isPromptFrac ? targetItem.fraction : targetItem.percent;
+    const promptType = isPromptFrac ? 'fraction' : 'percent';
+    const correctValue = isPromptFrac ? targetItem.percent : targetItem.fraction;
+    const correctType = isPromptFrac ? 'percent' : 'fraction';
+
+    // Pick 3 distractors
+    const pool = initialItems.filter(i => i.id !== targetItem.id);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const distractorVals = pool.slice(0, 3).map(p => isPromptFrac ? p.percent : p.fraction);
+
+    const correctLane = Math.floor(Math.random() * 4);
+    const notes = [];
+    let distractorIdx = 0;
+    for (let lane = 0; lane < 4; lane++) {
+      if (lane === correctLane) {
+        notes.push({
+          id: `rn_cor_${Date.now()}_${lane}_${Math.random()}`,
+          lane,
+          value: correctValue,
+          isCorrect: true,
+          hit: false,
+        });
+      } else {
+        notes.push({
+          id: `rn_dis_${Date.now()}_${lane}_${Math.random()}`,
+          lane,
+          value: distractorVals[distractorIdx++],
+          isCorrect: false,
+          hit: false,
+        });
+      }
+    }
+
+    const target = {
+      id: targetItem.id,
+      promptText,
+      promptType,
+      correctValue,
+      correctType,
+    };
+
+    const wave = {
+      id: `wave_${Date.now()}_${Math.random()}`,
+      y: yPos,
+      notes,
+      target,
+      resolved: false,
+    };
+
+    return { target, wave };
+  }, []);
+
+  const startNewRhythmGame = useCallback(() => {
+    const { target, wave } = generateRhythmTargetAndWave(-50);
+    rhythmTargetRef.current = target;
+    rhythmNotesRef.current = [wave];
+    rhythmActiveLanesRef.current = [0, 0, 0, 0];
+    rhythmParticlesRef.current = [];
+    rhythmJudgementRef.current = null;
+    isRhythmRunningRef.current = true;
+    lastSpawnTimeRef.current = performance.now();
+
+    setRhythmTarget(target);
+    setRhythmScore(0);
+    setRhythmLives(3);
+    setRhythmCombo(0);
+    setRhythmMaxCombo(0);
+    setRhythmHitCounts({ perfect: 0, great: 0, miss: 0 });
+    setRhythmFloatingScores([]);
+    setIsRhythmPaused(false);
+    setIsRhythmGameOver(false);
+    setIsRhythmNewRecord(false);
+  }, [generateRhythmTargetAndWave]);
+
+  const handleRhythmHitLane = useCallback((laneIndex) => {
+    if (isRhythmPaused || isRhythmGameOver || !isRhythmRunningRef.current) return;
+    triggerHaptic('tap');
+    
+    // Light up lane
+    rhythmActiveLanesRef.current[laneIndex] = performance.now();
+
+    const canvas = rhythmCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const H = rect.height || 460;
+    const W = rect.width || 360;
+    const hitLineY = H * 0.82;
+    const laneWidth = W / 4;
+    const noteCenterX = laneIndex * laneWidth + laneWidth / 2;
+
+    // Find nearest active wave to hitLine
+    const waves = rhythmNotesRef.current;
+    if (!waves || waves.length === 0) return;
+
+    let targetWaveIndex = -1;
+    let minDistance = 9999;
+
+    waves.forEach((w, idx) => {
+      if (w.resolved) return;
+      const dist = Math.abs(w.y - hitLineY);
+      if (dist < minDistance && dist < 75) {
+        minDistance = dist;
+        targetWaveIndex = idx;
+      }
+    });
+
+    if (targetWaveIndex === -1) {
+      // Empty tap
+      return;
+    }
+
+    const wave = waves[targetWaveIndex];
+    const targetNote = wave.notes.find(n => n.lane === laneIndex);
+    if (!targetNote || targetNote.hit) return;
+
+    if (targetNote.isCorrect) {
+      // 🎯 HIT CORRECT!
+      targetNote.hit = true;
+      wave.resolved = true;
+
+      let pts = 100;
+      let judgeText = 'GREAT!';
+      let judgeColor = '#3b82f6';
+
+      if (minDistance <= 20) {
+        pts = 300;
+        judgeText = 'PERFECT!!';
+        judgeColor = '#f59e0b';
+        setRhythmHitCounts(h => ({ ...h, perfect: h.perfect + 1 }));
+      } else if (minDistance <= 48) {
+        pts = 180;
+        judgeText = 'GREAT!';
+        judgeColor = '#3b82f6';
+        setRhythmHitCounts(h => ({ ...h, great: h.great + 1 }));
+      } else {
+        pts = 100;
+        judgeText = 'GOOD!';
+        judgeColor = '#10b981';
+        setRhythmHitCounts(h => ({ ...h, great: h.great + 1 }));
+      }
+
+      setRhythmCombo(prevCombo => {
+        const nextCombo = prevCombo + 1;
+        setRhythmMaxCombo(max => Math.max(max, nextCombo));
+        const multiplier = nextCombo >= 15 ? 2.5 : nextCombo >= 10 ? 2.0 : nextCombo >= 5 ? 1.5 : nextCombo >= 2 ? 1.2 : 1.0;
+        const finalPts = Math.round(pts * multiplier);
+
+        setRhythmScore(s => {
+          const nextScore = s + finalPts;
+          if (nextScore > rhythmHighScore) {
+            setRhythmHighScore(nextScore);
+            setIsRhythmNewRecord(true);
+            try { localStorage.setItem(RHYTHM_BEST_SCORE_KEY, String(nextScore)); } catch (e) {}
+          }
+          return nextScore;
+        });
+
+        // Floating score popup
+        const floatId = Date.now() + Math.random();
+        setRhythmFloatingScores(f => [...f.slice(-4), {
+          id: floatId,
+          text: `+${finalPts} ${judgeText}`,
+          type: judgeText.includes('PERFECT') ? 'perfect' : 'great',
+        }]);
+        setTimeout(() => {
+          setRhythmFloatingScores(f => f.filter(x => x.id !== floatId));
+        }, 750);
+
+        return nextCombo;
+      });
+
+      // Spawn burst particles
+      for (let i = 0; i < 16; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 2 + Math.random() * 5;
+        rhythmParticlesRef.current.push({
+          x: noteCenterX,
+          y: hitLineY,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd - 1,
+          size: 3 + Math.random() * 4,
+          color: judgeColor,
+          alpha: 1,
+          decay: 0.035 + Math.random() * 0.02,
+        });
+      }
+
+      rhythmJudgementRef.current = {
+        text: judgeText,
+        color: judgeColor,
+        time: performance.now(),
+      };
+
+      setRhythmStageShake('hit-correct');
+      setTimeout(() => setRhythmStageShake(''), 180);
+
+      // Spawn next wave immediately if no upcoming wave
+      const remainingUnresolved = waves.filter(w => !w.resolved && w.y < hitLineY);
+      if (remainingUnresolved.length === 0) {
+        const nextTargetAndWave = generateRhythmTargetAndWave(-50);
+        rhythmTargetRef.current = nextTargetAndWave.target;
+        setRhythmTarget(nextTargetAndWave.target);
+        rhythmNotesRef.current.push(nextTargetAndWave.wave);
+        lastSpawnTimeRef.current = performance.now();
+      }
+    } else {
+      // ❌ HIT WRONG LANE!
+      targetNote.hit = true;
+      wave.resolved = true;
+
+      setRhythmCombo(0);
+      setRhythmHitCounts(h => ({ ...h, miss: h.miss + 1 }));
+      setRhythmLives(lives => {
+        const nextLives = lives - 1;
+        if (nextLives <= 0) {
+          setIsRhythmGameOver(true);
+          isRhythmRunningRef.current = false;
+        }
+        return nextLives;
+      });
+
+      for (let i = 0; i < 14; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 2 + Math.random() * 4;
+        rhythmParticlesRef.current.push({
+          x: noteCenterX,
+          y: hitLineY,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          size: 3 + Math.random() * 3,
+          color: '#ef4444',
+          alpha: 1,
+          decay: 0.04,
+        });
+      }
+
+      rhythmJudgementRef.current = {
+        text: 'MISS',
+        color: '#ef4444',
+        time: performance.now(),
+      };
+
+      setRhythmStageShake('hit-error');
+      setTimeout(() => setRhythmStageShake(''), 220);
+
+      const nextTargetAndWave = generateRhythmTargetAndWave(-50);
+      rhythmTargetRef.current = nextTargetAndWave.target;
+      setRhythmTarget(nextTargetAndWave.target);
+      rhythmNotesRef.current.push(nextTargetAndWave.wave);
+      lastSpawnTimeRef.current = performance.now();
+    }
+  }, [isRhythmPaused, isRhythmGameOver, generateRhythmTargetAndWave, rhythmHighScore]);
+
+  const handleRhythmCanvasClick = (e) => {
+    const canvas = rhythmCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const tapX = e.clientX - rect.left;
+    const laneWidth = rect.width / 4;
+    const laneIndex = Math.min(3, Math.max(0, Math.floor(tapX / laneWidth)));
+    handleRhythmHitLane(laneIndex);
+  };
+
+  // 60FPS Unified Canvas RAF Engine for Rhythm Game
+  useEffect(() => {
+    if (quizMode !== 'rhythmGame') return;
+    const canvas = rhythmCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId;
+    let lastTime = performance.now();
+
+    const renderRhythmLoop = (time) => {
+      try {
+        const dt = Math.min(time - lastTime, 100);
+        lastTime = time;
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const W = rect.width || 360;
+        const H = rect.height || 460;
+
+        if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+          canvas.width = Math.round(W * dpr);
+          canvas.height = Math.round(H * dpr);
+        }
+
+        ctx.save();
+        ctx.scale(dpr, dpr);
+
+        const hitLineY = H * 0.82;
+        const laneWidth = W / 4;
+        const currentSpeedConfig = RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevelRef.current) || RHYTHM_SPEEDS[3];
+        const fallSpeed = currentSpeedConfig.speed * (H / 460);
+
+        // 1. Logic Update
+        if (!isRhythmPaused && !isRhythmGameOver && isRhythmRunningRef.current) {
+          const waves = rhythmNotesRef.current;
+
+          // Spawn new wave if interval passed or empty
+          if (waves.length === 0 || (time - lastSpawnTimeRef.current >= currentSpeedConfig.spawnInterval && waves[waves.length - 1].y > H * 0.35)) {
+            const nextTargetAndWave = generateRhythmTargetAndWave(-50);
+            rhythmTargetRef.current = nextTargetAndWave.target;
+            setRhythmTarget(nextTargetAndWave.target);
+            waves.push(nextTargetAndWave.wave);
+            lastSpawnTimeRef.current = time;
+          }
+
+          // Move waves
+          for (let i = waves.length - 1; i >= 0; i--) {
+            const w = waves[i];
+            w.y += fallSpeed * (dt / 16.66);
+
+            // Check if correct note passed hitLine without hit
+            if (!w.resolved && w.y > hitLineY + 45) {
+              w.resolved = true;
+              // Missed correct note!
+              setRhythmCombo(0);
+              setRhythmHitCounts(h => ({ ...h, miss: h.miss + 1 }));
+              setRhythmLives(lives => {
+                const nextLives = lives - 1;
+                if (nextLives <= 0) {
+                  setIsRhythmGameOver(true);
+                  isRhythmRunningRef.current = false;
+                }
+                return nextLives;
+              });
+
+              rhythmJudgementRef.current = {
+                text: 'MISS',
+                color: '#ef4444',
+                time: performance.now(),
+              };
+
+              setRhythmStageShake('hit-error');
+              setTimeout(() => setRhythmStageShake(''), 220);
+            }
+
+            // Remove waves that fell below screen
+            if (w.y > H + 60) {
+              waves.splice(i, 1);
+            }
+          }
+        }
+
+        // 2. Rendering
+        // Clear background
+        ctx.fillStyle = '#0f172a'; // Deep slate dark background
+        ctx.fillRect(0, 0, W, H);
+
+        // Draw 4 Lanes
+        for (let l = 0; l < 4; l++) {
+          const laneX = l * laneWidth;
+          const isEven = l % 2 === 0;
+
+          // Lane background
+          ctx.fillStyle = isEven ? 'rgba(30, 41, 59, 0.45)' : 'rgba(15, 23, 42, 0.55)';
+          ctx.fillRect(laneX, 0, laneWidth, H);
+
+          // Lane Divider
+          if (l > 0) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(laneX, 0);
+            ctx.lineTo(laneX, H);
+            ctx.stroke();
+          }
+
+          // Lane Active Press Light Beam
+          const lastPressTime = rhythmActiveLanesRef.current[l] || 0;
+          const pressAge = time - lastPressTime;
+          if (pressAge < 150) {
+            const beamAlpha = (1 - pressAge / 150) * 0.35;
+            const grad = ctx.createLinearGradient(0, hitLineY, 0, 0);
+            grad.addColorStop(0, `rgba(59, 130, 246, ${beamAlpha})`);
+            grad.addColorStop(1, 'rgba(59, 130, 246, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(laneX, 0, laneWidth, hitLineY);
+          }
+        }
+
+        // Draw Hit Line (Glowing neon laser)
+        const glowPulse = Math.sin(time / 200) * 0.2 + 0.8;
+        const hitGrad = ctx.createLinearGradient(0, hitLineY - 8, 0, hitLineY + 8);
+        hitGrad.addColorStop(0, 'rgba(59, 130, 246, 0)');
+        hitGrad.addColorStop(0.5, `rgba(96, 165, 250, ${0.85 * glowPulse})`);
+        hitGrad.addColorStop(1, 'rgba(59, 130, 246, 0)');
+        ctx.fillStyle = hitGrad;
+        ctx.fillRect(0, hitLineY - 8, W, 16);
+
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(0, hitLineY);
+        ctx.lineTo(W, hitLineY);
+        ctx.stroke();
+
+        // Draw Hit Target Rings on each lane at hitLine
+        for (let l = 0; l < 4; l++) {
+          const cx = l * laneWidth + laneWidth / 2;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx, hitLineY, 14, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Draw Falling Waves & Notes
+        const waves = rhythmNotesRef.current;
+        waves.forEach(w => {
+          const noteH = 38;
+          const noteY = w.y - noteH / 2;
+
+          w.notes.forEach(n => {
+            if (n.hit) return; // don't draw if already exploded
+
+            const noteX = n.lane * laneWidth + 5;
+            const noteW = laneWidth - 10;
+
+            // Note background card
+            ctx.save();
+            drawRoundedRect(ctx, noteX, noteY, noteW, noteH, 10);
+            
+            // Gradient fill
+            const noteGrad = ctx.createLinearGradient(0, noteY, 0, noteY + noteH);
+            noteGrad.addColorStop(0, '#ffffff');
+            noteGrad.addColorStop(1, '#f1f5f9');
+            ctx.fillStyle = noteGrad;
+            ctx.fill();
+
+            // Note Border & Shadow
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Note Text (Percentage / Fraction)
+            ctx.fillStyle = '#0f172a';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '900 13px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(n.value, noteX + noteW / 2, noteY + noteH / 2);
+
+            ctx.restore();
+          });
+        });
+
+        // Draw Burst Particles
+        const particles = rhythmParticlesRef.current;
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.alpha -= p.decay;
+          if (p.alpha <= 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.alpha;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+
+        // Draw Center Judgement Text
+        const judge = rhythmJudgementRef.current;
+        if (judge) {
+          const age = time - judge.time;
+          if (age < 500) {
+            const scale = 1 + Math.max(0, (1 - age / 150) * 0.3);
+            const alpha = Math.min(1, (1 - age / 500) * 1.5);
+            ctx.save();
+            ctx.translate(W / 2, H * 0.52);
+            ctx.scale(scale, scale);
+            ctx.globalAlpha = alpha;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = judge.color;
+            ctx.font = '900 24px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.shadowColor = judge.color;
+            ctx.shadowBlur = 12;
+            ctx.fillText(judge.text, 0, 0);
+            ctx.restore();
+          }
+        }
+
+        ctx.restore();
+      } catch (err) {
+        console.error('Rhythm render error:', err);
+      }
+
+      animId = requestAnimationFrame(renderRhythmLoop);
+    };
+
+    animId = requestAnimationFrame(renderRhythmLoop);
+    return () => cancelAnimationFrame(animId);
+  }, [quizMode, isRhythmPaused, isRhythmGameOver, generateRhythmTargetAndWave]);
+
+  // Rhythm Keyboard Shortcuts (D, F, J, K or 1, 2, 3, 4)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (quizMode !== 'rhythmGame' || isRhythmPaused || isRhythmGameOver) return;
+      if (e.key === 'd' || e.key === 'D' || e.key === '1') {
+        e.preventDefault();
+        handleRhythmHitLane(0);
+      } else if (e.key === 'f' || e.key === 'F' || e.key === '2') {
+        e.preventDefault();
+        handleRhythmHitLane(1);
+      } else if (e.key === 'j' || e.key === 'J' || e.key === '3') {
+        e.preventDefault();
+        handleRhythmHitLane(2);
+      } else if (e.key === 'k' || e.key === 'K' || e.key === '4') {
+        e.preventDefault();
+        handleRhythmHitLane(3);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        setIsRhythmPaused(p => !p);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [quizMode, isRhythmPaused, isRhythmGameOver, handleRhythmHitLane]);
+
+  // Auto initialize rhythmGame if needed
+  useEffect(() => {
+    if (quizMode === 'rhythmGame' && (!rhythmTarget || rhythmNotesRef.current.length === 0)) {
+      startNewRhythmGame();
+    }
+  }, [quizMode, rhythmTarget, startNewRhythmGame]);
+
 
 
 
@@ -1730,13 +2329,15 @@ function App() {
             <span className="pill-db-name">🧮 百化分速记</span>
             <span className="pill-divider">·</span>
             <span className="pill-cat-name">
-              {quizMode === 'percentToFraction' ? '🎯 百化分' : quizMode === 'fractionToPercent' ? '🔄 分化百' : quizMode === 'matchGame' ? '🎮 消消乐' : '🐍 贪吃蛇'}
+              {quizMode === 'percentToFraction' ? '🎯 百化分' : quizMode === 'fractionToPercent' ? '🔄 分化百' : quizMode === 'matchGame' ? '🎮 消消乐' : quizMode === 'snakeGame' ? '🐍 贪吃蛇' : '🎵 节奏音块'}
             </span>
             <span className="pill-progress-text">
               {quizMode === 'matchGame' 
                 ? `(剩余 ${remainingPairs} 对)`
                 : quizMode === 'snakeGame'
                 ? `(⚡ ${snakeScore})`
+                : quizMode === 'rhythmGame'
+                ? `(⚡ ${rhythmScore})`
                 : `(${currentIndex + 1}/${items.length})`
               }
             </span>
@@ -2326,6 +2927,165 @@ function App() {
               </div>
             </div>
           </div>
+        ) : quizMode === 'rhythmGame' ? (
+          /* =========================================================
+             🎵 节奏音块模式 (Rhythm Beat Master) - 4 轨道纯视觉律动打靶
+             ========================================================= */
+          <div className="rhythm-game-stage">
+            {/* 顶部状态栏：得分/连击/生命值/重新开局 */}
+            <div className="rhythm-stage-header">
+              <div className="topbar-left-col">
+                <button 
+                  className="game-ctrl-btn" 
+                  onClick={() => {
+                    triggerHaptic('menuToggle');
+                    setIsRhythmPaused(prev => !prev);
+                  }}
+                  title={isRhythmPaused ? "继续游戏" : "暂停游戏"}
+                >
+                  {isRhythmPaused ? (
+                    <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  ) : (
+                    <svg className="ctrl-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                  )}
+                </button>
+
+                <div className="ranked-score-wrapper">
+                  <div className="game-score-badge">
+                    <span className="score-icon">⚡</span>
+                    <span className="score-num">{rhythmScore.toLocaleString()}</span>
+                  </div>
+
+                  {rhythmCombo >= 2 && (
+                    <div className="game-combo-badge">
+                      🔥x{rhythmCombo}
+                    </div>
+                  )}
+
+                  <div className="floating-score-container">
+                    {rhythmFloatingScores.map(f => (
+                      <div key={f.id} className={`floating-score-item float-${f.type}`}>
+                        {f.text}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ❤️ 生命值居中 */}
+              <div className="topbar-center-col">
+                <div className="snake-lives-pill">
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <span key={idx} className={`life-heart ${idx < rhythmLives ? 'active' : 'lost'}`}>
+                      ❤️
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="topbar-right-col">
+                <button 
+                  className="game-ctrl-btn" 
+                  onClick={() => {
+                    triggerHaptic('dangerReset');
+                    startNewRhythmGame();
+                  }}
+                  title="重新开局"
+                >
+                  <svg className="ctrl-svg-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* 🎯 本轮目标 Banner */}
+            {rhythmTarget && (
+              <div className="rhythm-target-banner">
+                <span className="target-banner-badge">🎯 本轮目标</span>
+                <div className="target-banner-val">
+                  {rhythmTarget.promptText.startsWith('1/') ? (
+                    <>
+                      <span className="num-prefix">1/</span>
+                      <span className="num-main">{rhythmTarget.promptText.slice(2)}</span>
+                    </>
+                  ) : rhythmTarget.promptText.endsWith('%') ? (
+                    <>
+                      <span className="num-main">{rhythmTarget.promptText.slice(0, -1)}</span>
+                      <span className="num-suffix">%</span>
+                    </>
+                  ) : (
+                    <span className="num-main">{rhythmTarget.promptText}</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 60FPS 4 轨道 Canvas 渲染主舞台 */}
+            <div 
+              className={`rhythm-arena-wrapper ${rhythmStageShake ? `shake-${rhythmStageShake}` : ''}`}
+              onClick={handleRhythmCanvasClick}
+            >
+              <canvas ref={rhythmCanvasRef} className="rhythm-canvas" />
+            </div>
+
+            {/* 底部 4 个触控大按键 */}
+            <div className="rhythm-lane-buttons-bar">
+              {[
+                { lane: 0, keyLabel: 'D / 1' },
+                { lane: 1, keyLabel: 'F / 2' },
+                { lane: 2, keyLabel: 'J / 3' },
+                { lane: 3, keyLabel: 'K / 4' },
+              ].map(btn => (
+                <button
+                  key={btn.lane}
+                  className="rhythm-lane-hit-btn"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handleRhythmHitLane(btn.lane);
+                  }}
+                >
+                  <span className="lane-btn-num">{btn.lane + 1}</span>
+                  <span className="lane-btn-key">{btn.keyLabel}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* ⚡ 移速滑块控制调节条 */}
+            <div className="snake-speed-slider-bar">
+              <div className="speed-slider-label">
+                <span className="speed-slider-title">⚡ 下落速度</span>
+                <span className="speed-level-badge">
+                  {RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevel)?.label || '🏃 舒缓 (3.0x)'}
+                </span>
+              </div>
+              <div className="speed-slider-track-box">
+                <span className="speed-icon-end" title="最慢">🐢</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="8"
+                  step="1"
+                  value={rhythmSpeedLevel}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setRhythmSpeedLevel(val);
+                    rhythmSpeedLevelRef.current = val;
+                    localStorage.setItem(RHYTHM_SPEED_KEY, String(val));
+                    triggerHaptic('tap');
+                  }}
+                  className="snake-speed-slider"
+                  aria-label="节奏音块速度调节"
+                />
+                <span className="speed-icon-end" title="最快">🚀</span>
+              </div>
+            </div>
+          </div>
         ) : (
           /* =========================================================
              📝 百化分经典做题模式
@@ -2503,6 +3263,68 @@ function App() {
         </div>
       )}
 
+      {/* 🎵 节奏音块 Game Over 结算弹窗 (Root Fixed Modal) */}
+      {isRhythmGameOver && (
+        <div className="game-modal-overlay">
+          <div className="game-modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon">🎵</div>
+            <h3 className="modal-title">节奏挑战结算</h3>
+            {isRhythmNewRecord && <div className="new-record-badge">🏆 创下新历史高分纪录！</div>}
+
+            <div className="ranked-victory-score-box">
+              <span className="ranked-score-label">最终得分</span>
+              <span className="ranked-score-val">{rhythmScore.toLocaleString()}</span>
+              {(() => {
+                const tier = getRhythmRankTier(rhythmScore);
+                return (
+                  <div className={`ranked-tier-pill ${tier.badgeClass}`} style={{ marginTop: '0.45rem' }}>
+                    <span>{tier.icon}</span>
+                    <span>{tier.name}</span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="victory-stats-grid">
+              <div className="v-stat-box">
+                <span className="v-stat-label">🎯 PERFECT</span>
+                <span className="v-stat-val" style={{ color: '#f59e0b' }}>{rhythmHitCounts.perfect}</span>
+              </div>
+              <div className="v-stat-box">
+                <span className="v-stat-label">⚡ GREAT</span>
+                <span className="v-stat-val" style={{ color: '#3b82f6' }}>{rhythmHitCounts.great}</span>
+              </div>
+              <div className="v-stat-box">
+                <span className="v-stat-label">❌ MISS</span>
+                <span className="v-stat-val" style={{ color: '#ef4444' }}>{rhythmHitCounts.miss}</span>
+              </div>
+              <div className="v-stat-box">
+                <span className="v-stat-label">🔥 最高连击</span>
+                <span className="v-stat-val">x{rhythmMaxCombo}</span>
+              </div>
+              <div className="v-stat-box" style={{ gridColumn: '1 / -1' }}>
+                <span className="v-stat-label">历史最高纪录</span>
+                <span className="v-stat-val" style={{ color: '#10b981' }}>
+                  {rhythmHighScore ? `${rhythmHighScore.toLocaleString()} 分` : `${rhythmScore.toLocaleString()} 分`}
+                </span>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="m-btn-primary" onClick={startNewRhythmGame}>
+                再来一局 🎵
+              </button>
+              <button 
+                className="m-btn-secondary" 
+                onClick={() => setQuizMode('percentToFraction')}
+              >
+                返回速记
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 📖 百化分速查表弹窗 (Formula Sheet Modal) */}
       {isFormulaSheetOpen && (
         <div className="sheet-modal-overlay" onClick={() => setIsFormulaSheetOpen(false)}>
@@ -2558,40 +3380,45 @@ function App() {
                     const tier = getRankTier(rec.score);
                     return (
                       <div key={rec.id || idx} className={`leaderboard-item ${idx < 3 ? `top-${idx + 1}` : ''}`}>
-                        <div className="lb-rank-col">
-                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                        <div className="lb-rank">
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}`}
                         </div>
-                        <div className="lb-info-col">
-                          <div className="lb-main-row">
-                            <span className="lb-score-text">{rec.score.toLocaleString()} 分</span>
-                            <span className={`rank-tier-badge-sm ${tier.badgeClass}`}>
+                        <div className="lb-info">
+                          <div className="lb-score-line">
+                            <span className="lb-score">{rec.score?.toLocaleString()} 分</span>
+                            <span className={`lb-tier ${tier.badgeClass}`}>
                               {tier.icon} {tier.name}
                             </span>
                           </div>
-                          <div className="lb-sub-row">
-                            <span>⏱️ {formatTime(rec.timeSeconds)}</span>
-                            <span>🔥 x{rec.maxCombo || 0} 连击</span>
-                            <span>🎯 {rec.accuracy || 100}%</span>
-                            <span className="lb-date">{rec.dateStr}</span>
+                          <div className="lb-sub-line">
+                            <span>⏱️ {formatTime(rec.timeSeconds || 0)}</span>
+                            <span>🔥 x{rec.maxCombo || 0}</span>
+                            <span>❌ {rec.mismatches || 0}</span>
                           </div>
+                        </div>
+                        <div className="lb-date">
+                          {rec.date ? new Date(rec.date).toLocaleDateString() : ''}
                         </div>
                       </div>
                     );
                   })}
+                </div>
+              )}
 
-                  <div className="leaderboard-footer-actions">
-                    <button 
-                      className="clear-lb-btn"
-                      onClick={() => {
-                        if (window.confirm('确定要清空全部巅峰排行榜历史记录吗？')) {
-                          localStorage.removeItem(RANKED_LEADERBOARD_KEY);
-                          setLeaderboardData([]);
-                        }
-                      }}
-                    >
-                      清空历史战绩
-                    </button>
-                  </div>
+              {leaderboardData.length > 0 && (
+                <div className="leaderboard-footer-actions">
+                  <button 
+                    className="clear-lb-btn" 
+                    onClick={() => {
+                      if (window.confirm('确定要清空所有巅峰挑战战绩吗？此操作不可恢复。')) {
+                        setLeaderboardData([]);
+                        localStorage.removeItem(RANKED_LEADERBOARD_KEY);
+                        triggerHaptic('dangerReset');
+                      }
+                    }}
+                  >
+                    清空历史榜单
+                  </button>
                 </div>
               )}
             </div>
@@ -2645,7 +3472,7 @@ function App() {
               退出
             </button>
           </>
-        ) : quizMode === 'snakeGame' ? (
+        ) : quizMode === 'snakeGame' || quizMode === 'rhythmGame' ? (
           <>
             <button 
               className="mode-btn sheet-btn" 
@@ -2716,6 +3543,16 @@ function App() {
               }}
             >
               🐍 贪吃蛇
+            </button>
+            <button 
+              className={`mode-btn ${quizMode === 'rhythmGame' ? 'active' : ''}`} 
+              onClick={() => { 
+                triggerHaptic('modeSwitch');
+                setQuizMode('rhythmGame'); 
+                if (!rhythmTarget || rhythmNotesRef.current.length === 0) startNewRhythmGame(); 
+              }}
+            >
+              🎵 节奏
             </button>
 
             <span className="mode-divider"></span>
