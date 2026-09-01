@@ -1859,6 +1859,10 @@ function App() {
         ctx.save();
         ctx.scale(dpr, dpr);
 
+        // 🔘 Smooth Rounded Canvas Container Clipping
+        drawRoundedRect(ctx, 0, 0, W, H, 24);
+        ctx.clip();
+
         // 📐 Standard Rhythm Master Perspective Geometry Setup
         const Y_SPAWN = H * 0.06; // Top vanishing horizon / spawn line
         const Y_HIT = H * 0.86;   // Bottom hit line
@@ -1921,7 +1925,7 @@ function App() {
           }
         }
 
-        // 2. Rendering - ☀️ Elegant Light Theme (典雅高光浅色视界)
+        // 2. Rendering - ☀️ High-End Sci-Fi Light Theme (极简高光未来隧道)
         // 🕊️ Clean Porcelain Studio Gradient Background
         const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
         bgGrad.addColorStop(0, '#e2e8f0');
@@ -1931,14 +1935,28 @@ function App() {
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // 🌅 Horizon Vanishing Point Soft Sunlight Flare
-        const flareGrad = ctx.createRadialGradient(W / 2, Y_SPAWN, 0, W / 2, Y_SPAWN, W * 0.7);
-        flareGrad.addColorStop(0, 'rgba(59, 130, 246, 0.22)');
-        flareGrad.addColorStop(0.3, 'rgba(99, 102, 241, 0.12)');
-        flareGrad.addColorStop(0.65, 'rgba(241, 245, 249, 0.05)');
+        // 🌟 Horizon Vanishing Point Soft Sunlight Flare & Concentric Quantum Rings
+        const flareGrad = ctx.createRadialGradient(W / 2, Y_SPAWN, 0, W / 2, Y_SPAWN, W * 0.65);
+        flareGrad.addColorStop(0, 'rgba(59, 130, 246, 0.28)');
+        flareGrad.addColorStop(0.25, 'rgba(99, 102, 241, 0.15)');
+        flareGrad.addColorStop(0.6, 'rgba(241, 245, 249, 0.05)');
         flareGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = flareGrad;
         ctx.fillRect(0, 0, W, H);
+
+        // Horizon Pulsing Quantum Orb
+        const orbPulse = 1 + Math.sin(time * 0.003) * 0.12;
+        ctx.save();
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.35)';
+        ctx.beginPath();
+        ctx.arc(W / 2, Y_SPAWN, 14 * orbPulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(W / 2, Y_SPAWN, 22 * orbPulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
 
         // 3D Left Architectural Tunnel Wall
         const leftWallGrad = ctx.createLinearGradient(0, 0, xEnd(0), 0);
@@ -1965,6 +1983,89 @@ function App() {
         ctx.lineTo(W, Y_END);
         ctx.closePath();
         ctx.fill();
+
+        // 🏛️ 3D Perspective Futuristic Tunnel Ribs & Energy Pillars (隧道立体拱门立柱)
+        const ribDepths = [0.12, 0.30, 0.52, 0.76, 1.02];
+        ribDepths.forEach((tRib, idx) => {
+          const yFloor = yAt(tRib);
+          const xLFloor = xAt(0, tRib);
+          const xRFloor = xAt(4, tRib);
+
+          const wallWidth = (W * 0.28) * (0.2 + 0.8 * tRib);
+          const ribHeight = 35 + 50 * tRib;
+
+          // Left Wall Rib Pillar
+          const xLTop = Math.max(0, xLFloor - wallWidth);
+          const yLTop = yFloor - ribHeight;
+
+          // Right Wall Rib Pillar
+          const xRTop = Math.min(W, xRFloor + wallWidth);
+          const yRTop = yFloor - ribHeight;
+
+          // Draw Left Rib Line & Connector
+          ctx.save();
+          ctx.strokeStyle = `rgba(59, 130, 246, ${0.15 + 0.25 * tRib})`;
+          ctx.lineWidth = Math.max(1, 2.2 * tRib);
+          ctx.beginPath();
+          ctx.moveTo(xLFloor, yFloor);
+          ctx.lineTo(xLTop, yLTop);
+          ctx.lineTo(0, yLTop + 10);
+          ctx.stroke();
+
+          // Left Rib Energy Node
+          const pulseL = (time * 0.003 + idx * 0.8) % 1;
+          const nodeLX = xLFloor + (xLTop - xLFloor) * pulseL;
+          const nodeLY = yFloor + (yLTop - yFloor) * pulseL;
+          ctx.fillStyle = '#3b82f6';
+          ctx.beginPath();
+          ctx.arc(nodeLX, nodeLY, Math.max(1.5, 3 * tRib), 0, Math.PI * 2);
+          ctx.fill();
+
+          // Right Rib Line & Connector
+          ctx.strokeStyle = `rgba(59, 130, 246, ${0.15 + 0.25 * tRib})`;
+          ctx.beginPath();
+          ctx.moveTo(xRFloor, yFloor);
+          ctx.lineTo(xRTop, yRTop);
+          ctx.lineTo(W, yRTop + 10);
+          ctx.stroke();
+
+          // Right Rib Energy Node
+          const nodeRX = xRFloor + (xRTop - xRFloor) * pulseL;
+          const nodeRY = yFloor + (yRTop - yFloor) * pulseL;
+          ctx.fillStyle = '#3b82f6';
+          ctx.beginPath();
+          ctx.arc(nodeRX, nodeRY, Math.max(1.5, 3 * tRib), 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        });
+
+        // 🎵 3D Side Audio Equalizer Rhythm Bars (两侧律动跳动频谱柱)
+        for (let b = 0; b < 3; b++) {
+          const tEq = 0.35 + b * 0.24;
+          const yEq = yAt(tEq);
+          const xLEq = xAt(0, tEq);
+          const xREq = xAt(4, tEq);
+
+          const eqH = (Math.sin(time * 0.005 + b * 1.5) * 0.5 + 0.5) * (18 + 24 * tEq);
+          const barW = Math.max(2, 4 * tEq);
+
+          ctx.save();
+          // Left Wall Equalizer
+          const eqLGrad = ctx.createLinearGradient(0, yEq, 0, yEq - eqH);
+          eqLGrad.addColorStop(0, 'rgba(59, 130, 246, 0.7)');
+          eqLGrad.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
+          ctx.fillStyle = eqLGrad;
+          ctx.fillRect(xLEq - barW * 3.5, yEq - eqH, barW, eqH);
+
+          // Right Wall Equalizer
+          const eqRGrad = ctx.createLinearGradient(0, yEq, 0, yEq - eqH);
+          eqRGrad.addColorStop(0, 'rgba(59, 130, 246, 0.7)');
+          eqRGrad.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
+          ctx.fillStyle = eqRGrad;
+          ctx.fillRect(xREq + barW * 2.5, yEq - eqH, barW, eqH);
+          ctx.restore();
+        }
 
         // 3D Runway Track Floor (Trapezoid Pure Light Porcelain Finish)
         const runwayGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, H);
