@@ -1599,13 +1599,13 @@ function App() {
     }
     const distractorVals = pool.slice(0, 3).map(p => isPromptFrac ? p.percent : p.fraction);
 
-    // 🎯 超大落差单音流阶梯错落（4 个音块完全按先后次序单独下落，间距达 ~180px，体感极度鲜明）
-    const baseShifts = [-0.85, -0.28, 0.28, 0.85];
+    // 🎯 黄金平衡阶梯错落（4 个音块同时呈现在视野中，前后错落约 35-50px，自然灵动又不脱节）
+    const baseShifts = [-0.18, -0.06, 0.06, 0.18];
     for (let i = baseShifts.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [baseShifts[i], baseShifts[j]] = [baseShifts[j], baseShifts[i]];
     }
-    const rawOffsets = baseShifts.map(s => s + (Math.random() - 0.5) * 0.05);
+    const rawOffsets = baseShifts.map(s => s + (Math.random() - 0.5) * 0.02);
 
     const correctLane = Math.floor(Math.random() * 4);
     const notes = [];
