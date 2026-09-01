@@ -1979,34 +1979,32 @@ function App() {
           ctx.closePath();
         };
 
-        // 📐 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位)
+        // 📐 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位，真实地面透视)
         const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
-        const sampleLaneW = xAt(1, 1.0) - xAt(0, 1.0);
-        const PAD_HEIGHT = Math.round((sampleLaneW - 5) * 0.38); // 底部靶位标准高度 (~32px)
-        const padY = Y_HIT - PAD_HEIGHT / 2;
+        const tPadBack = 0.96;
+        const tPadFront = 1.04;
 
         // 1. 顶部判定镭射光线（位于靶位上方入口，不切割文字）
         ctx.strokeStyle = '#2563eb';
         ctx.lineWidth = 2.0;
         ctx.beginPath();
-        ctx.moveTo(xAt(0, 1.0) - 2, padY - 2);
-        ctx.lineTo(xAt(4, 1.0) + 2, padY - 2);
+        ctx.moveTo(xAt(0, tPadBack) - 2, yAt(tPadBack));
+        ctx.lineTo(xAt(4, tPadBack) + 2, yAt(tPadBack));
         ctx.stroke();
 
-        // 2. 4 个打击靶位底座
+        // 2. 4 个打击靶位底座（真实透视圆角底座）
         for (let l = 0; l < 4; l++) {
-          const laneW = xAt(l + 1, 1.0) - xAt(l, 1.0);
-          const padW = laneW - 5;
-          const padH = Math.round(padW * 0.38);
-          const padCenterX = (xAt(l, 1.0) + xAt(l + 1, 1.0)) / 2;
-          const padX = padCenterX - padW / 2;
-          const padRadius = Math.min(8, padW * 0.22, padH * 0.25);
+          const margin = 2.5;
+          const pTL = { x: xAt(l, tPadBack) + margin, y: yAt(tPadBack) };
+          const pTR = { x: xAt(l + 1, tPadBack) - margin, y: yAt(tPadBack) };
+          const pBR = { x: xAt(l + 1, tPadFront) - margin, y: yAt(tPadFront) };
+          const pBL = { x: xAt(l, tPadFront) + margin, y: yAt(tPadFront) };
 
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
           const isPressed = (time - lastPress) < 160;
 
           ctx.save();
-          drawRoundedRect(ctx, padX, padY, padW, padH, padRadius);
+          tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, 8);
 
           if (isPressed) {
             ctx.fillStyle = '#2563eb';
@@ -2023,50 +2021,61 @@ function App() {
           }
 
           // Key indicator inside pad (Crisp clear typography)
+          const pCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
+          const pCenterY = (pTL.y + pBR.y) / 2;
           ctx.fillStyle = isPressed ? '#ffffff' : '#0f172a';
           ctx.font = '800 12px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(padLabels[l], padCenterX, Y_HIT);
+          ctx.fillText(padLabels[l], pCenterX, pCenterY);
           ctx.restore();
         }
 
-        // 💎 Draw Falling Waves (卡片始终保持统一扁平横向胶囊比例 2.6:1，近大远小自然缩放)
+        // 💎 Draw Falling Waves (真实 3D 跑道地面透视圆角卡片，透视纵向自然收缩，长宽比始终保持 2.6:1 扁平感)
         const waves = rhythmNotesRef.current;
 
         waves.forEach(w => {
           if (w.resolved || w.t < -0.1 || w.t > progressToEnd + 0.1) return;
 
-          const centerY = yAt(w.t);
           const tCenter = Math.max(0, Math.min(1.2, w.t));
+          // 纵向透视收缩因子：远端 t 小时纵向跨度自然收缩，保持扁平贴地感
+          const halfDt = 0.04 * (0.35 + 0.65 * tCenter);
+          const tBack = w.t - halfDt;
+          const tFront = w.t + halfDt;
+          const yBack = yAt(tBack);
+          const yFront = yAt(tFront);
+          const slabH = yFront - yBack;
 
           w.notes.forEach(n => {
             if (n.hit) return;
 
-            const laneLeftX = xAt(n.lane, w.t);
-            const laneRightX = xAt(n.lane + 1, w.t);
-            const laneW = laneRightX - laneLeftX;
-            const cardW = Math.max(22, laneW - 5);
-            // 高度按宽度等比例计算（长宽比永远保持约 2.6:1 扁平胶囊，远端绝不变方形/立柱）
-            const cardH = Math.max(10, Math.round(cardW * 0.38));
-            const cardCenterX = (laneLeftX + laneRightX) / 2;
-            const cardX = cardCenterX - cardW / 2;
-            const cardY = centerY - cardH / 2;
-            const slabRadius = Math.min(8, cardW * 0.22, cardH * 0.25);
+            const margin = Math.max(1.5, 2.5 * tCenter);
+            const pTL = { x: xAt(n.lane, tBack) + margin, y: yBack };
+            const pTR = { x: xAt(n.lane + 1, tBack) - margin, y: yBack };
+            const pBR = { x: xAt(n.lane + 1, tFront) - margin, y: yFront };
+            const pBL = { x: xAt(n.lane, tFront) + margin, y: yFront };
+            const slabW = (pTR.x + pBR.x - pTL.x - pBL.x) / 2;
+            const slabRadius = Math.max(3, Math.min(8, slabH * 0.42, slabW * 0.25));
 
             // 1. Soft Floor Shadow Under the Note Slab
             const shadowOffset = Math.max(1.5, 3 * tCenter);
             ctx.save();
-            drawRoundedRect(ctx, cardX, cardY + shadowOffset, cardW, cardH, slabRadius);
+            tracePerspectiveRoundedSlab(
+              pTL.x, pTL.y + shadowOffset,
+              pTR.x, pTR.y + shadowOffset,
+              pBR.x, pBR.y + shadowOffset,
+              pBL.x, pBL.y + shadowOffset,
+              slabRadius
+            );
             ctx.fillStyle = 'rgba(15, 23, 42, 0.12)';
             ctx.fill();
             ctx.restore();
 
-            // 2. Note Rounded Body (Vivid Royal Blue & Cyan Gradient, 纯正横向扁平胶囊)
+            // 2. Note Rounded Body (Vivid Royal Blue & Cyan Gradient, 真实地面 3D 透视圆角厚度)
             ctx.save();
-            drawRoundedRect(ctx, cardX, cardY, cardW, cardH, slabRadius);
+            tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, slabRadius);
 
-            const noteGrad = ctx.createLinearGradient(0, cardY, 0, cardY + cardH);
+            const noteGrad = ctx.createLinearGradient(0, yBack, 0, yFront);
             noteGrad.addColorStop(0, '#3b82f6');
             noteGrad.addColorStop(0.35, '#2563eb');
             noteGrad.addColorStop(0.85, '#1d4ed8');
@@ -2082,18 +2091,20 @@ function App() {
             // 3. Top Shiny Specular Highlight Bar
             ctx.save();
             ctx.beginPath();
-            ctx.moveTo(cardX + slabRadius, cardY + 1.0);
-            ctx.lineTo(cardX + cardW - slabRadius, cardY + 1.0);
+            ctx.moveTo(pTL.x + slabRadius, yBack + 1.0);
+            ctx.lineTo(pTR.x - slabRadius, yBack + 1.0);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
             ctx.lineWidth = Math.max(0.8, 1.4 * tCenter);
             ctx.stroke();
             ctx.restore();
 
             // 4. Centered Continuous Vector Scaled Text (Zero-Jitter Smooth GPU Scaling)
-            const textScale = Math.min(1.0, Math.max(0.55, cardW / 75));
+            const noteCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
+            const noteCenterY = (yBack + yFront) / 2;
+            const textScale = Math.min(1.0, Math.max(0.55, slabW / 75));
 
             ctx.save();
-            ctx.translate(cardCenterX, centerY);
+            ctx.translate(noteCenterX, noteCenterY);
             ctx.scale(textScale, textScale);
             ctx.fillStyle = '#ffffff';
             ctx.font = '900 15px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
