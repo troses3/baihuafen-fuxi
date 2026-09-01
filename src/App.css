@@ -2108,9 +2108,11 @@ body {
    🎵 节奏音块模式 (Rhythm Beat Master) Styles
    ========================================================= */
 
-/* =========================================================
-   🎵 节奏音块模式 (Rhythm Beat Master) Styles
-   ========================================================= */
+.rhythm-stage-container {
+  box-sizing: border-box;
+  margin-top: -0.28rem;
+  padding-bottom: 5.2rem;
+}
 
 .rhythm-game-stage {
   display: flex;
@@ -2175,11 +2177,11 @@ body {
   font-weight: 800;
 }
 
-/* 4 轨道 Canvas 竞技场容器 (浅色典雅超长纵深 3D 跑道) */
+/* 4 轨道 Canvas 竞技场容器 (浅色典雅 3D 跑道) */
 .rhythm-arena-wrapper {
   position: relative;
   width: 100%;
-  height: clamp(480px, 66vh, 580px);
+  height: clamp(340px, 50vh, 460px);
   background: #f8fafc;
   border-radius: 20px;
   border: 1.5px solid rgba(203, 213, 225, 0.85);

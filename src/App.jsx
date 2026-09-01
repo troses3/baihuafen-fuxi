@@ -1591,6 +1591,15 @@ function App() {
     setIsRhythmNewRecord(false);
   }, [generateRhythmTargetAndWave]);
 
+  const spawnNextRhythmQuestion = useCallback(() => {
+    if (!isRhythmRunningRef.current) return;
+    const { target, wave } = generateRhythmTargetAndWave();
+    rhythmTargetRef.current = target;
+    setRhythmTarget(target);
+    rhythmNotesRef.current = [wave];
+    lastSpawnTimeRef.current = performance.now();
+  }, [generateRhythmTargetAndWave]);
+
   const handleRhythmHitLane = useCallback((laneIndex) => {
     if (isRhythmPaused || isRhythmGameOver || !isRhythmRunningRef.current) return;
     triggerHaptic('tap');
@@ -1603,9 +1612,7 @@ function App() {
     const rect = canvas.getBoundingClientRect();
     const W = rect.width || 360;
     const H = rect.height || 520;
-    const Y_SPAWN = H * 0.06;
     const Y_HIT = H * 0.86;
-    const W_TOP = W * 0.32;
     const W_BOT = W * 0.94;
 
     const xBotL = (W / 2) - (W_BOT / 2) + laneIndex * (W_BOT / 4);
@@ -1613,39 +1620,28 @@ function App() {
     const padCenterX = (xBotL + xBotR) / 2;
     const padCenterY = Y_HIT;
 
-    // Find nearest active wave around hit line (t = 1.0)
     const waves = rhythmNotesRef.current;
     if (!waves || waves.length === 0) return;
+    const wave = waves[0];
+    if (!wave || wave.resolved) return;
 
-    let targetWaveIndex = -1;
-    let minDt = 9999;
-
-    waves.forEach((w, idx) => {
-      if (w.resolved) return;
-      const dt = Math.abs(w.t - 1.0);
-      if (dt < minDt && dt < 0.28) {
-        minDt = dt;
-        targetWaveIndex = idx;
-      }
-    });
-
-    if (targetWaveIndex === -1) {
-      // Empty tap: subtle floor ripple
+    const dt = Math.abs(wave.t - 1.0);
+    // If tapped way too early or way too late: empty tap
+    if (dt > 0.38) {
       rhythmParticlesRef.current.push({
         type: 'ripple',
         x: padCenterX,
         y: padCenterY,
         radius: 12,
-        color: '#38bdf8',
-        alpha: 0.6,
+        color: '#2563eb',
+        alpha: 0.5,
         decay: 0.05,
       });
       return;
     }
 
-    const wave = waves[targetWaveIndex];
     const targetNote = wave.notes.find(n => n.lane === laneIndex);
-    if (!targetNote || targetNote.hit) return;
+    if (!targetNote) return;
 
     if (targetNote.isCorrect) {
       // 🎯 HIT CORRECT!
@@ -1654,22 +1650,22 @@ function App() {
 
       let pts = 100;
       let judgeText = 'GREAT!';
-      let judgeColor = '#38bdf8';
+      let judgeColor = '#2563eb';
 
-      if (minDt <= 0.065) {
+      if (dt <= 0.09) {
         pts = 300;
         judgeText = 'S-PERFECT!!';
-        judgeColor = '#fbbf24';
+        judgeColor = '#d97706';
         setRhythmHitCounts(h => ({ ...h, perfect: h.perfect + 1 }));
-      } else if (minDt <= 0.16) {
+      } else if (dt <= 0.22) {
         pts = 180;
         judgeText = 'PERFECT';
-        judgeColor = '#38bdf8';
+        judgeColor = '#2563eb';
         setRhythmHitCounts(h => ({ ...h, perfect: h.perfect + 1 }));
       } else {
         pts = 100;
         judgeText = 'GREAT!';
-        judgeColor = '#c084fc';
+        judgeColor = '#7c3aed';
         setRhythmHitCounts(h => ({ ...h, great: h.great + 1 }));
       }
 
@@ -1703,13 +1699,13 @@ function App() {
         return nextCombo;
       });
 
-      // Expanding purple / cyan elliptical perspective shockwave ripples
+      // Expanding blue/purple shockwave ripples
       rhythmParticlesRef.current.push({
         type: 'ripple',
         x: padCenterX,
         y: padCenterY,
         radius: 14,
-        color: '#c084fc',
+        color: '#7c3aed',
         alpha: 0.95,
         decay: 0.038,
       });
@@ -1718,7 +1714,7 @@ function App() {
         x: padCenterX,
         y: padCenterY,
         radius: 8,
-        color: '#38bdf8',
+        color: '#2563eb',
         alpha: 0.9,
         decay: 0.045,
       });
@@ -1749,15 +1745,10 @@ function App() {
       setRhythmStageShake('hit-correct');
       setTimeout(() => setRhythmStageShake(''), 180);
 
-      // Spawn next wave if needed
-      const remainingUnresolved = waves.filter(w => !w.resolved && w.t < 1.0);
-      if (remainingUnresolved.length === 0) {
-        const nextTargetAndWave = generateRhythmTargetAndWave();
-        rhythmTargetRef.current = nextTargetAndWave.target;
-        setRhythmTarget(nextTargetAndWave.target);
-        rhythmNotesRef.current.push(nextTargetAndWave.wave);
-        lastSpawnTimeRef.current = performance.now();
-      }
+      // Spawn next question smoothly
+      setTimeout(() => {
+        spawnNextRhythmQuestion();
+      }, 220);
     } else {
       // ❌ HIT WRONG LANE!
       targetNote.hit = true;
@@ -1770,6 +1761,10 @@ function App() {
         if (nextLives <= 0) {
           setIsRhythmGameOver(true);
           isRhythmRunningRef.current = false;
+        } else {
+          setTimeout(() => {
+            spawnNextRhythmQuestion();
+          }, 320);
         }
         return nextLives;
       });
@@ -1779,7 +1774,7 @@ function App() {
         x: padCenterX,
         y: padCenterY,
         radius: 14,
-        color: '#ef4444',
+        color: '#dc2626',
         alpha: 0.9,
         decay: 0.045,
       });
@@ -1794,7 +1789,7 @@ function App() {
           vx: Math.cos(angle) * spd,
           vy: Math.sin(angle) * spd,
           size: 3 + Math.random() * 3,
-          color: '#ef4444',
+          color: '#dc2626',
           alpha: 1,
           decay: 0.04,
         });
@@ -1802,20 +1797,14 @@ function App() {
 
       rhythmJudgementRef.current = {
         text: 'MISS',
-        color: '#ef4444',
+        color: '#dc2626',
         time: performance.now(),
       };
 
       setRhythmStageShake('hit-error');
       setTimeout(() => setRhythmStageShake(''), 220);
-
-      const nextTargetAndWave = generateRhythmTargetAndWave();
-      rhythmTargetRef.current = nextTargetAndWave.target;
-      setRhythmTarget(nextTargetAndWave.target);
-      rhythmNotesRef.current.push(nextTargetAndWave.wave);
-      lastSpawnTimeRef.current = performance.now();
     }
-  }, [isRhythmPaused, isRhythmGameOver, generateRhythmTargetAndWave, rhythmHighScore]);
+  }, [isRhythmPaused, isRhythmGameOver, rhythmHighScore, spawnNextRhythmQuestion]);
 
   const handleRhythmCanvasClick = (e) => {
     const canvas = rhythmCanvasRef.current;
@@ -1841,7 +1830,7 @@ function App() {
     handleRhythmHitLane(laneIndex);
   };
 
-  // 60FPS Rhythm Master Perspective Trapezoid Canvas Engine (节奏大师标准透视梯形引擎)
+  // 60FPS Rhythm Master Perspective Trapezoid Canvas Engine (单题专注冲关引擎)
   useEffect(() => {
     if (quizMode !== 'rhythmGame') return;
     const canvas = rhythmCanvasRef.current;
@@ -1892,24 +1881,18 @@ function App() {
         // Slower calibrated speed progress per millisecond
         const speedProgress = (currentSpeedConfig.speed * 0.0001) * dt;
 
-        // 1. Logic Update
+        // 1. Single-Question Focused Logic Update
         if (!isRhythmPaused && !isRhythmGameOver && isRhythmRunningRef.current) {
           const waves = rhythmNotesRef.current;
 
-          if (waves.length === 0 || (time - lastSpawnTimeRef.current >= currentSpeedConfig.spawnInterval && waves[waves.length - 1].t > 0.28)) {
-            const nextTargetAndWave = generateRhythmTargetAndWave();
-            rhythmTargetRef.current = nextTargetAndWave.target;
-            setRhythmTarget(nextTargetAndWave.target);
-            waves.push(nextTargetAndWave.wave);
-            lastSpawnTimeRef.current = time;
-          }
-
-          for (let i = waves.length - 1; i >= 0; i--) {
-            const w = waves[i];
+          if (waves.length === 0) {
+            spawnNextRhythmQuestion();
+          } else {
+            const w = waves[0];
             w.t += speedProgress;
 
             // Missed note passed hit line
-            if (!w.resolved && w.t > 1.15) {
+            if (!w.resolved && w.t > 1.14) {
               w.resolved = true;
               setRhythmCombo(0);
               setRhythmHitCounts(h => ({ ...h, miss: h.miss + 1 }));
@@ -1918,6 +1901,10 @@ function App() {
                 if (nextLives <= 0) {
                   setIsRhythmGameOver(true);
                   isRhythmRunningRef.current = false;
+                } else {
+                  setTimeout(() => {
+                    spawnNextRhythmQuestion();
+                  }, 320);
                 }
                 return nextLives;
               });
@@ -1930,10 +1917,6 @@ function App() {
 
               setRhythmStageShake('hit-error');
               setTimeout(() => setRhythmStageShake(''), 220);
-            }
-
-            if (w.t > progressToEnd + 0.1) {
-              waves.splice(i, 1);
             }
           }
         }
@@ -2138,7 +2121,7 @@ function App() {
         const NOTE_LENGTH_T = 0.075;
 
         waves.forEach(w => {
-          if (w.t < -0.05 || w.t > progressToEnd + 0.05) return;
+          if (w.resolved || w.t < -0.05 || w.t > progressToEnd + 0.05) return;
 
           const tFront = w.t;
           const tBack = Math.max(0.0, w.t - NOTE_LENGTH_T);
