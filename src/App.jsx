@@ -1979,10 +1979,10 @@ function App() {
           ctx.closePath();
         };
 
-        // 📐 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位，真实地面透视)
+        // 📐 3D Perspective Hit Receptor Pads (4 块高对比度立体圆角打击靶位，恢复饱满判定框高度)
         const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
-        const tPadBack = 0.96;
-        const tPadFront = 1.04;
+        const tPadBack = 0.93;
+        const tPadFront = 1.07;
 
         // 1. 顶部判定镭射光线（位于靶位上方入口，不切割文字）
         ctx.strokeStyle = '#2563eb';
@@ -1992,7 +1992,7 @@ function App() {
         ctx.lineTo(xAt(4, tPadBack) + 2, yAt(tPadBack));
         ctx.stroke();
 
-        // 2. 4 个打击靶位底座（真实透视圆角底座）
+        // 2. 4 个打击靶位底座（饱满 3D 透视圆角底座）
         for (let l = 0; l < 4; l++) {
           const margin = 2.5;
           const pTL = { x: xAt(l, tPadBack) + margin, y: yAt(tPadBack) };
@@ -2031,15 +2031,15 @@ function App() {
           ctx.restore();
         }
 
-        // 💎 Draw Falling Waves (真实 3D 跑道地面透视圆角卡片，透视纵向自然收缩，长宽比始终保持 2.6:1 扁平感)
+        // 💎 Draw Falling Waves (真实 3D 跑道地面透视圆角卡片，近端完美贴合 0.93-1.07 判定框)
         const waves = rhythmNotesRef.current;
 
         waves.forEach(w => {
           if (w.resolved || w.t < -0.1 || w.t > progressToEnd + 0.1) return;
 
           const tCenter = Math.max(0, Math.min(1.2, w.t));
-          // 纵向透视收缩因子：远端 t 小时纵向跨度自然收缩，保持扁平贴地感
-          const halfDt = 0.04 * (0.35 + 0.65 * tCenter);
+          // 纵向透视收缩因子：近端严格达到 0.07 跨度（与判定框完全一致），远端自然收缩
+          const halfDt = 0.07 * (0.35 + 0.65 * tCenter);
           const tBack = w.t - halfDt;
           const tFront = w.t + halfDt;
           const yBack = yAt(tBack);
@@ -2055,7 +2055,7 @@ function App() {
             const pBR = { x: xAt(n.lane + 1, tFront) - margin, y: yFront };
             const pBL = { x: xAt(n.lane, tFront) + margin, y: yFront };
             const slabW = (pTR.x + pBR.x - pTL.x - pBL.x) / 2;
-            const slabRadius = Math.max(3, Math.min(8, slabH * 0.42, slabW * 0.25));
+            const slabRadius = Math.max(3, Math.min(8, slabH * 0.35, slabW * 0.25));
 
             // 1. Soft Floor Shadow Under the Note Slab
             const shadowOffset = Math.max(1.5, 3 * tCenter);
