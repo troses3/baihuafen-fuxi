@@ -2149,13 +2149,15 @@ body {
   box-sizing: border-box;
 }
 
-/* 🎯 浅色高雅音游目标卡片 */
+/* 🎯 浅色高雅音游目标卡片（目标绝对居中，进度右置） */
 .rhythm-target-banner {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
   padding: 0.38rem 0.85rem;
+  min-height: 48px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -2166,10 +2168,14 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
-.rhythm-target-banner .target-banner-left {
+.rhythm-target-banner .target-banner-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.65rem;
+  pointer-events: none;
 }
 
 .rhythm-target-banner .target-banner-badge {
@@ -2205,6 +2211,7 @@ body {
   border-radius: 100px;
   padding: 0.18rem 0.6rem;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  z-index: 2;
 }
 
 .rhythm-target-banner .progress-num {

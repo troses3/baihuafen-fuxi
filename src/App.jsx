@@ -3193,10 +3193,10 @@ function App() {
               </div>
             </div>
 
-            {/* 🎯 本轮目标 Banner (包含 1/30 题进度与目标) */}
+            {/* 🎯 本轮目标 Banner (目标绝对居中，进度右置) */}
             {rhythmTarget && (
               <div className="rhythm-target-banner">
-                <div className="target-banner-left">
+                <div className="target-banner-center">
                   <span className="target-banner-badge">🎯 目标</span>
                   <div className="target-banner-val">
                     {rhythmTarget.promptText.startsWith('1/') ? (
