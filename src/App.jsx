@@ -249,6 +249,11 @@ function App() {
       return false;
     }
   });
+  const isRhythmBgmMutedRef = useRef(isRhythmBgmMuted);
+  useEffect(() => {
+    isRhythmBgmMutedRef.current = isRhythmBgmMuted;
+  }, [isRhythmBgmMuted]);
+
   const rhythmBgmRef = useRef(null);
 
   useEffect(() => {
@@ -1680,11 +1685,11 @@ function App() {
     setIsRhythmVictory(false);
     setIsRhythmNewRecord(false);
 
-    if (!isRhythmBgmMuted && rhythmBgmRef.current) {
+    if (!isRhythmBgmMutedRef.current && rhythmBgmRef.current) {
       rhythmBgmRef.current.currentTime = 0;
       rhythmBgmRef.current.play().catch(() => {});
     }
-  }, [generateRhythmTargetAndWave, isRhythmBgmMuted]);
+  }, [generateRhythmTargetAndWave]);
 
   const spawnNextRhythmQuestion = useCallback(() => {
     if (!isRhythmRunningRef.current) return;
@@ -1713,7 +1718,7 @@ function App() {
     if (isRhythmPaused || isRhythmGameOver || isRhythmVictory || !isRhythmRunningRef.current) return;
     triggerHaptic('tap');
     
-    if (!isRhythmBgmMuted && rhythmBgmRef.current && rhythmBgmRef.current.paused) {
+    if (!isRhythmBgmMutedRef.current && rhythmBgmRef.current && rhythmBgmRef.current.paused) {
       rhythmBgmRef.current.play().catch(() => {});
     }
 
@@ -3239,7 +3244,15 @@ function App() {
                     triggerHaptic('tap');
                     setIsRhythmBgmMuted(prev => {
                       const next = !prev;
+                      isRhythmBgmMutedRef.current = next;
                       try { localStorage.setItem(RHYTHM_BGM_MUTED_KEY, String(next)); } catch (e) {}
+                      if (next) {
+                        rhythmBgmRef.current?.pause();
+                      } else {
+                        if (quizMode === 'rhythmGame' && !isRhythmPaused && !isRhythmGameOver && !isRhythmVictory) {
+                          rhythmBgmRef.current?.play().catch(() => {});
+                        }
+                      }
                       return next;
                     });
                   }}
