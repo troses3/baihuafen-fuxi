@@ -2203,30 +2203,13 @@ body {
   border-radius: 16px;
 }
 
-/* 💥 判定打击物理震颤与高光 */
-@keyframes rhythmHitCorrect {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.015) translateY(-2px); }
-  70% { transform: scale(0.995) translateY(1px); }
-  100% { transform: scale(1) translateY(0); }
-}
-
-@keyframes rhythmHitError {
-  0% { transform: translate3d(0, 0, 0); }
-  25% { transform: translate3d(-4px, 2px, 0); }
-  50% { transform: translate3d(4px, -2px, 0); }
-  75% { transform: translate3d(-2px, 1px, 0); }
-  100% { transform: translate3d(0, 0, 0); }
-}
-
+/* 💥 判定打击柔和高光反馈（容器尺寸完全固定，无任何大小形变） */
 .rhythm-arena-wrapper.shake-hit-correct {
-  animation: rhythmHitCorrect 0.18s cubic-bezier(0.25, 1, 0.5, 1) both;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), 0 12px 32px rgba(37, 99, 235, 0.15);
 }
 
 .rhythm-arena-wrapper.shake-hit-error {
-  animation: rhythmHitError 0.22s cubic-bezier(0.25, 1, 0.5, 1) both;
   border-color: #dc2626;
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25), 0 12px 32px rgba(220, 38, 38, 0.15);
 }
