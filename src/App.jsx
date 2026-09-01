@@ -2023,13 +2023,16 @@ function App() {
           ctx.restore();
         }
 
-        // 2. 终点判定线（精准横贯判定框正中点 Y_HIT, t = 1.0）
-        ctx.strokeStyle = '#2563eb';
+        // 2. 终点判定线（红色虚线，精准横贯判定框正中点 Y_HIT, t = 1.0）
+        ctx.save();
+        ctx.strokeStyle = '#ef4444';
         ctx.lineWidth = 2.0;
+        ctx.setLineDash([6, 4]);
         ctx.beginPath();
         ctx.moveTo(xAt(0, 1.0) - 2, Y_HIT);
         ctx.lineTo(xAt(4, 1.0) + 2, Y_HIT);
         ctx.stroke();
+        ctx.restore();
 
         // 💎 Draw Falling Waves (真实 3D 跑道地面透视轻薄圆角卡片，长宽比始终保持 2.6:1 扁平感)
         const waves = rhythmNotesRef.current;
