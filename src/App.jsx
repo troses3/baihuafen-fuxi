@@ -1805,10 +1805,10 @@ function App() {
 
         // 📐 Standard Rhythm Master Perspective Geometry Setup
         const Y_SPAWN = H * 0.06; // Top vanishing horizon / spawn line
-        const Y_HIT = H * 0.86;   // Bottom hit line
-        const Y_END = H * 0.98;   // Bottom screen margin
+        const Y_HIT = H * 0.80;   // Bottom hit line (向上微调，留出舒适触控与视觉空间)
+        const Y_END = H * 0.94;   // Bottom screen margin
         const W_TOP = W * 0.32;   // Narrow top width (converging to vanishing point)
-        const W_BOT = W * 0.94;   // Wide bottom width
+        const W_BOT = W * 0.92;   // Wide bottom width
 
         const progressToEnd = (Y_END - Y_SPAWN) / (Y_HIT - Y_SPAWN);
         const W_END = W_TOP + (W_BOT - W_TOP) * progressToEnd;
