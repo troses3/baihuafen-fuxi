@@ -2031,15 +2031,15 @@ function App() {
           ctx.restore();
         }
 
-        // 💎 Draw Falling Waves (真实 3D 跑道地面透视圆角卡片，近端完美贴合 0.93-1.07 判定框)
+        // 💎 Draw Falling Waves (真实 3D 跑道地面透视轻薄圆角卡片，长宽比始终保持 2.6:1 扁平感)
         const waves = rhythmNotesRef.current;
 
         waves.forEach(w => {
           if (w.resolved || w.t < -0.1 || w.t > progressToEnd + 0.1) return;
 
           const tCenter = Math.max(0, Math.min(1.2, w.t));
-          // 纵向透视收缩因子：近端严格达到 0.07 跨度（与判定框完全一致），远端自然收缩
-          const halfDt = 0.07 * (0.35 + 0.65 * tCenter);
+          // 纵向透视收缩因子：保持轻薄扁平横向胶囊（0.04 基准），远端绝不变方形/立柱
+          const halfDt = 0.04 * (0.35 + 0.65 * tCenter);
           const tBack = w.t - halfDt;
           const tFront = w.t + halfDt;
           const yBack = yAt(tBack);
@@ -2055,7 +2055,7 @@ function App() {
             const pBR = { x: xAt(n.lane + 1, tFront) - margin, y: yFront };
             const pBL = { x: xAt(n.lane, tFront) + margin, y: yFront };
             const slabW = (pTR.x + pBR.x - pTL.x - pBL.x) / 2;
-            const slabRadius = Math.max(3, Math.min(8, slabH * 0.35, slabW * 0.25));
+            const slabRadius = Math.max(3, Math.min(8, slabH * 0.42, slabW * 0.25));
 
             // 1. Soft Floor Shadow Under the Note Slab
             const shadowOffset = Math.max(1.5, 3 * tCenter);
