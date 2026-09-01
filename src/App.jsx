@@ -1336,53 +1336,31 @@ function App() {
     };
   }, [quizMode, isSnakePaused, isSnakeGameOver, generateSnakeFoodsAndTarget]);
 
-  // Touch Swipe & Tap Handlers for Snake
-  const handleArenaTouchStart = (e) => {
+  // Tap & Click Direction Control (Instant steering relative to snake head)
+  const handleArenaPointerDown = (e) => {
     unlockAudioHaptics();
-    const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
-  };
+    const canvas = canvasRef.current;
+    const body = snakeBodyRef.current;
+    if (canvas && body && body.length > 0) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      const tapX = clientX - rect.left;
+      const tapY = clientY - rect.top;
+      const GRID = 10;
+      const cellSize = rect.width / GRID;
+      const head = body[0];
+      const headX = head.x * cellSize + cellSize / 2;
+      const headY = head.y * cellSize + cellSize / 2;
+      const diffX = tapX - headX;
+      const diffY = tapY - headY;
 
-  const handleArenaTouchEnd = (e) => {
-    if (!touchStartRef.current) return;
-    const touch = e.changedTouches[0];
-    const dx = touch.clientX - touchStartRef.current.x;
-    const dy = touch.clientY - touchStartRef.current.y;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-
-    if (Math.max(absDx, absDy) > 20) {
-      // 扫动手势 (Swipe)
-      if (absDx > absDy) {
-        if (dx > 0) changeSnakeDirection({ x: 1, y: 0 });
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        if (diffX > 0) changeSnakeDirection({ x: 1, y: 0 });
         else changeSnakeDirection({ x: -1, y: 0 });
       } else {
-        if (dy > 0) changeSnakeDirection({ x: 0, y: 1 });
+        if (diffY > 0) changeSnakeDirection({ x: 0, y: 1 });
         else changeSnakeDirection({ x: 0, y: -1 });
-      }
-    } else {
-      // 点击转向 (Tap relative to head)
-      const canvas = canvasRef.current;
-      const body = snakeBodyRef.current;
-      if (canvas && body && body.length > 0) {
-        const rect = canvas.getBoundingClientRect();
-        const tapX = touch.clientX - rect.left;
-        const tapY = touch.clientY - rect.top;
-        const GRID = 10;
-        const cellSize = rect.width / GRID;
-        const head = body[0];
-        const headX = head.x * cellSize + cellSize / 2;
-        const headY = head.y * cellSize + cellSize / 2;
-        const diffX = tapX - headX;
-        const diffY = tapY - headY;
-
-        if (Math.abs(diffX) > Math.abs(diffY)) {
-          if (diffX > 0) changeSnakeDirection({ x: 1, y: 0 });
-          else changeSnakeDirection({ x: -1, y: 0 });
-        } else {
-          if (diffY > 0) changeSnakeDirection({ x: 0, y: 1 });
-          else changeSnakeDirection({ x: 0, y: -1 });
-        }
       }
     }
   };
@@ -2255,8 +2233,7 @@ function App() {
             {/* 60FPS Canvas 渲染竞技场 (全宽正方形主舞台) */}
             <div 
               className={`snake-arena-wrapper ${snakeArenaShake ? `shake-${snakeArenaShake}` : ''}`}
-              onTouchStart={handleArenaTouchStart}
-              onTouchEnd={handleArenaTouchEnd}
+              onPointerDown={handleArenaPointerDown}
             >
               <canvas ref={canvasRef} className="snake-canvas" />
             </div>
@@ -2289,11 +2266,6 @@ function App() {
                 />
                 <span className="speed-icon-end" title="最快">🚀</span>
               </div>
-            </div>
-
-            {/* 底部操作提示 */}
-            <div className="snake-hint-bar">
-              <span className="hint-pill">👆 屏幕任意滑动 / 轻触转向</span>
             </div>
           </div>
         ) : (
