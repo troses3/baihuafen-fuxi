@@ -70,6 +70,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('touchstart', unlockAudioHaptics, { passive: true, once: false });
   window.addEventListener('touchend', unlockAudioHaptics, { passive: true, once: false });
   window.addEventListener('pointerdown', unlockAudioHaptics, { passive: true, once: false });
+  window.addEventListener('click', unlockAudioHaptics, { passive: true, once: false });
 }
 
 function playTapticThump(type = 'success') {
@@ -85,94 +86,122 @@ function playTapticThump(type = 'success') {
     }
 
     const now = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
 
     if (type === 'success' || type === 'combo') {
-      // Crisp mechanical pop (180Hz -> 45Hz sub-bass thump in 35ms)
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(190, now);
-      osc.frequency.exponentialRampToValueAtTime(40, now + 0.04);
-      gain.gain.setValueAtTime(0.35, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start(now);
-      osc.stop(now + 0.04);
+      // 💥 Dual-component physical pop: high click + low body thump
+      const oscHigh = audioCtx.createOscillator();
+      const gainHigh = audioCtx.createGain();
+      oscHigh.type = 'sine';
+      oscHigh.frequency.setValueAtTime(360, now);
+      oscHigh.frequency.exponentialRampToValueAtTime(110, now + 0.045);
+      gainHigh.gain.setValueAtTime(0.7, now);
+      gainHigh.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+      oscHigh.connect(gainHigh);
+      gainHigh.connect(audioCtx.destination);
+      oscHigh.start(now);
+      oscHigh.stop(now + 0.045);
+
+      const oscLow = audioCtx.createOscillator();
+      const gainLow = audioCtx.createGain();
+      oscLow.type = 'triangle';
+      oscLow.frequency.setValueAtTime(160, now);
+      oscLow.frequency.exponentialRampToValueAtTime(45, now + 0.06);
+      gainLow.gain.setValueAtTime(0.6, now);
+      gainLow.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      oscLow.connect(gainLow);
+      gainLow.connect(audioCtx.destination);
+      oscLow.start(now);
+      oscLow.stop(now + 0.06);
     } else if (type === 'error' || type === 'dangerReset') {
-      // Deeper low-frequency double thud
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(120, now);
-      osc.frequency.exponentialRampToValueAtTime(30, now + 0.07);
-      gain.gain.setValueAtTime(0.4, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+      // 🚨 Warning dual buzz
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(130, now);
+      osc.frequency.exponentialRampToValueAtTime(35, now + 0.09);
+      gain.gain.setValueAtTime(0.65, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start(now);
-      osc.stop(now + 0.07);
+      osc.stop(now + 0.09);
     } else if (type === 'tap' || type === 'optionSelect') {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(240, now);
-      osc.frequency.exponentialRampToValueAtTime(70, now + 0.02);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(90, now + 0.025);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start(now);
-      osc.stop(now + 0.02);
+      osc.stop(now + 0.025);
     }
   } catch (e) {}
 }
 
 /**
- * Trigger full-spectrum haptic feedback tailored for both iOS (Taptic acoustic + switch) and Android (vibrate patterns)
+ * Trigger full-spectrum haptic feedback tailored for iOS, Android, WeChat, and Web Audio
  * @param {'tap' | 'modeSwitch' | 'hint' | 'menuToggle' | 'optionSelect' | 'dangerReset' | 'cardFlip' | 'success' | 'error' | 'clear' | 'combo' | 'celebration'} type
  */
 export function triggerHaptic(type = 'tap') {
   // 1. Universal Acoustic Taptic Feedback (Works on iPhone/iPad/Desktop where navigator.vibrate is disabled)
   playTapticThump(type);
 
-  // -------------------------------------------------------------
-  // 2. Android & Standards-compliant navigator.vibrate patterns (Crisp & punchy)
-  // -------------------------------------------------------------
+  // 2. WeChat / WeixinJSBridge hardware haptic for iOS WeChat browser
+  try {
+    if (typeof window !== 'undefined') {
+      if (window.WeixinJSBridge && typeof window.WeixinJSBridge.invoke === 'function') {
+        window.WeixinJSBridge.invoke('vibrateShort', {}, function() {});
+      }
+      if (window.wx && typeof window.wx.vibrateShort === 'function') {
+        window.wx.vibrateShort({ type: type === 'error' ? 'heavy' : 'medium' });
+      }
+    }
+  } catch (e) {}
+
+  // 3. Android & Standards-compliant navigator.vibrate patterns (Single int + array for maximum device compatibility)
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     try {
       switch (type) {
         case 'tap':
-          navigator.vibrate(18);
+          navigator.vibrate(20);
           break;
         case 'hint':
         case 'modeSwitch':
           navigator.vibrate([25, 30, 20]);
           break;
         case 'optionSelect':
-          navigator.vibrate(22);
+          navigator.vibrate(25);
           break;
         case 'menuToggle':
           navigator.vibrate([18, 40, 18]);
           break;
         case 'cardFlip':
-          navigator.vibrate(25);
+          navigator.vibrate(28);
           break;
         case 'clear':
           navigator.vibrate([18, 25, 18]);
           break;
         case 'success':
-          // Snappy affirmative tactile double pulse
-          navigator.vibrate([35, 30, 45]);
+          // Crisp, strong affirmative punch
+          navigator.vibrate(50);
+          try { navigator.vibrate([45, 30, 60]); } catch (e) {}
           break;
         case 'error':
           // Heavy alert tremor
-          navigator.vibrate([55, 35, 55, 35, 70]);
+          navigator.vibrate(90);
+          try { navigator.vibrate([60, 40, 60, 40, 80]); } catch (e) {}
           break;
         case 'dangerReset':
           navigator.vibrate([70, 100, 90]);
           break;
         case 'combo':
-          navigator.vibrate([30, 35, 30, 35, 45]);
+          navigator.vibrate([35, 35, 35, 35, 50]);
           break;
         case 'celebration':
-          navigator.vibrate([35, 50, 35, 50, 60, 70, 80]);
+          navigator.vibrate([40, 50, 40, 50, 60, 70, 80]);
           break;
         default:
           navigator.vibrate(20);
@@ -180,9 +209,7 @@ export function triggerHaptic(type = 'tap') {
     } catch (e) {}
   }
 
-  // -------------------------------------------------------------
-  // 2. iOS 17.4+ WebKit Switch Hack with Rhythmic Time-Sequence
-  // -------------------------------------------------------------
+  // 4. iOS 17.4+ WebKit Switch Hack with Rhythmic Time-Sequence
   try {
     switch (type) {
       case 'tap':
@@ -192,13 +219,11 @@ export function triggerHaptic(type = 'tap') {
 
       case 'hint':
       case 'modeSwitch':
-        // Crisp dual switch toggle for mode shift
         iosClick();
         setTimeout(iosClick, 50);
         break;
 
       case 'menuToggle':
-        // Double pop for menu open/close
         iosClick();
         setTimeout(iosClick, 45);
         break;
@@ -208,39 +233,33 @@ export function triggerHaptic(type = 'tap') {
         break;
 
       case 'clear':
-        // Snappy double click
         iosClick();
         setTimeout(iosClick, 40);
         break;
 
       case 'success':
-        // Crisp affirmative double tap (哒-哒)
         iosClick();
         setTimeout(iosClick, 65);
         break;
 
       case 'error':
-        // Rapid triple warning jitter (哒哒哒)
         iosClick();
         setTimeout(iosClick, 45);
         setTimeout(iosClick, 95);
         break;
 
       case 'dangerReset':
-        // Heavy warning double impulse with strong interval (咚……咚)
         iosClick();
         setTimeout(iosClick, 130);
         break;
 
       case 'combo':
-        // Escalating rhythm
         iosClick();
         setTimeout(iosClick, 50);
         setTimeout(iosClick, 110);
         break;
 
       case 'celebration':
-        // Triumphant 4-burst rhythm
         iosClick();
         setTimeout(iosClick, 70);
         setTimeout(iosClick, 140);
