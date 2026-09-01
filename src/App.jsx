@@ -1783,25 +1783,25 @@ function App() {
 
     const renderRhythmLoop = (time) => {
       try {
-        const dt = Math.min(time - lastTime, 100);
-        lastTime = time;
+        const now = typeof time === 'number' ? time : performance.now();
+        const dt = Math.max(1, Math.min(now - lastTime, 100));
+        lastTime = now;
 
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
         const W = rect.width || 360;
-        const H = rect.height || 520;
+        const H = rect.height || 420;
 
-        if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
-          canvas.width = Math.round(W * dpr);
-          canvas.height = Math.round(H * dpr);
+        const targetW = Math.round(W * dpr);
+        const targetH = Math.round(H * dpr);
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+          canvas.width = targetW;
+          canvas.height = targetH;
         }
 
         ctx.save();
         ctx.scale(dpr, dpr);
-
-        // 🔘 Clean Canvas Container Clipping
-        drawRoundedRect(ctx, 0, 0, W, H, 16);
-        ctx.clip();
+        ctx.clearRect(0, 0, W, H);
 
         // 📐 Standard Rhythm Master Perspective Geometry Setup
         const Y_SPAWN = H * 0.06; // Top vanishing horizon / spawn line
