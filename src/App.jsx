@@ -1592,14 +1592,13 @@ function App() {
     }
     const distractorVals = pool.slice(0, 3).map(p => isPromptFrac ? p.percent : p.fraction);
 
-    // 随机微错落纵向位移（打破四音符生硬横线，产生灵动的街机律动瀑布感）
-    // 错落范围约为 ±0.035 (~±15px)，参差有致
-    const rawOffsets = [
-      (Math.random() - 0.5) * 0.07,
-      (Math.random() - 0.5) * 0.07,
-      (Math.random() - 0.5) * 0.07,
-      (Math.random() - 0.5) * 0.07,
-    ];
+    // 随机鲜明的 3D 纵向阶梯错落（大幅提升错落感与街机律动瀑布感，错落跨度约 ±0.08 ~ 30-40px）
+    const baseShifts = [-0.075, -0.025, 0.025, 0.075];
+    for (let i = baseShifts.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [baseShifts[i], baseShifts[j]] = [baseShifts[j], baseShifts[i]];
+    }
+    const rawOffsets = baseShifts.map(s => s + (Math.random() - 0.5) * 0.015);
 
     const correctLane = Math.floor(Math.random() * 4);
     const notes = [];
@@ -1742,7 +1741,8 @@ function App() {
     const targetNote = wave.notes.find(n => n.lane === laneIndex);
     if (!targetNote) return;
 
-    const tn = wave.t + (targetNote.tOffset || 0);
+    const currentScale = 0.35 + 0.65 * Math.max(0, Math.min(1.0, wave.t));
+    const tn = wave.t + (targetNote.tOffset || 0) * currentScale;
     const dt = Math.abs(tn - 1.0);
     // 严格限制在该音符的物理判定框范围内响应 (框体跨度 0.93-1.07，未进框前 dt > 0.09 绝不提前触发 GREAT)
     if (dt > 0.090) {
@@ -1949,7 +1949,8 @@ function App() {
 
             // Missed note passed hit line (当正确答案音符完全脱离 1.07 判定框底部时判定 Miss)
             const corNote = w.notes.find(n => n.isCorrect);
-            const tCor = w.t + (corNote?.tOffset || 0);
+            const corScale = 0.35 + 0.65 * Math.max(0, Math.min(1.0, w.t));
+            const tCor = w.t + (corNote?.tOffset || 0) * corScale;
             if (!w.resolved && tCor > 1.09) {
               w.resolved = true;
               setRhythmCombo(0);
@@ -2180,11 +2181,12 @@ function App() {
         waves.forEach(w => {
           if (w.resolved || w.t < -0.15 || w.t > progressToEnd + 0.15) return;
 
+          const currentScale = 0.35 + 0.65 * Math.max(0, Math.min(1.0, w.t));
           w.notes.forEach(n => {
             if (n.hit) return;
 
-            // 各音符独立微错落 3D 纵向位移
-            const tn = w.t + (n.tOffset || 0);
+            // 各音符独立微错落 3D 纵向位移（随 3D 透视等比缩放，地面物理间距绝对恒定）
+            const tn = w.t + (n.tOffset || 0) * currentScale;
             if (tn < -0.15 || tn > progressToEnd + 0.15) return;
 
             const tCenter = Math.max(0, Math.min(1.2, tn));
