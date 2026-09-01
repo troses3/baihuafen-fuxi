@@ -1859,8 +1859,8 @@ function App() {
         ctx.save();
         ctx.scale(dpr, dpr);
 
-        // 🔘 Smooth Rounded Canvas Container Clipping
-        drawRoundedRect(ctx, 0, 0, W, H, 24);
+        // 🔘 Clean Canvas Container Clipping
+        drawRoundedRect(ctx, 0, 0, W, H, 16);
         ctx.clip();
 
         // 📐 Standard Rhythm Master Perspective Geometry Setup
@@ -1925,42 +1925,28 @@ function App() {
           }
         }
 
-        // 2. Rendering - ☀️ High-End Sci-Fi Light Theme (极简高光未来隧道)
+        // 2. Rendering - 🕊️ Modern High-End Architectural Light Theme (高阶极简纯净赛道)
         // 🕊️ Clean Porcelain Studio Gradient Background
         const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
         bgGrad.addColorStop(0, '#e2e8f0');
-        bgGrad.addColorStop(0.3, '#f1f5f9');
-        bgGrad.addColorStop(0.7, '#f8fafc');
+        bgGrad.addColorStop(0.35, '#f1f5f9');
+        bgGrad.addColorStop(0.75, '#f8fafc');
         bgGrad.addColorStop(1, '#ffffff');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // 🌟 Horizon Vanishing Point Soft Sunlight Flare & Concentric Quantum Rings
-        const flareGrad = ctx.createRadialGradient(W / 2, Y_SPAWN, 0, W / 2, Y_SPAWN, W * 0.65);
-        flareGrad.addColorStop(0, 'rgba(59, 130, 246, 0.28)');
-        flareGrad.addColorStop(0.25, 'rgba(99, 102, 241, 0.15)');
-        flareGrad.addColorStop(0.6, 'rgba(241, 245, 249, 0.05)');
+        // 🌅 Horizon Vanishing Point Soft Sunlight Bloom (柔和大气天际光晕)
+        const flareGrad = ctx.createRadialGradient(W / 2, Y_SPAWN, 0, W / 2, Y_SPAWN, W * 0.6);
+        flareGrad.addColorStop(0, 'rgba(59, 130, 246, 0.18)');
+        flareGrad.addColorStop(0.3, 'rgba(99, 102, 241, 0.08)');
+        flareGrad.addColorStop(0.65, 'rgba(241, 245, 249, 0.03)');
         flareGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = flareGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // Horizon Pulsing Quantum Orb
-        const orbPulse = 1 + Math.sin(time * 0.003) * 0.12;
-        ctx.save();
-        ctx.fillStyle = 'rgba(59, 130, 246, 0.35)';
-        ctx.beginPath();
-        ctx.arc(W / 2, Y_SPAWN, 14 * orbPulse, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(W / 2, Y_SPAWN, 22 * orbPulse, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-
-        // 3D Left Architectural Tunnel Wall
+        // 3D Left Architectural Tunnel Wall (极简透视建筑侧壁)
         const leftWallGrad = ctx.createLinearGradient(0, 0, xEnd(0), 0);
-        leftWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.7)');
+        leftWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.6)');
         leftWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.95)');
         ctx.fillStyle = leftWallGrad;
         ctx.beginPath();
@@ -1971,9 +1957,9 @@ function App() {
         ctx.closePath();
         ctx.fill();
 
-        // 3D Right Architectural Tunnel Wall
+        // 3D Right Architectural Tunnel Wall (极简透视建筑侧壁)
         const rightWallGrad = ctx.createLinearGradient(W, 0, xEnd(4), 0);
-        rightWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.7)');
+        rightWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.6)');
         rightWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.95)');
         ctx.fillStyle = rightWallGrad;
         ctx.beginPath();
@@ -1983,89 +1969,6 @@ function App() {
         ctx.lineTo(W, Y_END);
         ctx.closePath();
         ctx.fill();
-
-        // 🏛️ 3D Perspective Futuristic Tunnel Ribs & Energy Pillars (隧道立体拱门立柱)
-        const ribDepths = [0.12, 0.30, 0.52, 0.76, 1.02];
-        ribDepths.forEach((tRib, idx) => {
-          const yFloor = yAt(tRib);
-          const xLFloor = xAt(0, tRib);
-          const xRFloor = xAt(4, tRib);
-
-          const wallWidth = (W * 0.28) * (0.2 + 0.8 * tRib);
-          const ribHeight = 35 + 50 * tRib;
-
-          // Left Wall Rib Pillar
-          const xLTop = Math.max(0, xLFloor - wallWidth);
-          const yLTop = yFloor - ribHeight;
-
-          // Right Wall Rib Pillar
-          const xRTop = Math.min(W, xRFloor + wallWidth);
-          const yRTop = yFloor - ribHeight;
-
-          // Draw Left Rib Line & Connector
-          ctx.save();
-          ctx.strokeStyle = `rgba(59, 130, 246, ${0.15 + 0.25 * tRib})`;
-          ctx.lineWidth = Math.max(1, 2.2 * tRib);
-          ctx.beginPath();
-          ctx.moveTo(xLFloor, yFloor);
-          ctx.lineTo(xLTop, yLTop);
-          ctx.lineTo(0, yLTop + 10);
-          ctx.stroke();
-
-          // Left Rib Energy Node
-          const pulseL = (time * 0.003 + idx * 0.8) % 1;
-          const nodeLX = xLFloor + (xLTop - xLFloor) * pulseL;
-          const nodeLY = yFloor + (yLTop - yFloor) * pulseL;
-          ctx.fillStyle = '#3b82f6';
-          ctx.beginPath();
-          ctx.arc(nodeLX, nodeLY, Math.max(1.5, 3 * tRib), 0, Math.PI * 2);
-          ctx.fill();
-
-          // Right Rib Line & Connector
-          ctx.strokeStyle = `rgba(59, 130, 246, ${0.15 + 0.25 * tRib})`;
-          ctx.beginPath();
-          ctx.moveTo(xRFloor, yFloor);
-          ctx.lineTo(xRTop, yRTop);
-          ctx.lineTo(W, yRTop + 10);
-          ctx.stroke();
-
-          // Right Rib Energy Node
-          const nodeRX = xRFloor + (xRTop - xRFloor) * pulseL;
-          const nodeRY = yFloor + (yRTop - yFloor) * pulseL;
-          ctx.fillStyle = '#3b82f6';
-          ctx.beginPath();
-          ctx.arc(nodeRX, nodeRY, Math.max(1.5, 3 * tRib), 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.restore();
-        });
-
-        // 🎵 3D Side Audio Equalizer Rhythm Bars (两侧律动跳动频谱柱)
-        for (let b = 0; b < 3; b++) {
-          const tEq = 0.35 + b * 0.24;
-          const yEq = yAt(tEq);
-          const xLEq = xAt(0, tEq);
-          const xREq = xAt(4, tEq);
-
-          const eqH = (Math.sin(time * 0.005 + b * 1.5) * 0.5 + 0.5) * (18 + 24 * tEq);
-          const barW = Math.max(2, 4 * tEq);
-
-          ctx.save();
-          // Left Wall Equalizer
-          const eqLGrad = ctx.createLinearGradient(0, yEq, 0, yEq - eqH);
-          eqLGrad.addColorStop(0, 'rgba(59, 130, 246, 0.7)');
-          eqLGrad.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
-          ctx.fillStyle = eqLGrad;
-          ctx.fillRect(xLEq - barW * 3.5, yEq - eqH, barW, eqH);
-
-          // Right Wall Equalizer
-          const eqRGrad = ctx.createLinearGradient(0, yEq, 0, yEq - eqH);
-          eqRGrad.addColorStop(0, 'rgba(59, 130, 246, 0.7)');
-          eqRGrad.addColorStop(1, 'rgba(99, 102, 241, 0.2)');
-          ctx.fillStyle = eqRGrad;
-          ctx.fillRect(xREq + barW * 2.5, yEq - eqH, barW, eqH);
-          ctx.restore();
-        }
 
         // 3D Runway Track Floor (Trapezoid Pure Light Porcelain Finish)
         const runwayGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, H);
@@ -2082,7 +1985,7 @@ function App() {
         ctx.closePath();
         ctx.fill();
 
-        // 3D Transverse Speed Grid Lines (Soft Indigo Flow)
+        // 3D Transverse Speed Grid Lines (克制优雅的透视速度线)
         const speedPhase = (time * 0.00015 * currentSpeedConfig.speed) % 0.12;
         for (let tLine = 0.05; tLine < progressToEnd; tLine += 0.12) {
           const curT = tLine + speedPhase;
@@ -2090,7 +1993,7 @@ function App() {
           const yL = yAt(curT);
           const xL = xAt(0, curT);
           const xR = xAt(4, curT);
-          const alpha = Math.min(0.3, Math.max(0.04, curT * 0.32));
+          const alpha = Math.min(0.25, Math.max(0.02, curT * 0.28));
           ctx.strokeStyle = `rgba(59, 130, 246, ${alpha})`;
           ctx.lineWidth = 1;
           ctx.beginPath();
@@ -2117,7 +2020,7 @@ function App() {
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
           const pressAge = time - lastPress;
           if (pressAge < 220) {
-            const beamAlpha = (1 - pressAge / 220) * 0.45;
+            const beamAlpha = (1 - pressAge / 220) * 0.4;
             const beamGrad = ctx.createLinearGradient(0, Y_HIT, 0, Y_SPAWN);
             beamGrad.addColorStop(0, `rgba(37, 99, 235, ${beamAlpha})`);
             beamGrad.addColorStop(0.4, `rgba(99, 102, 241, ${beamAlpha * 0.6})`);
@@ -2147,8 +2050,8 @@ function App() {
         ctx.save();
         ctx.strokeStyle = '#2563eb';
         ctx.lineWidth = 2.8;
-        ctx.shadowColor = 'rgba(37, 99, 235, 0.4)';
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'rgba(37, 99, 235, 0.35)';
+        ctx.shadowBlur = 8;
         ctx.beginPath();
         ctx.moveTo(xTop(0), Y_SPAWN);
         ctx.lineTo(xEnd(0), Y_END);
@@ -2159,13 +2062,25 @@ function App() {
         ctx.stroke();
         ctx.restore();
 
-        // 3D Perspective Hit Receptor Pads (4 块浅色典雅立体打击靶位)
+        // 📐 Helper: Perfect 3D Perspective Rounded Slab Path (透视圆角多边形绘制引擎)
+        const tracePerspectiveRoundedSlab = (xTL, yTL, xTR, yTR, xBR, yBR, xBL, yBL, radius) => {
+          const r = Math.max(2, Math.min(radius, (yBL - yTL) * 0.45, (xTR - xTL) * 0.35));
+          ctx.beginPath();
+          ctx.moveTo(xTL + r, yTL);
+          ctx.arcTo(xTR, yTR, xBR, yBR, r);
+          ctx.arcTo(xBR, yBR, xBL, yBL, r);
+          ctx.arcTo(xBL, yBL, xTL, yTL, r);
+          ctx.arcTo(xTL, yTL, xTR, yTR, r);
+          ctx.closePath();
+        };
+
+        // 3D Perspective Hit Receptor Pads (4 块浅色典雅圆角立体打击靶位)
         const padLabels = ['1 · D', '2 · F', '3 · J', '4 · K'];
-        const tPadBack = 0.94;
-        const tPadFront = 1.06;
+        const tPadBack = 0.93;
+        const tPadFront = 1.07;
 
         for (let l = 0; l < 4; l++) {
-          const margin = 2;
+          const margin = 2.5;
           const pTL = { x: xAt(l, tPadBack) + margin, y: yAt(tPadBack) };
           const pTR = { x: xAt(l + 1, tPadBack) - margin, y: yAt(tPadBack) };
           const pBR = { x: xAt(l + 1, tPadFront) - margin, y: yAt(tPadFront) };
@@ -2175,25 +2090,20 @@ function App() {
           const isPressed = (time - lastPress) < 160;
 
           ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(pTL.x, pTL.y);
-          ctx.lineTo(pTR.x, pTR.y);
-          ctx.lineTo(pBR.x, pBR.y);
-          ctx.lineTo(pBL.x, pBL.y);
-          ctx.closePath();
+          tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, 8);
 
           if (isPressed) {
             ctx.fillStyle = '#2563eb';
             ctx.shadowColor = 'rgba(37, 99, 235, 0.6)';
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 18;
             ctx.fill();
             ctx.strokeStyle = '#1d4ed8';
             ctx.lineWidth = 2.5;
             ctx.stroke();
           } else {
-            ctx.fillStyle = 'rgba(248, 250, 252, 0.92)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
             ctx.fill();
-            ctx.strokeStyle = 'rgba(59, 130, 246, 0.65)';
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.55)';
             ctx.lineWidth = 1.8;
             ctx.stroke();
           }
@@ -2211,13 +2121,13 @@ function App() {
 
         // Draw Hit Line Laser Beam
         ctx.strokeStyle = '#2563eb';
-        ctx.lineWidth = 2.4;
+        ctx.lineWidth = 2.2;
         ctx.beginPath();
         ctx.moveTo(xAt(0, 1.0), Y_HIT);
         ctx.lineTo(xAt(4, 1.0), Y_HIT);
         ctx.stroke();
 
-        // 💎 Draw Falling Waves as True Perspective Trapezoid Slabs (绝美防抖高清晰透视音块)
+        // 💎 Draw Falling Waves as Exquisite Perspective Rounded Slabs (每个数字的精美圆角容器)
         const waves = rhythmNotesRef.current;
         const NOTE_LENGTH_T = 0.075;
 
@@ -2237,37 +2147,48 @@ function App() {
             const pTR = { x: xAt(n.lane + 1, tBack) - margin, y: yBack };
             const pBR = { x: xAt(n.lane + 1, tFront) - margin, y: yFront };
             const pBL = { x: xAt(n.lane, tFront) + margin, y: yFront };
+            const slabRadius = Math.max(3, 10 * tFront);
 
+            // 1. Soft Floor Shadow Under the Note Slab
+            const shadowOffset = 2 + 5 * tFront;
             ctx.save();
+            tracePerspectiveRoundedSlab(
+              pTL.x, pTL.y + shadowOffset,
+              pTR.x, pTR.y + shadowOffset,
+              pBR.x, pBR.y + shadowOffset,
+              pBL.x, pBL.y + shadowOffset,
+              slabRadius
+            );
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+            ctx.fill();
+            ctx.restore();
 
-            // 1. Draw Note Perspective Trapezoid Body (Vivid Royal Blue & Cyan Gradient)
+            // 2. Note Perspective Rounded Body (Vivid Royal Blue & Cyan Gradient)
+            ctx.save();
+            tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, slabRadius);
+
             const noteGrad = ctx.createLinearGradient(0, yBack, 0, yFront);
             noteGrad.addColorStop(0, '#3b82f6');
             noteGrad.addColorStop(0.35, '#2563eb');
             noteGrad.addColorStop(0.85, '#1d4ed8');
             noteGrad.addColorStop(1, '#1e40af');
             ctx.fillStyle = noteGrad;
-
-            ctx.beginPath();
-            ctx.moveTo(pTL.x, pTL.y);
-            ctx.lineTo(pTR.x, pTR.y);
-            ctx.lineTo(pBR.x, pBR.y);
-            ctx.lineTo(pBL.x, pBL.y);
-            ctx.closePath();
             ctx.fill();
 
-            // 2. Note Outer Glowing Rim
-            ctx.strokeStyle = '#60a5fa';
-            ctx.lineWidth = Math.max(1, 2.0 * tFront);
+            // Outer smooth glowing rim
+            ctx.strokeStyle = 'rgba(147, 197, 253, 0.95)';
+            ctx.lineWidth = Math.max(1, 1.8 * tFront);
             ctx.stroke();
 
             // 3. Top Shiny Specular Highlight Bar
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = Math.max(1, 1.8 * tFront);
+            ctx.save();
             ctx.beginPath();
-            ctx.moveTo(pTL.x + 1, pTL.y + 0.5);
-            ctx.lineTo(pTR.x - 1, pTR.y + 0.5);
+            ctx.moveTo(pTL.x + slabRadius, pTL.y + 1);
+            ctx.lineTo(pTR.x - slabRadius, pTR.y + 1);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = Math.max(1, 1.6 * tFront);
             ctx.stroke();
+            ctx.restore();
 
             // 4. Centered Continuous Vector Scaled Text (Zero-Jitter Smooth GPU Scaling)
             const noteCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
@@ -2281,8 +2202,8 @@ function App() {
             ctx.font = '900 16px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(15, 23, 42, 0.6)';
-            ctx.shadowBlur = 4;
+            ctx.shadowColor = 'rgba(15, 23, 42, 0.5)';
+            ctx.shadowBlur = 3;
             ctx.fillText(n.value, 0, 0);
             ctx.restore();
 
