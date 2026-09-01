@@ -1983,26 +1983,23 @@ function App() {
         const tPadBack = 0.93;
         const tPadFront = 1.07;
 
-        // 1. 终点判定线（先画在地面层：位于按钮下方，穿过中点 Y_HIT, t = 1.0）
+        // 1. 终点判定线（先画在地面层：灰色实线穿过中点 Y_HIT, t = 1.0）
         ctx.save();
-        ctx.strokeStyle = '#94a3b8';
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.85)';
         ctx.lineWidth = 1.8;
-        ctx.setLineDash([6, 4]);
         ctx.beginPath();
         ctx.moveTo(xAt(0, 1.0) - 4, Y_HIT);
         ctx.lineTo(xAt(4, 1.0) + 4, Y_HIT);
         ctx.stroke();
         ctx.restore();
 
-        // 2. 4 个打击靶位底座（叠放在虚线上方，无标号纯粹极简，高质感白瓷/透光亚克力）
+        // 2. 4 个打击靶位底座（通透磨砂玻璃质感，中心高透，叠放在实线上方）
         for (let l = 0; l < 4; l++) {
           const margin = 2.5;
           const pTL = { x: xAt(l, tPadBack) + margin, y: yAt(tPadBack) };
           const pTR = { x: xAt(l + 1, tPadBack) - margin, y: yAt(tPadBack) };
           const pBR = { x: xAt(l + 1, tPadFront) - margin, y: yAt(tPadFront) };
           const pBL = { x: xAt(l, tPadFront) + margin, y: yAt(tPadFront) };
-          const pCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
-          const pCenterY = (pTL.y + pBR.y) / 2;
 
           const lastPress = rhythmActiveLanesRef.current[l] || 0;
           const isPressed = (time - lastPress) < 160;
@@ -2010,11 +2007,11 @@ function App() {
           // A. 靶位地面立体柔和投影
           ctx.save();
           tracePerspectiveRoundedSlab(pTL.x, pTL.y + 3, pTR.x, pTR.y + 3, pBR.x, pBR.y + 3, pBL.x, pBL.y + 3, 8);
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.06)';
           ctx.fill();
           ctx.restore();
 
-          // B. 靶位主体渲染（高透白瓷质感 / 按下时高亮通透皇家蓝）
+          // B. 靶位主体渲染（中间高透玻璃感 / 按下时高亮通透皇家蓝）
           ctx.save();
           tracePerspectiveRoundedSlab(pTL.x, pTL.y, pTR.x, pTR.y, pBR.x, pBR.y, pBL.x, pBL.y, 8);
 
@@ -2030,13 +2027,13 @@ function App() {
             ctx.stroke();
           } else {
             const idleGrad = ctx.createLinearGradient(0, pTL.y, 0, pBL.y);
-            idleGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
-            idleGrad.addColorStop(0.6, 'rgba(248, 250, 252, 0.95)');
-            idleGrad.addColorStop(1, 'rgba(241, 245, 249, 0.92)');
+            idleGrad.addColorStop(0, 'rgba(255, 255, 255, 0.78)');
+            idleGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.35)');
+            idleGrad.addColorStop(1, 'rgba(241, 245, 249, 0.65)');
             ctx.fillStyle = idleGrad;
             ctx.fill();
-            ctx.strokeStyle = 'rgba(147, 197, 253, 0.85)';
-            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = 'rgba(147, 197, 253, 0.80)';
+            ctx.lineWidth = 1.6;
             ctx.stroke();
           }
 
@@ -2044,18 +2041,8 @@ function App() {
           ctx.beginPath();
           ctx.moveTo(pTL.x + 8, pTL.y + 1);
           ctx.lineTo(pTR.x - 8, pTR.y + 1);
-          ctx.strokeStyle = isPressed ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.9)';
-          ctx.lineWidth = 1.6;
-          ctx.stroke();
-
-          // D. 中心轻奢极简打击凹槽瞄准指示（代替繁杂数字）
-          const slotW = (pTR.x - pTL.x) * 0.32;
-          ctx.beginPath();
-          ctx.moveTo(pCenterX - slotW / 2, pCenterY);
-          ctx.lineTo(pCenterX + slotW / 2, pCenterY);
-          ctx.strokeStyle = isPressed ? 'rgba(255, 255, 255, 0.85)' : 'rgba(148, 163, 184, 0.6)';
-          ctx.lineWidth = 2.5;
-          ctx.lineCap = 'round';
+          ctx.strokeStyle = isPressed ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.85)';
+          ctx.lineWidth = 1.5;
           ctx.stroke();
 
           ctx.restore();
