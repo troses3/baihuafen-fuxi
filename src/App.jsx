@@ -1865,8 +1865,8 @@ function App() {
           }
         }
 
-        // 2. Rendering - 🕊️ Crisp High-Contrast Light Runway (高对比度清爽纯净赛道)
-        // 🕊️ Clean Studio Gradient Background
+        // 2. Rendering - 🕊️ Unified Light Atmosphere & Seamless Horizon Runway (天际与两侧统一，最远处自然渐变)
+        // 🕊️ 统一的浅色全屏环境渐变（天空与左右两侧完全同色）
         const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
         bgGrad.addColorStop(0, '#e2e8f0');
         bgGrad.addColorStop(0.35, '#f1f5f9');
@@ -1875,47 +1875,20 @@ function App() {
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // 🌅 Horizon Vanishing Point Soft Light
-        const flareGrad = ctx.createRadialGradient(W / 2, Y_SPAWN, 0, W / 2, Y_SPAWN, W * 0.6);
-        flareGrad.addColorStop(0, 'rgba(59, 130, 246, 0.15)');
-        flareGrad.addColorStop(0.35, 'rgba(99, 102, 241, 0.06)');
-        flareGrad.addColorStop(0.7, 'rgba(241, 245, 249, 0.02)');
+        // 🌅 跑道最远端柔和大气质感微光（Vanishing Point Horizon Glow）
+        const flareGrad = ctx.createRadialGradient(W / 2, Y_SPAWN, 0, W / 2, Y_SPAWN, W * 0.55);
+        flareGrad.addColorStop(0, 'rgba(59, 130, 246, 0.12)');
+        flareGrad.addColorStop(0.4, 'rgba(99, 102, 241, 0.04)');
         flareGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = flareGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // 3D Left Architectural Tunnel Wall
-        const leftWallGrad = ctx.createLinearGradient(0, 0, xEnd(0), 0);
-        leftWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.6)');
-        leftWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.95)');
-        ctx.fillStyle = leftWallGrad;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(xTop(0), Y_SPAWN);
-        ctx.lineTo(xEnd(0), Y_END);
-        ctx.lineTo(0, Y_END);
-        ctx.closePath();
-        ctx.fill();
-
-        // 3D Right Architectural Tunnel Wall
-        const rightWallGrad = ctx.createLinearGradient(W, 0, xEnd(4), 0);
-        rightWallGrad.addColorStop(0, 'rgba(203, 213, 225, 0.6)');
-        rightWallGrad.addColorStop(1, 'rgba(241, 245, 249, 0.95)');
-        ctx.fillStyle = rightWallGrad;
-        ctx.beginPath();
-        ctx.moveTo(W, 0);
-        ctx.lineTo(xTop(4), Y_SPAWN);
-        ctx.lineTo(xEnd(4), Y_END);
-        ctx.lineTo(W, Y_END);
-        ctx.closePath();
-        ctx.fill();
-
-        // 3D Runway Track Floor (High Contrast Clean Finish)
-        const runwayGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, H);
-        runwayGrad.addColorStop(0, '#e2e8f0');
-        runwayGrad.addColorStop(0.35, '#f1f5f9');
-        runwayGrad.addColorStop(0.85, '#ffffff');
-        runwayGrad.addColorStop(1, '#f8fafc');
+        // 3D 跑道地面（最远处以自然渐变融入天际背景）
+        const runwayGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, Y_END);
+        runwayGrad.addColorStop(0, 'rgba(226, 232, 240, 0.65)'); // 最远处与背景融为一体
+        runwayGrad.addColorStop(0.2, 'rgba(241, 245, 249, 0.9)');
+        runwayGrad.addColorStop(0.65, '#ffffff');
+        runwayGrad.addColorStop(1, '#ffffff');
         ctx.fillStyle = runwayGrad;
         ctx.beginPath();
         ctx.moveTo(xTop(0), Y_SPAWN);
@@ -1925,10 +1898,32 @@ function App() {
         ctx.closePath();
         ctx.fill();
 
+        // 跑道左右两侧透视导轨边线（随远端渐隐渐现）
+        const sideRailGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, Y_END);
+        sideRailGrad.addColorStop(0, 'rgba(148, 163, 184, 0)'); // 最远端渐变消隐
+        sideRailGrad.addColorStop(0.3, 'rgba(148, 163, 184, 0.4)');
+        sideRailGrad.addColorStop(1, 'rgba(100, 116, 139, 0.7)');
+        ctx.strokeStyle = sideRailGrad;
+        ctx.lineWidth = 1.5;
+        // 左轨
+        ctx.beginPath();
+        ctx.moveTo(xTop(0), Y_SPAWN);
+        ctx.lineTo(xEnd(0), Y_END);
+        ctx.stroke();
+        // 右轨
+        ctx.beginPath();
+        ctx.moveTo(xTop(4), Y_SPAWN);
+        ctx.lineTo(xEnd(4), Y_END);
+        ctx.stroke();
+
         // 4 Lanes & 5 True Perspective Ray Dividers
         for (let l = 0; l < 4; l++) {
           if (l % 2 === 1) {
-            ctx.fillStyle = 'rgba(226, 232, 240, 0.45)';
+            const laneShadeGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, Y_END);
+            laneShadeGrad.addColorStop(0, 'rgba(226, 232, 240, 0)'); // 最远端平滑过渡
+            laneShadeGrad.addColorStop(0.3, 'rgba(226, 232, 240, 0.35)');
+            laneShadeGrad.addColorStop(1, 'rgba(226, 232, 240, 0.5)');
+            ctx.fillStyle = laneShadeGrad;
             ctx.beginPath();
             ctx.moveTo(xTop(l), Y_SPAWN);
             ctx.lineTo(xTop(l + 1), Y_SPAWN);
@@ -1959,7 +1954,11 @@ function App() {
 
           // Ray divider lines
           if (l > 0) {
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+            const rayGrad = ctx.createLinearGradient(0, Y_SPAWN, 0, Y_END);
+            rayGrad.addColorStop(0, 'rgba(148, 163, 184, 0)');
+            rayGrad.addColorStop(0.25, 'rgba(148, 163, 184, 0.35)');
+            rayGrad.addColorStop(1, 'rgba(148, 163, 184, 0.6)');
+            ctx.strokeStyle = rayGrad;
             ctx.lineWidth = 1.2;
             ctx.beginPath();
             ctx.moveTo(xTop(l), Y_SPAWN);
