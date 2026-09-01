@@ -222,8 +222,12 @@ function App() {
   const [rhythmMaxCombo, setRhythmMaxCombo] = useState(0);
   const [rhythmHitCounts, setRhythmHitCounts] = useState({ perfect: 0, great: 0, miss: 0 });
   const [rhythmTarget, setRhythmTarget] = useState(null);
+  const [rhythmQuestionIndex, setRhythmQuestionIndex] = useState(0);
+  const rhythmQuestionIndexRef = useRef(0);
+  const rhythmQuestionQueueRef = useRef([]);
   const [isRhythmPaused, setIsRhythmPaused] = useState(false);
   const [isRhythmGameOver, setIsRhythmGameOver] = useState(false);
+  const [isRhythmVictory, setIsRhythmVictory] = useState(false);
   const [isRhythmNewRecord, setIsRhythmNewRecord] = useState(false);
   const [rhythmFloatingScores, setRhythmFloatingScores] = useState([]);
   const [rhythmStageShake, setRhythmStageShake] = useState('');
@@ -1510,10 +1514,21 @@ function App() {
   }, [quizMode, snakeTarget, snakeFoods.length, startNewSnakeGame]);
 
   // =========================================================
-  // 🎵 节奏音块模式 (Rhythm Beat Master) Core Logic (4-Lane Track 60FPS)
+  // 🎵 节奏音块模式 (Rhythm Beat Master) Core Logic (30题洗牌无重复通关制)
   // =========================================================
-  const generateRhythmTargetAndWave = useCallback((yPos = -50) => {
-    const targetItem = initialItems[Math.floor(Math.random() * initialItems.length)];
+  const generateRhythmTargetAndWave = useCallback((questionIdx = 0) => {
+    let queue = rhythmQuestionQueueRef.current;
+    if (!queue || queue.length === 0) {
+      const shuffled = [...initialItems];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      rhythmQuestionQueueRef.current = shuffled;
+      queue = shuffled;
+    }
+
+    const targetItem = queue[questionIdx % queue.length] || initialItems[0];
     const isPromptFrac = Math.random() > 0.5;
     const promptText = isPromptFrac ? targetItem.fraction : targetItem.percent;
     const promptType = isPromptFrac ? 'fraction' : 'percent';
@@ -1557,6 +1572,8 @@ function App() {
       promptType,
       correctValue,
       correctType,
+      questionIndex: questionIdx,
+      totalQuestions: queue.length || 30,
     };
 
     const wave = {
@@ -1565,13 +1582,24 @@ function App() {
       notes,
       target,
       resolved: false,
+      questionIndex: questionIdx,
     };
 
     return { target, wave };
   }, []);
 
   const startNewRhythmGame = useCallback(() => {
-    const { target, wave } = generateRhythmTargetAndWave();
+    // 洗牌生成 30 题独立不重复队列
+    const shuffled = [...initialItems];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    rhythmQuestionQueueRef.current = shuffled;
+    rhythmQuestionIndexRef.current = 0;
+    setRhythmQuestionIndex(0);
+
+    const { target, wave } = generateRhythmTargetAndWave(0);
     rhythmTargetRef.current = target;
     rhythmNotesRef.current = [wave];
     rhythmActiveLanesRef.current = [0, 0, 0, 0];
@@ -1589,12 +1617,27 @@ function App() {
     setRhythmFloatingScores([]);
     setIsRhythmPaused(false);
     setIsRhythmGameOver(false);
+    setIsRhythmVictory(false);
     setIsRhythmNewRecord(false);
   }, [generateRhythmTargetAndWave]);
 
   const spawnNextRhythmQuestion = useCallback(() => {
     if (!isRhythmRunningRef.current) return;
-    const { target, wave } = generateRhythmTargetAndWave();
+    const nextIdx = rhythmQuestionIndexRef.current + 1;
+    const totalQ = rhythmQuestionQueueRef.current?.length || 30;
+
+    // 🏆 检查是否已完成全部 30 题通关
+    if (nextIdx >= totalQ) {
+      isRhythmRunningRef.current = false;
+      setIsRhythmVictory(true);
+      triggerHaptic('victory');
+      return;
+    }
+
+    rhythmQuestionIndexRef.current = nextIdx;
+    setRhythmQuestionIndex(nextIdx);
+
+    const { target, wave } = generateRhythmTargetAndWave(nextIdx);
     rhythmTargetRef.current = target;
     setRhythmTarget(target);
     rhythmNotesRef.current = [wave];
@@ -1602,7 +1645,7 @@ function App() {
   }, [generateRhythmTargetAndWave]);
 
   const handleRhythmHitLane = useCallback((laneIndex) => {
-    if (isRhythmPaused || isRhythmGameOver || !isRhythmRunningRef.current) return;
+    if (isRhythmPaused || isRhythmGameOver || isRhythmVictory || !isRhythmRunningRef.current) return;
     triggerHaptic('tap');
     
     // Light up lane in 3D
@@ -1813,11 +1856,18 @@ function App() {
         const yAt = (t) => Y_SPAWN + (Y_HIT - Y_SPAWN) * t;
 
         const currentSpeedConfig = RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevelRef.current) || RHYTHM_SPEEDS[1];
-        // Slower calibrated speed progress per millisecond
-        const speedProgress = (currentSpeedConfig.speed * 0.0001) * dt;
+        
+        // 🚀 30 题递进平滑加速度：
+        // 前 6 题 1.0x (稳健热身) -> 中段平缓提速 -> 最终 5 题达到 1.55x (巅峰冲刺)
+        const qIdx = rhythmQuestionIndexRef.current || 0;
+        const progressRatio = Math.min(1.0, qIdx / 29);
+        const dynamicSpeedMultiplier = 1.0 + 0.55 * Math.pow(progressRatio, 1.15);
+
+        const effectiveSpeed = currentSpeedConfig.speed * dynamicSpeedMultiplier;
+        const speedProgress = (effectiveSpeed * 0.0001) * dt;
 
         // 1. Single-Question Focused Logic Update
-        if (!isRhythmPaused && !isRhythmGameOver && isRhythmRunningRef.current) {
+        if (!isRhythmPaused && !isRhythmGameOver && !isRhythmVictory && isRhythmRunningRef.current) {
           const waves = rhythmNotesRef.current;
 
           if (waves.length === 0) {
@@ -3143,24 +3193,31 @@ function App() {
               </div>
             </div>
 
-            {/* 🎯 本轮目标 Banner */}
+            {/* 🎯 本轮目标 Banner (包含 1/30 题进度与目标) */}
             {rhythmTarget && (
               <div className="rhythm-target-banner">
-                <span className="target-banner-badge">🎯 本轮目标</span>
-                <div className="target-banner-val">
-                  {rhythmTarget.promptText.startsWith('1/') ? (
-                    <>
-                      <span className="num-prefix">1/</span>
-                      <span className="num-main">{rhythmTarget.promptText.slice(2)}</span>
-                    </>
-                  ) : rhythmTarget.promptText.endsWith('%') ? (
-                    <>
-                      <span className="num-main">{rhythmTarget.promptText.slice(0, -1)}</span>
-                      <span className="num-suffix">%</span>
-                    </>
-                  ) : (
-                    <span className="num-main">{rhythmTarget.promptText}</span>
-                  )}
+                <div className="target-banner-left">
+                  <span className="target-banner-badge">🎯 目标</span>
+                  <div className="target-banner-val">
+                    {rhythmTarget.promptText.startsWith('1/') ? (
+                      <>
+                        <span className="num-prefix">1/</span>
+                        <span className="num-main">{rhythmTarget.promptText.slice(2)}</span>
+                      </>
+                    ) : rhythmTarget.promptText.endsWith('%') ? (
+                      <>
+                        <span className="num-main">{rhythmTarget.promptText.slice(0, -1)}</span>
+                        <span className="num-suffix">%</span>
+                      </>
+                    ) : (
+                      <span className="num-main">{rhythmTarget.promptText}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rhythm-progress-badge">
+                  <span className="progress-num">{rhythmQuestionIndex + 1}</span>
+                  <span className="progress-total">/ 30 题</span>
                 </div>
               </div>
             )}
@@ -3414,6 +3471,72 @@ function App() {
         </div>
       )}
 
+      {/* 🏆 节奏音块 30 题全量通关胜利弹窗 (Root Fixed Modal) */}
+      {quizMode === 'rhythmGame' && isRhythmVictory && (
+        <div className="game-modal-overlay">
+          <div className="game-modal-card victory-glow-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon">🏆</div>
+            <h3 className="modal-title">30 题全量通关！</h3>
+            {rhythmMaxCombo === 30 && <div className="new-record-badge">🌟 ALL PERFECT · 全连神话！</div>}
+            {isRhythmNewRecord && <div className="new-record-badge">🏆 创下新历史高分纪录！</div>}
+
+            <div className="ranked-victory-score-box">
+              <span className="ranked-score-label">通关总得分</span>
+              <span className="ranked-score-val">{rhythmScore.toLocaleString()}</span>
+              {(() => {
+                const tier = getRhythmRankTier(rhythmScore);
+                return (
+                  <div className={`ranked-tier-pill ${tier.badgeClass}`} style={{ marginTop: '0.45rem' }}>
+                    <span>{tier.icon}</span>
+                    <span>{tier.name}</span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="victory-stats-grid">
+              <div className="v-stat-box">
+                <span className="v-stat-label">🎯 PERFECT</span>
+                <span className="v-stat-val" style={{ color: '#f59e0b' }}>{rhythmHitCounts.perfect}</span>
+              </div>
+              <div className="v-stat-box">
+                <span className="v-stat-label">⚡ GREAT</span>
+                <span className="v-stat-val" style={{ color: '#3b82f6' }}>{rhythmHitCounts.great}</span>
+              </div>
+              <div className="v-stat-box">
+                <span className="v-stat-label">❌ MISS</span>
+                <span className="v-stat-val" style={{ color: '#ef4444' }}>{rhythmHitCounts.miss}</span>
+              </div>
+              <div className="v-stat-box">
+                <span className="v-stat-label">🔥 最高连击</span>
+                <span className="v-stat-val">x{rhythmMaxCombo}</span>
+              </div>
+              <div className="v-stat-box" style={{ gridColumn: '1 / -1' }}>
+                <span className="v-stat-label">历史最高纪录</span>
+                <span className="v-stat-val" style={{ color: '#10b981' }}>
+                  {rhythmHighScore ? `${rhythmHighScore.toLocaleString()} 分` : `${rhythmScore.toLocaleString()} 分`}
+                </span>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="m-btn-primary" onClick={startNewRhythmGame}>
+                再挑战一次 🎵
+              </button>
+              <button 
+                className="m-btn-secondary" 
+                onClick={() => {
+                  setIsRhythmVictory(false);
+                  setQuizMode('percentToFraction');
+                }}
+              >
+                返回速记
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 🎵 节奏音块 Game Over 结算弹窗 (Root Fixed Modal) */}
       {quizMode === 'rhythmGame' && isRhythmGameOver && (
         <div className="game-modal-overlay">
@@ -3423,7 +3546,7 @@ function App() {
             {isRhythmNewRecord && <div className="new-record-badge">🏆 创下新历史高分纪录！</div>}
 
             <div className="ranked-victory-score-box">
-              <span className="ranked-score-label">最终得分</span>
+              <span className="ranked-score-label">挑战进度 · 第 {Math.min(30, rhythmQuestionIndex + 1)} / 30 题</span>
               <span className="ranked-score-val">{rhythmScore.toLocaleString()}</span>
               {(() => {
                 const tier = getRhythmRankTier(rhythmScore);

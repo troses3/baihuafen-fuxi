@@ -2153,10 +2153,9 @@ body {
 .rhythm-target-banner {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
+  justify-content: space-between;
   width: 100%;
-  padding: 0.4rem 0.95rem;
+  padding: 0.38rem 0.85rem;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -2165,6 +2164,12 @@ body {
   margin-bottom: 0.35rem;
   box-sizing: border-box;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.rhythm-target-banner .target-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .rhythm-target-banner .target-banner-badge {
@@ -2190,6 +2195,29 @@ body {
   color: #64748b;
   font-size: 1.05rem;
   font-weight: 800;
+}
+
+.rhythm-target-banner .rhythm-progress-badge {
+  display: inline-flex;
+  align-items: baseline;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 100px;
+  padding: 0.18rem 0.6rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.rhythm-target-banner .progress-num {
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: #2563eb;
+}
+
+.rhythm-target-banner .progress-total {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-left: 2px;
 }
 
 /* 4 轨道 Canvas 竞技场容器 (浅色典雅 3D 跑道) */
