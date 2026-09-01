@@ -49,13 +49,91 @@ function iosClick() {
   } catch (e) {}
 }
 
+let audioCtx = null;
+
+// Ensure AudioContext is ready and resumed on user interaction
+export function unlockAudioHaptics() {
+  try {
+    if (typeof window === 'undefined') return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtx) {
+      audioCtx = new AudioContextClass();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  } catch (e) {}
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('touchstart', unlockAudioHaptics, { passive: true, once: false });
+  window.addEventListener('touchend', unlockAudioHaptics, { passive: true, once: false });
+  window.addEventListener('pointerdown', unlockAudioHaptics, { passive: true, once: false });
+}
+
+function playTapticThump(type = 'success') {
+  try {
+    if (typeof window === 'undefined') return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtx) {
+      audioCtx = new AudioContextClass();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    if (type === 'success' || type === 'combo') {
+      // Crisp mechanical pop (180Hz -> 45Hz sub-bass thump in 35ms)
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(190, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.04);
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.04);
+    } else if (type === 'error' || type === 'dangerReset') {
+      // Deeper low-frequency double thud
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 0.07);
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.07);
+    } else if (type === 'tap' || type === 'optionSelect') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(240, now);
+      osc.frequency.exponentialRampToValueAtTime(70, now + 0.02);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.02);
+    }
+  } catch (e) {}
+}
+
 /**
- * Trigger full-spectrum haptic feedback tailored for both iOS (switch rhythm) and Android (vibrate patterns)
+ * Trigger full-spectrum haptic feedback tailored for both iOS (Taptic acoustic + switch) and Android (vibrate patterns)
  * @param {'tap' | 'modeSwitch' | 'hint' | 'menuToggle' | 'optionSelect' | 'dangerReset' | 'cardFlip' | 'success' | 'error' | 'clear' | 'combo' | 'celebration'} type
  */
 export function triggerHaptic(type = 'tap') {
+  // 1. Universal Acoustic Taptic Feedback (Works on iPhone/iPad/Desktop where navigator.vibrate is disabled)
+  playTapticThump(type);
+
   // -------------------------------------------------------------
-  // 1. Android & Standards-compliant navigator.vibrate patterns (Crisp & punchy)
+  // 2. Android & Standards-compliant navigator.vibrate patterns (Crisp & punchy)
   // -------------------------------------------------------------
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     try {

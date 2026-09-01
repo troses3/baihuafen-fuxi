@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import initialItems from '../data.json';
 import './App.css';
-import { triggerHaptic } from './utils/haptics';
+import { triggerHaptic, unlockAudioHaptics } from './utils/haptics';
 
 const STORAGE_KEY = 'baihuafen-tracker-data-v2';
 const BEST_TIME_KEY = 'baihuafen-match-best-time';
@@ -1338,6 +1338,7 @@ function App() {
 
   // Touch Swipe & Tap Handlers for Snake
   const handleArenaTouchStart = (e) => {
+    unlockAudioHaptics();
     const touch = e.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
   };
