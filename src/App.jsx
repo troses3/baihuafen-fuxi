@@ -2118,20 +2118,23 @@ function App() {
             ctx.stroke();
             ctx.restore();
 
-            // 4. Centered Continuous Vector Scaled Text (Zero-Jitter Smooth GPU Scaling)
+            // 4. 居中连续无级 3D 向量缩放文字（严格跟随 3D 透视深度线性增长，彻底移除生硬截断）
             const noteCenterX = (pTL.x + pTR.x + pBL.x + pBR.x) / 4;
             const noteCenterY = (yBack + yFront) / 2;
-            const textScale = Math.min(1.0, Math.max(0.55, slabW / 75));
+
+            // 长字符串 (如 14.3%、1/16) 自动等比适配，由远及近 100% 平滑无级伸缩
+            const lengthModifier = n.value.length >= 6 ? 0.86 : n.value.length >= 5 ? 0.92 : 1.0;
+            const perspectiveScale = (0.35 + 0.65 * tCenter) * lengthModifier;
 
             ctx.save();
             ctx.translate(noteCenterX, noteCenterY);
-            ctx.scale(textScale, textScale);
+            ctx.scale(perspectiveScale, perspectiveScale);
             ctx.fillStyle = '#ffffff';
-            ctx.font = '900 15px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = '900 16px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(15, 23, 42, 0.6)';
-            ctx.shadowBlur = 4;
+            ctx.shadowColor = 'rgba(15, 23, 42, 0.5)';
+            ctx.shadowBlur = Math.max(1, 4 * tCenter);
             ctx.fillText(n.value, 0, 0);
             ctx.restore(); // restore text transform
 
