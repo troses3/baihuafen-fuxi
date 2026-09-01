@@ -2325,11 +2325,6 @@ function App() {
                 <span className="speed-icon-end" title="最快">🚀</span>
               </div>
             </div>
-
-            {/* 底部操作提示 */}
-            <div className="snake-hint-bar">
-              <span className="hint-pill">👆 屏幕任意滑动 / 轻触变向</span>
-            </div>
           </div>
         ) : (
           /* =========================================================

@@ -51,7 +51,7 @@ function iosClick() {
 
 let audioCtx = null;
 
-// Ensure AudioContext is ready and resumed on user interaction
+// Ensure AudioContext is force-unlocked via silent buffer playback inside user gesture
 export function unlockAudioHaptics() {
   try {
     if (typeof window === 'undefined') return;
@@ -63,6 +63,12 @@ export function unlockAudioHaptics() {
     if (audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
+    // WebKit mandatory unlock trick: play 1-sample silent buffer synchronously inside gesture
+    const buffer = audioCtx.createBuffer(1, 1, 22050);
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.start(0);
   } catch (e) {}
 }
 
@@ -92,51 +98,51 @@ function playTapticThump(type = 'success') {
       const oscHigh = audioCtx.createOscillator();
       const gainHigh = audioCtx.createGain();
       oscHigh.type = 'sine';
-      oscHigh.frequency.setValueAtTime(360, now);
-      oscHigh.frequency.exponentialRampToValueAtTime(110, now + 0.045);
-      gainHigh.gain.setValueAtTime(0.7, now);
-      gainHigh.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+      oscHigh.frequency.setValueAtTime(440, now);
+      oscHigh.frequency.exponentialRampToValueAtTime(140, now + 0.05);
+      gainHigh.gain.setValueAtTime(0.85, now);
+      gainHigh.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
       oscHigh.connect(gainHigh);
       gainHigh.connect(audioCtx.destination);
       oscHigh.start(now);
-      oscHigh.stop(now + 0.045);
+      oscHigh.stop(now + 0.05);
 
       const oscLow = audioCtx.createOscillator();
       const gainLow = audioCtx.createGain();
       oscLow.type = 'triangle';
-      oscLow.frequency.setValueAtTime(160, now);
-      oscLow.frequency.exponentialRampToValueAtTime(45, now + 0.06);
-      gainLow.gain.setValueAtTime(0.6, now);
-      gainLow.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      oscLow.frequency.setValueAtTime(180, now);
+      oscLow.frequency.exponentialRampToValueAtTime(50, now + 0.07);
+      gainLow.gain.setValueAtTime(0.75, now);
+      gainLow.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
       oscLow.connect(gainLow);
       gainLow.connect(audioCtx.destination);
       oscLow.start(now);
-      oscLow.stop(now + 0.06);
+      oscLow.stop(now + 0.07);
     } else if (type === 'error' || type === 'dangerReset') {
       // 🚨 Warning dual buzz
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(130, now);
-      osc.frequency.exponentialRampToValueAtTime(35, now + 0.09);
-      gain.gain.setValueAtTime(0.65, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+      gain.gain.setValueAtTime(0.75, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start(now);
-      osc.stop(now + 0.09);
+      osc.stop(now + 0.1);
     } else if (type === 'tap' || type === 'optionSelect') {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(300, now);
-      osc.frequency.exponentialRampToValueAtTime(90, now + 0.025);
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(100, now + 0.03);
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start(now);
-      osc.stop(now + 0.025);
+      osc.stop(now + 0.03);
     }
   } catch (e) {}
 }
