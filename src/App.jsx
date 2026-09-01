@@ -2023,10 +2023,10 @@ function App() {
           ctx.restore();
         }
 
-        // 2. 终点判定线（红色虚线，精准横贯判定框正中点 Y_HIT, t = 1.0）
+        // 2. 终点判定线（典雅灰色虚线，精准横贯判定框正中点 Y_HIT, t = 1.0）
         ctx.save();
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.8;
         ctx.setLineDash([6, 4]);
         ctx.beginPath();
         ctx.moveTo(xAt(0, 1.0) - 2, Y_HIT);
