@@ -2149,12 +2149,12 @@ body {
   box-sizing: border-box;
 }
 
-/* 🎯 浅色高雅音游目标卡片（目标绝对居中，进度右置） */
+/* 🎯 浅色高雅音游目标卡片（左侧闪电得分，中间目标绝对居中，右侧进度，完美对称） */
 .rhythm-target-banner {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   width: 100%;
   padding: 0.38rem 0.85rem;
   min-height: 48px;
@@ -2166,6 +2166,28 @@ body {
   margin-bottom: 0.35rem;
   box-sizing: border-box;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.rhythm-banner-pill {
+  display: inline-flex;
+  align-items: baseline;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 100px;
+  padding: 0.18rem 0.6rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  z-index: 2;
+}
+
+.rhythm-score-pill .pill-icon {
+  font-size: 0.85rem;
+  margin-right: 3px;
+}
+
+.rhythm-score-pill .pill-val {
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: #0f172a;
 }
 
 .rhythm-target-banner .target-banner-center {
@@ -2203,21 +2225,17 @@ body {
   font-weight: 800;
 }
 
-.rhythm-target-banner .rhythm-progress-badge {
-  display: inline-flex;
-  align-items: baseline;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 100px;
-  padding: 0.18rem 0.6rem;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  z-index: 2;
-}
-
-.rhythm-target-banner .progress-num {
+.rhythm-progress-pill .progress-num {
   font-size: 0.92rem;
   font-weight: 900;
   color: #2563eb;
+}
+
+.rhythm-progress-pill .progress-total {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-left: 2px;
 }
 
 .rhythm-target-banner .progress-total {

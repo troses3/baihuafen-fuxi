@@ -3153,11 +3153,6 @@ function App() {
                     </svg>
                   )}
                 </button>
-
-                <div className="game-score-badge">
-                  <span className="score-icon">⚡</span>
-                  <span className="score-num">{rhythmScore.toLocaleString()}</span>
-                </div>
               </div>
 
               {/* ❤️ 生命值严格居中 */}
@@ -3193,9 +3188,16 @@ function App() {
               </div>
             </div>
 
-            {/* 🎯 本轮目标 Banner (目标绝对居中，进度右置) */}
+            {/* 🎯 本轮目标 Banner (左侧闪电得分，中间目标绝对居中，右侧进度，完美对称) */}
             {rhythmTarget && (
               <div className="rhythm-target-banner">
+                {/* 左侧：⚡ 闪电积分胶囊 */}
+                <div className="rhythm-banner-pill rhythm-score-pill">
+                  <span className="pill-icon">⚡</span>
+                  <span className="pill-val">{rhythmScore.toLocaleString()}</span>
+                </div>
+
+                {/* 正中：🎯 本轮目标绝对居中 */}
                 <div className="target-banner-center">
                   <span className="target-banner-badge">🎯 目标</span>
                   <div className="target-banner-val">
@@ -3215,7 +3217,8 @@ function App() {
                   </div>
                 </div>
 
-                <div className="rhythm-progress-badge">
+                {/* 右侧：题目进度胶囊 */}
+                <div className="rhythm-banner-pill rhythm-progress-pill">
                   <span className="progress-num">{rhythmQuestionIndex + 1}</span>
                   <span className="progress-total">/ 30 题</span>
                 </div>
