@@ -1627,8 +1627,8 @@ function App() {
     if (!wave || wave.resolved) return;
 
     const dt = Math.abs(wave.t - 1.0);
-    // 判定区域与视觉打击框严密吻合 (靶位跨度 ±0.07，有效判定窗口 ±0.14)
-    if (dt > 0.14) {
+    // 严格限制在物理判定框范围内响应 (框体跨度 0.93-1.07，未进框前 dt > 0.09 绝不提前触发 GREAT)
+    if (dt > 0.090) {
       rhythmParticlesRef.current.push({
         type: 'ripple',
         x: padCenterX,
@@ -1653,12 +1653,12 @@ function App() {
       let judgeText = 'GREAT!';
       let judgeColor = '#7c3aed';
 
-      if (dt <= 0.045) {
+      if (dt <= 0.035) {
         pts = 300;
         judgeText = 'S-PERFECT!!';
         judgeColor = '#d97706';
         setRhythmHitCounts(h => ({ ...h, perfect: h.perfect + 1 }));
-      } else if (dt <= 0.085) {
+      } else if (dt <= 0.065) {
         pts = 180;
         judgeText = 'PERFECT';
         judgeColor = '#2563eb';
@@ -1835,8 +1835,8 @@ function App() {
             const w = waves[0];
             w.t += speedProgress;
 
-            // Missed note passed hit line
-            if (!w.resolved && w.t > 1.14) {
+            // Missed note passed hit line (完全脱离 1.07 判定框底部)
+            if (!w.resolved && w.t > 1.09) {
               w.resolved = true;
               setRhythmCombo(0);
               setRhythmHitCounts(h => ({ ...h, miss: h.miss + 1 }));
