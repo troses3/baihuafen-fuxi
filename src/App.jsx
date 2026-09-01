@@ -23,14 +23,14 @@ const SNAKE_SPEEDS = [
 ];
 
 const RHYTHM_SPEEDS = [
-  { level: 1, label: '🐢 悠闲慢速 (~7.5s)', shortLabel: '悠闲', speed: 1.2, spawnInterval: 5200 },
-  { level: 2, label: '☕ 沉思节奏 (~5.6s)', shortLabel: '沉思', speed: 1.6, spawnInterval: 4200 },
-  { level: 3, label: '🚶 入门练习 (~4.3s)', shortLabel: '入门', speed: 2.1, spawnInterval: 3400 },
-  { level: 4, label: '🏃 标准节拍 (~3.2s)', shortLabel: '标准', speed: 2.8, spawnInterval: 2600 },
-  { level: 5, label: '🎯 熟练速算 (~2.5s)', shortLabel: '熟练', speed: 3.6, spawnInterval: 2100 },
-  { level: 6, label: '⚡ 敏捷进阶 (~1.9s)', shortLabel: '敏捷', speed: 4.8, spawnInterval: 1700 },
-  { level: 7, label: '🔥 极速挑战 (~1.5s)', shortLabel: '极速', speed: 6.2, spawnInterval: 1350 },
-  { level: 8, label: '🚀 狂暴极限 (~1.1s)', shortLabel: '狂暴', speed: 8.2, spawnInterval: 1000 },
+  { level: 1, label: '🐢 悠闲 (~7.5s 峰值)', shortLabel: '悠闲', speed: 1.2, spawnInterval: 5200 },
+  { level: 2, label: '☕ 沉思 (~5.6s 峰值)', shortLabel: '沉思', speed: 1.6, spawnInterval: 4200 },
+  { level: 3, label: '🚶 入门 (~4.3s 峰值)', shortLabel: '入门', speed: 2.1, spawnInterval: 3400 },
+  { level: 4, label: '🏃 标准 (~3.2s 峰值)', shortLabel: '标准', speed: 2.8, spawnInterval: 2600 },
+  { level: 5, label: '🎯 熟练 (~2.5s 峰值)', shortLabel: '熟练', speed: 3.6, spawnInterval: 2100 },
+  { level: 6, label: '⚡ 敏捷 (~1.9s 峰值)', shortLabel: '敏捷', speed: 4.8, spawnInterval: 1700 },
+  { level: 7, label: '🔥 极速 (~1.5s 峰值)', shortLabel: '极速', speed: 6.2, spawnInterval: 1350 },
+  { level: 8, label: '🚀 狂暴 (~1.1s 峰值)', shortLabel: '狂暴', speed: 8.2, spawnInterval: 1000 },
 ];
 
 const getRhythmRankTier = (score) => {
@@ -1857,11 +1857,11 @@ function App() {
 
         const currentSpeedConfig = RHYTHM_SPEEDS.find(s => s.level === rhythmSpeedLevelRef.current) || RHYTHM_SPEEDS[1];
         
-        // 🚀 30 题递进平滑加速度：
-        // 前 6 题 1.0x (稳健热身) -> 中段平缓提速 -> 最终 5 题达到 1.55x (巅峰冲刺)
+        // 🚀 30 题平滑递进加速（用户设定的移速即为终局第 30 题所能达到的最高峰值 100%）：
+        // 前期从稳健的 65% 起步 -> 随题量递进加速 -> 第 30 题冲刺达到用户所选的 100% 极速
         const qIdx = rhythmQuestionIndexRef.current || 0;
         const progressRatio = Math.min(1.0, qIdx / 29);
-        const dynamicSpeedMultiplier = 1.0 + 0.55 * Math.pow(progressRatio, 1.15);
+        const dynamicSpeedMultiplier = 0.65 + 0.35 * Math.pow(progressRatio, 1.15);
 
         const effectiveSpeed = currentSpeedConfig.speed * dynamicSpeedMultiplier;
         const speedProgress = (effectiveSpeed * 0.0001) * dt;
